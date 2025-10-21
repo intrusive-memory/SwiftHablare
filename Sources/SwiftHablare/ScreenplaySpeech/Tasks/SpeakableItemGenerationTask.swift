@@ -44,6 +44,11 @@ public final class SpeakableItemGenerationTask: ScreenplayTask {
             name: "Generate Speakable Items",
             isBlocking: true
         )
+
+        // Set up executor to call this task's execute method
+        self.backgroundTask.executor = { [weak self] in
+            try await self?.execute()
+        }
     }
 
     // MARK: - ScreenplayTask Protocol

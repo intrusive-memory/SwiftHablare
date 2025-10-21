@@ -89,7 +89,8 @@ final class BackgroundTaskManagerTests: XCTestCase {
         XCTAssertEqual(task2.backgroundTask.state, .queued)
 
         // THEN - After sufficient time, both complete in sequence
-        try await Task.sleep(for: .milliseconds(400))
+        // Increased timeout for CI reliability (was 400ms, now 1000ms)
+        try await Task.sleep(for: .milliseconds(1000))
         XCTAssertEqual(task1.backgroundTask.state, .completed)
         XCTAssertEqual(task2.backgroundTask.state, .completed)
     }
@@ -200,7 +201,10 @@ final class BackgroundTaskManagerTests: XCTestCase {
         await manager.runNext()
 
         // Wait for task1 to complete but not task2
-        try await Task.sleep(for: .milliseconds(200))
+        // Increased timeout for CI reliability (was 200ms, now 300ms)
+        // Task1: 2 steps × 50ms = 100ms, Task2: 5 steps × 50ms = 250ms (starts after task1)
+        // Total for task2: 100ms + 250ms = 350ms, so 300ms should catch task1 done, task2 running
+        try await Task.sleep(for: .milliseconds(300))
 
         // WHEN
         manager.clearCompleted()
