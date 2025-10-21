@@ -56,7 +56,7 @@ struct BackgroundTaskRow: View {
             StatusBadge(state: task.state)
         }
         .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Color.systemBackgroundColor)
         .cornerRadius(8)
     }
 }

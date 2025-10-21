@@ -10,29 +10,20 @@ import SwiftData
 
 /// SwiftData model for storing generated text with file reference support.
 ///
-/// This model follows the Phase 6 pattern where small text is stored directly
-/// in the model, and large text can be stored in .guion bundle files with
-/// a file reference.
+/// **DEPRECATED**: Use `TypedDataStorage` with `mimeType: "text/plain"` instead.
 ///
-/// ## Storage Strategy
-/// - **Small text** (< 50KB): Stored in `text` property
-/// - **Large text** (>= 50KB): Stored in file, referenced by `fileReference`
-///
-/// ## Example
+/// This type alias provides backward compatibility. New code should use TypedDataStorage directly:
 /// ```swift
-/// let record = GeneratedTextRecord(
-///     id: requestID,
+/// let record = TypedDataStorage(
 ///     providerId: "openai",
 ///     requestorID: "openai.text.gpt4",
-///     text: generatedText,
-///     wordCount: 150,
-///     characterCount: 750,
-///     languageCode: "en",
-///     modelIdentifier: "gpt-4"
+///     mimeType: "text/plain",
+///     textValue: generatedText,
+///     prompt: "Generate text"
 /// )
-/// modelContext.insert(record)
 /// ```
 @available(macOS 15.0, iOS 17.0, *)
+@available(*, deprecated, message: "Use TypedDataStorage with mimeType: 'text/plain' instead")
 @Model
 public final class GeneratedTextRecord {
 

@@ -6,7 +6,6 @@
 //
 
 import AVFoundation
-import AppKit
 import Foundation
 
 /// Apple Text-to-Speech implementation of VoiceProvider

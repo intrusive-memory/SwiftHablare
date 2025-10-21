@@ -10,23 +10,22 @@ import SwiftData
 
 /// SwiftData persistence model for generated embeddings.
 ///
-/// Stores embedding metadata and optionally the vector data itself.
-/// Large embeddings are stored in files and referenced via TypedDataFileReference.
+/// **DEPRECATED**: Use `TypedDataStorage` with custom embedding MIME type instead.
 ///
-/// ## Storage Strategy
-/// - Embeddings <100KB: Stored in `embeddingData` property
-/// - Embeddings ≥100KB: Stored in file, referenced by `fileReference`
-///
-/// ## Example
+/// This type alias provides backward compatibility. New code should use TypedDataStorage directly:
 /// ```swift
-/// let record = GeneratedEmbeddingRecord(
+/// let record = TypedDataStorage(
 ///     providerId: "openai",
 ///     requestorID: "openai.embedding.text-embedding-3-small",
-///     data: embeddingData,
+///     mimeType: "application/x-embedding-vector",  // Custom type for embeddings
+///     binaryValue: embeddingData,
 ///     prompt: "Embed this text"
 /// )
 /// ```
+///
+/// **Note**: Embedding MIME type requires MimeTypeHelper update to support this custom type.
 @available(macOS 15.0, iOS 17.0, *)
+@available(*, deprecated, message: "Use TypedDataStorage with custom embedding MIME type instead")
 @Model
 public final class GeneratedEmbeddingRecord {
 

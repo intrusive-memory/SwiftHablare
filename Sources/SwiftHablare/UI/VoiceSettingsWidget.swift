@@ -189,11 +189,21 @@ public struct VoiceSettingsWidget: View {
     }
 
     private func openSystemVoiceSettings() {
-        #if canImport(AppKit)
+        #if os(macOS)
         // Open System Settings > Accessibility > Spoken Content
         // This is where users can download and manage high-quality voices
-        let url = URL(fileURLWithPath: "/System/Library/PreferencePanes/Speech.prefPane")
-        NSWorkspace.shared.open(url)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.speech") {
+            #if canImport(AppKit)
+            NSWorkspace.shared.open(url)
+            #endif
+        }
+        #elseif os(iOS)
+        // On iOS/Catalyst, open Settings app to Accessibility > Spoken Content
+        if let url = URL(string: "App-prefs:root=ACCESSIBILITY&path=SPEECH") {
+            #if canImport(UIKit)
+            UIApplication.shared.open(url)
+            #endif
+        }
         #endif
     }
 }

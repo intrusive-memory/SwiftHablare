@@ -129,6 +129,13 @@ public enum TypedDataError: Error, Sendable, Equatable {
     /// - Parameter reason: Human-readable description of validation failure
     case schemaValidationFailed(reason: String)
 
+    /// MIME type is not supported for storage
+    ///
+    /// - Parameters:
+    ///   - mimeType: The unsupported MIME type
+    ///   - reason: Why the MIME type is not supported
+    case unsupportedMimeType(mimeType: String, reason: String)
+
     // MARK: - Reference Integrity Errors
 
     /// File reference points to non-existent file
@@ -252,6 +259,8 @@ extension TypedDataError: LocalizedError {
             return "Invalid value '\(value)' for parameter '\(parameterName)': \(reason)"
         case .schemaValidationFailed(let reason):
             return "Schema validation failed: \(reason)"
+        case .unsupportedMimeType(let mimeType, let reason):
+            return "MIME type '\(mimeType)' is not supported: \(reason)"
 
         // Reference Integrity
         case .invalidFileReference(let fileReference):
@@ -298,6 +307,7 @@ extension TypedDataError: LocalizedError {
              .invalidConfiguration(let reason),
              .invalidParameterValue(_, _, let reason),
              .schemaValidationFailed(let reason),
+             .unsupportedMimeType(_, let reason),
              .typeConversionFailed(_, _, let reason):
             return reason
         default:
@@ -319,6 +329,8 @@ extension TypedDataError: LocalizedError {
             return "Verify file permissions and disk availability."
         case .invalidConfiguration, .missingRequiredParameter, .invalidParameterValue:
             return "Review the configuration parameters and correct any invalid values."
+        case .unsupportedMimeType:
+            return "Use a supported MIME type: text/*, audio/*, video/*, or image/*."
         case .invalidFileReference:
             return "Ensure the file was written correctly and the bundle is intact."
         case .fileSizeMismatch, .checksumMismatch:
