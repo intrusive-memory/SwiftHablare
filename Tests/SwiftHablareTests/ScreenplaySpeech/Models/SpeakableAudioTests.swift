@@ -43,6 +43,7 @@ final class SpeakableAudioTests: XCTestCase {
         // GIVEN
         let item = SpeakableItem(
             orderIndex: 0,
+            screenplayID: "test-screenplay",
             sourceElementID: "s1",
             sourceElementType: "Dialogue",
             speakableText: "Test",
@@ -74,6 +75,7 @@ final class SpeakableAudioTests: XCTestCase {
         // GIVEN
         let item = SpeakableItem(
             orderIndex: 0,
+            screenplayID: "test-screenplay",
             sourceElementID: "s1",
             sourceElementType: "Dialogue",
             speakableText: "Test",
@@ -101,7 +103,7 @@ final class SpeakableAudioTests: XCTestCase {
 
     func testCascadeDelete() throws {
         // GIVEN
-        let item = SpeakableItem(orderIndex: 0, sourceElementID: "s1", sourceElementType: "Dialogue", speakableText: "Test", ruleVersion: "1.0")
+        let item = SpeakableItem(orderIndex: 0, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Dialogue", speakableText: "Test", ruleVersion: "1.0")
         let audio = SpeakableAudio(hablareAudioID: UUID(), providerName: "Apple", voiceID: "v1", audioFormat: "aac", characterCount: 50)
 
         item.audioVersions.append(audio)

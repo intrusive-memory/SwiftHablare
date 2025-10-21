@@ -38,7 +38,7 @@ public struct VoiceProviderWidget: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color.systemBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
         )
     }
@@ -97,7 +97,7 @@ public struct ProviderInfoRow: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.blue.opacity(0.08) : Color(nsColor: .controlBackgroundColor))
+                .fill(isSelected ? Color.blue.opacity(0.08) : Color.systemBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -169,7 +169,7 @@ public struct ProviderRow: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.blue.opacity(0.08) : Color(nsColor: .controlBackgroundColor))
+                .fill(isSelected ? Color.blue.opacity(0.08) : Color.systemBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)

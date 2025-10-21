@@ -10,28 +10,20 @@ import SwiftData
 
 /// SwiftData model for storing generated images with file reference support.
 ///
-/// This model follows the Phase 6 pattern where images are typically stored
-/// in files (due to size) with only metadata and file references in SwiftData.
+/// **DEPRECATED**: Use `TypedDataStorage` with `mimeType: "image/*"` instead.
 ///
-/// ## Storage Strategy
-/// - **Small images** (< 100KB): Could be stored in `imageData` property (rare)
-/// - **Typical images** (>= 100KB): Stored in file, referenced by `fileReference`
-///
-/// ## Example
+/// This type alias provides backward compatibility. New code should use TypedDataStorage directly:
 /// ```swift
-/// let record = GeneratedImageRecord(
-///     id: requestID,
+/// let record = TypedDataStorage(
 ///     providerId: "openai",
 ///     requestorID: "openai.image.dalle3",
-///     imageData: nil,  // Stored in file
-///     format: "png",
-///     width: 1024,
-///     height: 1024,
-///     modelIdentifier: "dall-e-3",
-///     fileReference: fileRef
+///     mimeType: "image/png",
+///     binaryValue: imageData,
+///     prompt: "Generate image"
 /// )
 /// ```
 @available(macOS 15.0, iOS 17.0, *)
+@available(*, deprecated, message: "Use TypedDataStorage with mimeType: 'image/*' instead")
 @Model
 public final class GeneratedImageRecord {
 

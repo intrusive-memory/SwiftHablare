@@ -107,7 +107,7 @@ public struct VoicePickerWidget: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color.systemBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
         )
         .task {
@@ -198,7 +198,7 @@ public struct VoiceRow: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue.opacity(0.1) : Color(nsColor: .controlBackgroundColor))
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color.systemBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -317,7 +317,7 @@ private struct VoicePickerWithBinding: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color.systemBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
         )
         .task {

@@ -1,6 +1,24 @@
 {
-  "originHash" : "8d64e59309b7c9f1d5dc08a271884178c2f9d8e37dd333049b16e3bc6d17942d",
+  "originHash" : "e4eab107a8928091b9deebaa31aa8e340bec94d97933d15f648fd82471acc088",
   "pins" : [
+    {
+      "identity" : "swiftguion",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/intrusive-memory/SwiftGuion",
+      "state" : {
+        "revision" : "528121e973afe1314e24f9edc2483cd93a5ba8c7",
+        "version" : "2.2.0"
+      }
+    },
+    {
+      "identity" : "swifthablare",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/intrusive-memory/SwiftHablare",
+      "state" : {
+        "revision" : "76aa2d51de38c48cc3497fff30f5f2eff1edfe6d",
+        "version" : "2.1.0"
+      }
+    },
     {
       "identity" : "textbundle",
       "kind" : "remoteSourceControl",

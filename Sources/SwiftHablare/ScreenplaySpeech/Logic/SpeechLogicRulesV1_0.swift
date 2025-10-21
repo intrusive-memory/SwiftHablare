@@ -40,7 +40,7 @@ public final class SpeechLogicRulesV1_0 {
     // MARK: - Public Processing Methods
 
     /// Process a scene heading element into a SpeakableItem
-    public func processSceneHeading(_ element: GuionElementModel, orderIndex: Int) -> SpeakableItem? {
+    public func processSceneHeading(_ element: GuionElementModel, orderIndex: Int, screenplayID: String = "unknown") -> SpeakableItem? {
         // Use cached location data if available
         var text = element.elementText
 
@@ -59,6 +59,7 @@ public final class SpeechLogicRulesV1_0 {
 
         return SpeakableItem(
             orderIndex: orderIndex,
+            screenplayID: screenplayID,
             sourceElementID: element.sceneId ?? "unknown",
             sourceElementType: "Scene Heading",
             sceneID: element.sceneId,
@@ -74,11 +75,13 @@ public final class SpeechLogicRulesV1_0 {
     ///   - startIndex: Index of the Character element
     ///   - elements: Array of all elements
     ///   - context: Scene context for tracking character announcements
+    ///   - screenplayID: ID of the screenplay document
     /// - Returns: Tuple of (generated items, number of elements consumed)
     public func processDialogueBlock(
         startIndex: Int,
         elements: [GuionElementModel],
-        context: inout SceneContext
+        context: inout SceneContext,
+        screenplayID: String = "unknown"
     ) -> (items: [SpeakableItem], consumed: Int) {
         var index = startIndex
 
@@ -126,6 +129,7 @@ public final class SpeechLogicRulesV1_0 {
         // 7. Create SpeakableItem
         let item = SpeakableItem(
             orderIndex: startIndex,
+            screenplayID: screenplayID,
             sourceElementID: characterElement.sceneId ?? "unknown",
             sourceElementType: "Dialogue",
             sceneID: context.sceneID,
@@ -145,7 +149,7 @@ public final class SpeechLogicRulesV1_0 {
     }
 
     /// Process a single element (Action, etc.)
-    public func processSingleElement(_ element: GuionElementModel, orderIndex: Int) -> SpeakableItem? {
+    public func processSingleElement(_ element: GuionElementModel, orderIndex: Int, screenplayID: String = "unknown") -> SpeakableItem? {
         // Skip non-speakable types
         guard !isNonSpeakable(element.elementType) else {
             return nil
@@ -158,6 +162,7 @@ public final class SpeechLogicRulesV1_0 {
 
         return SpeakableItem(
             orderIndex: orderIndex,
+            screenplayID: screenplayID,
             sourceElementID: element.sceneId ?? "unknown",
             sourceElementType: element.elementType.description,
             sceneID: element.sceneId,

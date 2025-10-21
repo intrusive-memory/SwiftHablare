@@ -59,6 +59,9 @@ public final class ScreenplayToSpeechProcessor {
             return model
         }
 
+        // Use filename as screenplayID, or a default if not available
+        let screenplayID = screenplay.filename ?? "unnamed-screenplay"
+
         while index < elements.count {
             let element = elements[index]
 
@@ -67,7 +70,7 @@ public final class ScreenplayToSpeechProcessor {
                 sceneContext = SceneContext(sceneID: element.sceneId ?? "unknown-\(index)")
 
                 // Generate scene heading item
-                if let item = rulesProvider.processSceneHeading(element, orderIndex: index) {
+                if let item = rulesProvider.processSceneHeading(element, orderIndex: index, screenplayID: screenplayID) {
                     items.append(item)
                 }
                 index += 1
@@ -79,7 +82,8 @@ public final class ScreenplayToSpeechProcessor {
                 let (dialogueItems, consumed) = rulesProvider.processDialogueBlock(
                     startIndex: index,
                     elements: Array(elements),
-                    context: &sceneContext
+                    context: &sceneContext,
+                    screenplayID: screenplayID
                 )
                 items.append(contentsOf: dialogueItems)
                 index += consumed
@@ -87,7 +91,7 @@ public final class ScreenplayToSpeechProcessor {
             }
 
             // Single element processing (Action, etc.)
-            if let item = rulesProvider.processSingleElement(element, orderIndex: index) {
+            if let item = rulesProvider.processSingleElement(element, orderIndex: index, screenplayID: screenplayID) {
                 items.append(item)
             }
 

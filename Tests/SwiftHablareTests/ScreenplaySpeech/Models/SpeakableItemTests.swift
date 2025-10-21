@@ -21,6 +21,7 @@ final class SpeakableItemTests: XCTestCase {
         // GIVEN
         let item = SpeakableItem(
             orderIndex: 0,
+            screenplayID: "test-screenplay",
             sourceElementID: "scene-1",
             sourceElementType: "Dialogue",
             sceneID: "scene-1",
@@ -49,6 +50,7 @@ final class SpeakableItemTests: XCTestCase {
         // GIVEN
         let item = SpeakableItem(
             orderIndex: 1,
+            screenplayID: "test-screenplay",
             sourceElementID: "scene-1",
             sourceElementType: "Action",
             sceneID: "scene-1",
@@ -77,9 +79,9 @@ final class SpeakableItemTests: XCTestCase {
     func testSpeakableItemOrdering() throws {
         // GIVEN
         let items = [
-            SpeakableItem(orderIndex: 2, sourceElementID: "s1", sourceElementType: "Action", speakableText: "Third", ruleVersion: "1.0"),
-            SpeakableItem(orderIndex: 0, sourceElementID: "s1", sourceElementType: "Action", speakableText: "First", ruleVersion: "1.0"),
-            SpeakableItem(orderIndex: 1, sourceElementID: "s1", sourceElementType: "Action", speakableText: "Second", ruleVersion: "1.0")
+            SpeakableItem(orderIndex: 2, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "Third", ruleVersion: "1.0"),
+            SpeakableItem(orderIndex: 0, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "First", ruleVersion: "1.0"),
+            SpeakableItem(orderIndex: 1, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "Second", ruleVersion: "1.0")
         ]
 
         for item in items {
@@ -104,6 +106,7 @@ final class SpeakableItemTests: XCTestCase {
         // GIVEN
         let item = SpeakableItem(
             orderIndex: 0,
+            screenplayID: "test-screenplay",
             sourceElementID: "s1",
             sourceElementType: "Dialogue",
             speakableText: "Test",
@@ -126,8 +129,8 @@ final class SpeakableItemTests: XCTestCase {
 
     func testSpeakableItemQueryByRuleVersion() throws {
         // GIVEN
-        let v1Item = SpeakableItem(orderIndex: 0, sourceElementID: "s1", sourceElementType: "Action", speakableText: "V1", ruleVersion: "1.0")
-        let v2Item = SpeakableItem(orderIndex: 1, sourceElementID: "s1", sourceElementType: "Action", speakableText: "V2", ruleVersion: "2.0")
+        let v1Item = SpeakableItem(orderIndex: 0, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "V1", ruleVersion: "1.0")
+        let v2Item = SpeakableItem(orderIndex: 1, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "V2", ruleVersion: "2.0")
 
         context.insert(v1Item)
         context.insert(v2Item)
@@ -146,8 +149,8 @@ final class SpeakableItemTests: XCTestCase {
 
     func testSpeakableItemQueryByStatus() throws {
         // GIVEN
-        let pending = SpeakableItem(orderIndex: 0, sourceElementID: "s1", sourceElementType: "Action", speakableText: "Pending", ruleVersion: "1.0")
-        let complete = SpeakableItem(orderIndex: 1, sourceElementID: "s1", sourceElementType: "Action", speakableText: "Complete", ruleVersion: "1.0")
+        let pending = SpeakableItem(orderIndex: 0, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "Pending", ruleVersion: "1.0")
+        let complete = SpeakableItem(orderIndex: 1, screenplayID: "test-screenplay", sourceElementID: "s1", sourceElementType: "Action", speakableText: "Complete", ruleVersion: "1.0")
         complete.status = .audioComplete
 
         context.insert(pending)

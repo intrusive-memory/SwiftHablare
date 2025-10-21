@@ -19,7 +19,7 @@ import UniformTypeIdentifiers
 /// - Uses SwiftData for in-memory document model
 /// - Integrates with SwiftGuion for parsing and display
 @MainActor
-final class HablareDocument: ReferenceFileDocument, ObservableObject {
+final class HablareDocument: @MainActor ReferenceFileDocument, ObservableObject {
 
     // MARK: - ReferenceFileDocument Properties
 

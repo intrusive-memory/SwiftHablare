@@ -31,9 +31,9 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for the complete v2.0 vision and roadmap.
 
 ## Current Status
 
-**Phase 7: Test Coverage & Quality Assurance** ✅ Complete
+**UI Sprint Phase 1-2: Background Tasks & Screenplay Processing** ✅ Complete
 
-SwiftHablaré is currently undergoing a major rewrite (v2.0) to expand from a TTS-focused library to a comprehensive AI service integration framework. Phases 0-7 have established the core architecture, provider system, data persistence layer, thread-safe request management, secure credential management, production-ready provider implementations, a comprehensive typed return data system with SwiftData persistence, and achieved 90%+ test coverage across all core modules with 559 passing tests.
+SwiftHablaré is currently undergoing a major rewrite (v2.0) to expand from a TTS-focused library to a comprehensive AI service integration framework. Phases 0-7 have established the core architecture, and the UI Sprint has now added a complete background task management system with screenplay processing capabilities. The library now includes 787 passing tests with 90%+ coverage and full macCatalyst compatibility.
 
 See [METHODOLOGY.md](METHODOLOGY.md) for the complete development roadmap and [REQUIREMENTS.md](REQUIREMENTS.md) for detailed specifications.
 
@@ -94,36 +94,45 @@ See [METHODOLOGY.md](METHODOLOGY.md) for the complete development roadmap and [R
 - **Image**: DALL-E 2, DALL-E 3 (with video aspect ratios)
 - **Embedding**: text-embedding-3-small/large, text-embedding-ada-002
 
-### Recent Completion: Phase 7 Test Coverage ✅
-- ✅ **90%+ Test Coverage** - All 11 Core module files exceed 90% coverage (avg ~96%)
-- ✅ **559 Tests** - Comprehensive test suite with 100% pass rate
-- ✅ **Provider Testing** - 143+ tests for AICapability, AIServiceProvider, and implementations
-- ✅ **Infrastructure Fixes** - Sendable/concurrency, SwiftData schema conflicts, test keychain
+### Recent Completion: UI Sprint Phase 1-2 ✅
+- ✅ **Background Task System** - Observable state machine with queueing and progress tracking
+- ✅ **Screenplay Processing** - SpeakableItemGenerationTask with 96.85% coverage
+- ✅ **787 Tests** - Comprehensive test suite with 100% pass rate (up from 559)
+- ✅ **90%+ Coverage** - All ScreenplaySpeech modules exceed 90% coverage
+- ✅ **macCatalyst Support** - Full cross-platform compatibility
+- ✅ **UI Components** - BackgroundTasksPalette, BackgroundTaskRow with Xcode previews
 - ✅ **Quality Assurance** - Zero compilation errors, Swift 6 strict concurrency compliant
 
-See [PHASE_7D_COMPLETION_REPORT.md](Docs/PHASE_7D_COMPLETION_REPORT.md) for the detailed completion report.
-See [PHASE_6_COMPLETION_SUMMARY.md](Docs/PHASE_6_COMPLETION_SUMMARY.md) and [PHASE_5_COMPLETION_REPORT.md](Docs/PHASE_5_COMPLETION_REPORT.md) for previous phase details.
+See [SCREENPLAY_UI_SPRINT_METHODOLOGY.md](Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md) for the complete UI sprint plan.
+See [PHASE_7D_COMPLETION_REPORT.md](Docs/Previous/PHASE_7D_COMPLETION_REPORT.md) and [PHASE_6_COMPLETION_SUMMARY.md](Docs/Previous/PHASE_6_COMPLETION_SUMMARY.md) for previous phase details.
 
-### Next: Phase 8 - Sample Applications
-- **Configuration Widgets**: Dynamic UI for each requestor type
-  - Text generation: Model selection, temperature, max tokens
-  - Audio generation: Voice selection, style options
-  - Image generation: Size, quality, style presets
-  - Embedding generation: Model and dimension selection
-- **Three-View Pattern**: List view (filterable), Detail view, and Combined view
-  - List view: Sortable/filterable list of generated content
-  - Detail view: Full content display with metadata
-  - Combined view: Click-to-reveal detail interface
-- **SwiftUI Components**: Pre-built, reusable UI elements
-- **Export/Sharing**: Export generated content to various formats
-- **Real-time Updates**: Live status updates during generation
+### Next: UI Sprint Phase 3-4
+- **Phase 3**: Character Mapping Models
+  - CharacterVoiceMapping SwiftData model
+  - Character detection and auto-mapping generator
+  - Bidirectional voice assignment UI
+- **Phase 4**: Core UI Scaffolding
+  - Main screenplay speech view with tabs
+  - BackgroundTasksPalette integration
+  - ProviderPickerView for global provider selection
+  - Screenplay tracking and filtering
 
 ## Requirements
 
-- macOS 15.0+ / iOS 17.0+
+- macOS 15.0+ / iOS 17.0+ / macCatalyst 15.0+
 - Swift 6.0+
 - Xcode 16.4+
 - SwiftData
+
+## Platform Support
+
+SwiftHablaré is designed to work seamlessly across Apple's platforms:
+
+- **macOS 15.0+** - Full native macOS support
+- **iOS 17.0+** - Full native iOS support
+- **macCatalyst 15.0+** - Complete Catalyst compatibility
+
+All UI components use cross-platform SwiftUI and color APIs, ensuring consistent behavior across platforms. No AppKit or UIKit dependencies in production code.
 
 ## Installation
 
@@ -139,32 +148,55 @@ dependencies: [
 
 ## Documentation
 
+- [CLAUDE.md](CLAUDE.md) - Comprehensive guide for AI assistants working on the project
+- [CHANGELOG.md](CHANGELOG.md) - Detailed change log for all releases
+- [AI_DEVELOPMENT_GUIDE.md](AI_DEVELOPMENT_GUIDE.md) - Development patterns and practices
+- [AI_REFERENCE.md](AI_REFERENCE.md) - Quick reference for common tasks
 - [REQUIREMENTS.md](REQUIREMENTS.md) - Complete v2.0 requirements and specifications
-- [METHODOLOGY.md](METHODOLOGY.md) - Phased development methodology with quality gates
-- [GITHUB_ARTIFACTS_CHECKLIST.md](GITHUB_ARTIFACTS_CHECKLIST.md) - Repository infrastructure plan
+- [Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md](Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md) - UI sprint phases and methodology
+- [Docs/SCREENPLAY_UI_DECISIONS.md](Docs/SCREENPLAY_UI_DECISIONS.md) - Critical UI design decisions
 
 ## Project Structure
 
 ```
 SwiftHablare/
 ├── Sources/SwiftHablare/
-│   ├── Core/                    # Core protocols and types (Phase 0 ✅)
-│   │   ├── AIServiceProvider.swift
-│   │   ├── AIGeneratable.swift
-│   │   ├── AICapability.swift
-│   │   ├── AIServiceError.swift
-│   │   └── DataStructureCapability.swift
-│   ├── Models/                  # SwiftData models (Phase 0 ✅)
-│   │   └── AIGeneratedContent.swift
-│   └── [Legacy v1.x files]
+│   ├── Core/                    # Core protocols and types ✅
+│   ├── SwiftDataModels/         # General SwiftData models ✅ REORGANIZED
+│   │   ├── AIGeneratedContent.swift
+│   │   ├── GeneratedText.swift
+│   │   ├── GeneratedAudio.swift
+│   │   ├── GeneratedImage.swift
+│   │   ├── GeneratedVideo.swift
+│   │   ├── GeneratedStructuredData.swift
+│   │   ├── VoiceModel.swift
+│   │   └── AudioFile.swift
+│   ├── ScreenplaySpeech/        # Screenplay processing ✅
+│   │   ├── Tasks/               # Background task system
+│   │   ├── UI/                  # Task UI components
+│   │   ├── Models/              # SpeakableItem, SpeakableAudio
+│   │   ├── Processing/          # Screenplay processors
+│   │   └── Logic/               # Speech logic rules
+│   ├── TypedData/               # Typed data system ✅
+│   │   ├── Text/                # GeneratedTextRecord
+│   │   ├── Audio/               # GeneratedAudioRecord
+│   │   ├── Image/               # GeneratedImageRecord
+│   │   └── Embedding/           # GeneratedEmbeddingRecord
+│   ├── UI/                      # UI widgets (Catalyst-ready) ✅
+│   ├── Providers/               # Voice & AI providers ✅
+│   └── [Other modules]
 ├── Tests/SwiftHablareTests/
-│   ├── Core/                    # Core type tests (Phase 0 ✅)
-│   ├── Models/                  # Model tests (Phase 0 ✅)
-│   └── Mocks/                   # Mock providers (Phase 0 ✅)
-└── Documentation/
-    ├── REQUIREMENTS.md
-    ├── METHODOLOGY.md
-    └── GITHUB_ARTIFACTS_CHECKLIST.md
+│   ├── Core/                    # Core type tests ✅
+│   ├── ScreenplaySpeech/        # Background task tests ✅
+│   └── [Other test suites]     # 787 total tests ✅
+├── Docs/
+│   ├── SCREENPLAY_UI_SPRINT_METHODOLOGY.md
+│   ├── SCREENPLAY_UI_DECISIONS.md
+│   └── Previous/                # Archived documentation
+├── CLAUDE.md                    # AI assistant guide
+├── CHANGELOG.md                 # Version history
+├── AI_DEVELOPMENT_GUIDE.md      # Development patterns
+└── AI_REFERENCE.md              # Quick reference
 ```
 
 ## Development Phases

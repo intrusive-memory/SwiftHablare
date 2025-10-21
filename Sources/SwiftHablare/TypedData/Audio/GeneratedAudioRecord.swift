@@ -10,28 +10,20 @@ import SwiftData
 
 /// SwiftData model for storing generated audio with file reference support.
 ///
-/// This model follows the Phase 6 pattern where audio is typically stored
-/// in files (due to size) with only metadata and file references in SwiftData.
+/// **DEPRECATED**: Use `TypedDataStorage` with `mimeType: "audio/*"` instead.
 ///
-/// ## Storage Strategy
-/// - **Small audio** (< 1MB): Could be stored in `audioData` property (rare)
-/// - **Typical audio** (>= 1MB): Stored in file, referenced by `fileReference`
-///
-/// ## Example
+/// This type alias provides backward compatibility. New code should use TypedDataStorage directly:
 /// ```swift
-/// let record = GeneratedAudioRecord(
-///     id: requestID,
+/// let record = TypedDataStorage(
 ///     providerId: "elevenlabs",
 ///     requestorID: "elevenlabs.audio.tts",
-///     audioData: nil,  // Stored in file
-///     format: "mp3",
-///     voiceID: "21m00Tcm4TlvDq8ikWAM",
-///     voiceName: "Rachel",
-///     modelIdentifier: "eleven_monolingual_v1",
-///     fileReference: fileRef
+///     mimeType: "audio/mpeg",
+///     binaryValue: audioData,
+///     prompt: "Speak this"
 /// )
 /// ```
 @available(macOS 15.0, iOS 17.0, *)
+@available(*, deprecated, message: "Use TypedDataStorage with mimeType: 'audio/*' instead")
 @Model
 public final class GeneratedAudioRecord {
 

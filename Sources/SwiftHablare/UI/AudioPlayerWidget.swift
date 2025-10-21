@@ -38,11 +38,11 @@ public struct AudioPlayerWidget: View {
             SpectrogramVisualizerView(playerManager: playerManager)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(nsColor: .systemGray).opacity(0.1))
+                        .fill(Color.systemGrayColor.opacity(0.1))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(nsColor: .systemGray), lineWidth: 1)
+                        .stroke(Color.systemGrayColor, lineWidth: 1)
                 )
 
             // Playback controls
@@ -58,7 +58,7 @@ public struct AudioPlayerWidget: View {
                         ZStack(alignment: .leading) {
                             // Background
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(nsColor: .systemGray).opacity(0.2))
+                                .fill(Color.systemGrayColor.opacity(0.2))
                                 .frame(height: 6)
 
                             // Progress
@@ -177,7 +177,7 @@ public struct AudioPlayerWidget: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color.systemBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
         )
     }
@@ -248,7 +248,7 @@ public struct AudioClipRow: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isPlaying ? Color.blue.opacity(0.1) : Color(nsColor: .controlBackgroundColor))
+                .fill(isPlaying ? Color.blue.opacity(0.1) : Color.systemBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)

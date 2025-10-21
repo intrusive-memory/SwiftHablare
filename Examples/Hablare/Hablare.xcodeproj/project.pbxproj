@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D65439CB2EA3910700D1E31C /* SwiftGuion in Frameworks */ = {isa = PBXBuildFile; productRef = D65439CA2EA3910700D1E31C /* SwiftGuion */; };
+		D65439CE2EA3913800D1E31C /* SwiftHablare in Frameworks */ = {isa = PBXBuildFile; productRef = D65439CD2EA3913800D1E31C /* SwiftHablare */; };
 		D6DB98432EA1E6CB00B4D81B /* SwiftGuion in Frameworks */ = {isa = PBXBuildFile; productRef = D6DB98422EA1E6CB00B4D81B /* SwiftGuion */; };
 		D6DB98462EA1E6E500B4D81B /* SwiftHablare in Frameworks */ = {isa = PBXBuildFile; productRef = D6DB98452EA1E6E500B4D81B /* SwiftHablare */; };
 /* End PBXBuildFile section */
@@ -70,8 +72,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D65439CE2EA3913800D1E31C /* SwiftHablare in Frameworks */,
 				D6DB98462EA1E6E500B4D81B /* SwiftHablare in Frameworks */,
 				D6DB98432EA1E6CB00B4D81B /* SwiftGuion in Frameworks */,
+				D65439CB2EA3910700D1E31C /* SwiftGuion in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +138,8 @@
 			packageProductDependencies = (
 				D6DB98422EA1E6CB00B4D81B /* SwiftGuion */,
 				D6DB98452EA1E6E500B4D81B /* SwiftHablare */,
+				D65439CA2EA3910700D1E31C /* SwiftGuion */,
+				D65439CD2EA3913800D1E31C /* SwiftHablare */,
 			);
 			productName = Hablare;
 			productReference = D6DB98032EA1E67A00B4D81B /* Hablare.app */;
@@ -218,8 +224,8 @@
 			mainGroup = D6DB97FA2EA1E67A00B4D81B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D6DB98412EA1E6CB00B4D81B /* XCLocalSwiftPackageReference "../../../SwiftGuion" */,
-				D6DB98442EA1E6E500B4D81B /* XCLocalSwiftPackageReference "../../../SwiftHablare" */,
+				D65439C92EA3910700D1E31C /* XCRemoteSwiftPackageReference "SwiftGuion" */,
+				D65439CC2EA3913800D1E31C /* XCRemoteSwiftPackageReference "SwiftHablare" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D6DB98042EA1E67A00B4D81B /* Products */;
@@ -648,18 +654,36 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		D6DB98412EA1E6CB00B4D81B /* XCLocalSwiftPackageReference "../../../SwiftGuion" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../SwiftGuion;
+/* Begin XCRemoteSwiftPackageReference section */
+		D65439C92EA3910700D1E31C /* XCRemoteSwiftPackageReference "SwiftGuion" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/intrusive-memory/SwiftGuion";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.1;
+			};
 		};
-		D6DB98442EA1E6E500B4D81B /* XCLocalSwiftPackageReference "../../../SwiftHablare" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../SwiftHablare;
+		D65439CC2EA3913800D1E31C /* XCRemoteSwiftPackageReference "SwiftHablare" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/intrusive-memory/SwiftHablare";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.0;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		D65439CA2EA3910700D1E31C /* SwiftGuion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D65439C92EA3910700D1E31C /* XCRemoteSwiftPackageReference "SwiftGuion" */;
+			productName = SwiftGuion;
+		};
+		D65439CD2EA3913800D1E31C /* SwiftHablare */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D65439CC2EA3913800D1E31C /* XCRemoteSwiftPackageReference "SwiftHablare" */;
+			productName = SwiftHablare;
+		};
 		D6DB98422EA1E6CB00B4D81B /* SwiftGuion */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SwiftGuion;

@@ -16,6 +16,10 @@ public final class SpeakableItem {
 
     // MARK: - Source Reference
 
+    /// Reference to the source screenplay document
+    /// Links to GuionDocumentModel.id.uuidString for filtering items by screenplay
+    public var screenplayID: String
+
     /// Reference to the source SwiftGuion element(s)
     /// For dialogue blocks, this points to the Character element
     public var sourceElementID: String  // GuionElementModel.sceneId or custom ID
@@ -74,6 +78,7 @@ public final class SpeakableItem {
     public init(
         id: UUID = UUID(),
         orderIndex: Int,
+        screenplayID: String,
         sourceElementID: String,
         sourceElementType: String,
         sceneID: String? = nil,
@@ -89,6 +94,7 @@ public final class SpeakableItem {
     ) {
         self.id = id
         self.orderIndex = orderIndex
+        self.screenplayID = screenplayID
         self.sourceElementID = sourceElementID
         self.sourceElementType = sourceElementType
         self.sceneID = sceneID
