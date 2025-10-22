@@ -32,9 +32,8 @@ jobs:
 
       - name: Run tests
         run: |
-          # Run functional tests (exclude performance tests) and capture output
-          # Run tests sequentially to avoid ModelContext concurrency issues
-          swift test --parallel --skip 'AIServiceManagerPerformanceTests' --num-workers 1 2>&1 | tee test-output.log
+          # Run all tests and capture output
+          swift test --parallel 2>&1 | tee test-output.log
 
           # Capture exit code
           TEST_EXIT_CODE=${PIPESTATUS[0]}
@@ -46,8 +45,8 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          # Run performance tests separately (they should not fail the build)
-          swift test --filter 'AIServiceManagerPerformanceTests' 2>&1 | tee performance-output.log || true
+          # Run performance tests separately if they exist
+          swift test --filter 'Performance' 2>&1 | tee performance-output.log || true
 
           # Extract performance metrics from output
           grep "PERFORMANCE_METRIC:" performance-output.log | sed 's/PERFORMANCE_METRIC: //' > performance-metrics.json || true

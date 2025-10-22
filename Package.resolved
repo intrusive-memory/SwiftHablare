@@ -1,5 +1,5 @@
 {
-  "originHash" : "d1b1801a280605a8f347e5a96001214eea1ee49485c407a47b26af6303524a13",
+  "originHash" : "4c2e6d11e3b32ae5785a8e5268de29fdf04a79c7e6c2d8077cd8b503faeffdad",
   "pins" : [
     {
       "identity" : "swiftfijos",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "cd3897d48eefddd27cd0fbedf066268fb59c3b38",
         "version" : "1.0.1"
-      }
-    },
-    {
-      "identity" : "swiftguion",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/intrusive-memory/SwiftGuion.git",
-      "state" : {
-        "revision" : "528121e973afe1314e24f9edc2483cd93a5ba8c7",
-        "version" : "2.2.0"
       }
     },
     {

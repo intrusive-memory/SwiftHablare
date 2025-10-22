@@ -17,13 +17,13 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", from: "1.0.0"),
-        .package(url: "https://github.com/intrusive-memory/SwiftGuion.git", from: "2.1.0")
+        .package(path: "../SwiftCompartido")
     ],
     targets: [
         .target(
             name: "SwiftHablare",
             dependencies: [
-                .product(name: "SwiftGuion", package: "SwiftGuion")
+                .product(name: "SwiftCompartido", package: "SwiftCompartido")
             ]
         ),
         .testTarget(
@@ -31,7 +31,10 @@ let package = Package(
             dependencies: [
                 "SwiftHablare",
                 .product(name: "SwiftFijos", package: "SwiftFijos"),
-                .product(name: "SwiftGuion", package: "SwiftGuion")
+                .product(name: "SwiftCompartido", package: "SwiftCompartido")
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency=minimal")
             ]
         ),
     ]

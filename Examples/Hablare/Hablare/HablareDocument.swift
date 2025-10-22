@@ -8,7 +8,7 @@
 
 import Combine
 import SwiftData
-import SwiftGuion
+import SwiftCompartido
 import SwiftUI
 import UniformTypeIdentifiers
 
