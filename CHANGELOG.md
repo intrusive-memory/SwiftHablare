@@ -32,12 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clean test environment (no keychain pollution)
 
 #### Enhanced Voice Provider Implementations
-- **AppleVoiceProvider** - Real audio generation on macOS
-  - Uses NSSpeechSynthesizer (reliable, production-ready)
-  - Generates AIFF format audio files
+- **AppleVoiceProvider** - Audio generation on all platforms (AIFF format)
+  - **Native macOS**: Uses NSSpeechSynthesizer (production-ready with real speech)
+  - **Mac Catalyst & iOS**: Uses AVSpeechSynthesizer.write() (placeholder audio)
   - Full audio validation (duration, sample content)
-  - Platform-specific implementation (#if os(macOS))
-  - iOS/Catalyst placeholder (audio generation in progress)
+  - Platform-specific implementations using `#if os(macOS) && !targetEnvironment(macCatalyst)`
+  - Consistent AIFF output format across all platforms
 
 - **ElevenLabsVoiceProvider** - Testing improvements
   - Optional ephemeral API key via initializer (`init(apiKey: String?)`)

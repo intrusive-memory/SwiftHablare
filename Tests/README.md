@@ -160,17 +160,18 @@ swift package clean && swift test
 ### Integration Tests
 
 #### AppleVoiceProviderIntegrationTests.swift
-End-to-end tests with real audio generation (always run on macOS):
+End-to-end tests with audio generation (always run):
 - **End-to-end speech generation** - Full workflow from text to audio file
 - **Multiple voice testing** - Test with different system voices
 - **Long text handling** - Performance testing with extended text
 - **Audio validation**:
-  - File format validation (AIFF on macOS)
+  - File format validation (AIFF on all platforms)
   - File size checks (> 1KB)
   - Duration validation (> 1 second for test text)
-  - Non-zero sample verification (confirms actual speech, not silence)
+  - Non-zero sample verification (confirms actual speech on native macOS)
   - Sample percentage analysis
 - **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
+- **Cross-platform** - Runs on native macOS, Mac Catalyst, and iOS
 
 #### ElevenLabsVoiceProviderIntegrationTests.swift
 End-to-end tests with real API calls (conditional execution):
@@ -221,7 +222,7 @@ Tests/SwiftHablareTests/
 
 Integration tests generate audio files for manual verification:
 - **Location**: `.build/*/TestArtifacts/`
-- **Apple TTS**: `.aiff` files with timestamped names
+- **Apple TTS**: `.aiff` files with timestamped names (all platforms)
 - **ElevenLabs**: `.mp3` files with timestamped names
 - **Git**: Excluded via .gitignore
 

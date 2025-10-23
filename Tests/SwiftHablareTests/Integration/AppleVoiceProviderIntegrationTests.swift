@@ -70,13 +70,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         print("✅ Generated \(result.audioData.count) bytes of audio")
         print("⏱️  Estimated duration: \(String(format: "%.2f", result.estimatedDuration))s")
 
-        // Step 5: Save audio artifact
+        // Step 5: Save audio artifact (AIFF format on all platforms)
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        #if os(macOS)
         let filename = "apple-tts-\(timestamp).aiff"
-        #else
-        let filename = "apple-tts-\(timestamp).caf"
-        #endif
         let artifactURL = artifactsDirectory.appendingPathComponent(filename)
 
         try result.audioData.write(to: artifactURL)
@@ -156,13 +152,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
             XCTAssertFalse(result.audioData.isEmpty)
             print("✅ Generated \(result.audioData.count) bytes")
 
-            // Save artifact
+            // Save artifact (AIFF format on all platforms)
             let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-            #if os(macOS)
             let filename = "apple-tts-\(voice.name.replacingOccurrences(of: " ", with: "-"))-\(timestamp).aiff"
-            #else
-            let filename = "apple-tts-\(voice.name.replacingOccurrences(of: " ", with: "-"))-\(timestamp).caf"
-            #endif
             let artifactURL = artifactsDirectory.appendingPathComponent(filename)
             try result.audioData.write(to: artifactURL)
             print("💾 Saved: \(filename)")
@@ -195,13 +187,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         XCTAssertFalse(result.audioData.isEmpty)
         XCTAssertGreaterThan(result.estimatedDuration, 5, "Longer text should have longer duration")
 
-        // Save artifact
+        // Save artifact (AIFF format on all platforms)
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        #if os(macOS)
         let filename = "apple-tts-long-text-\(timestamp).aiff"
-        #else
-        let filename = "apple-tts-long-text-\(timestamp).caf"
-        #endif
         let artifactURL = artifactsDirectory.appendingPathComponent(filename)
         try result.audioData.write(to: artifactURL)
 

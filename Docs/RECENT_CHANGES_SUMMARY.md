@@ -203,10 +203,12 @@ Updated all UI components for macOS Catalyst compatibility:
 Added comprehensive end-to-end integration tests with real audio generation:
 
 **Apple Voice Provider**:
-- Now generates **real audio** using NSSpeechSynthesizer (not silent placeholder)
-- AIFF format output on macOS
+- Now generates audio on all platforms with consistent AIFF format:
+  - Native macOS: Uses NSSpeechSynthesizer (real speech, production-ready)
+  - Mac Catalyst & iOS: Uses AVSpeechSynthesizer.write() (placeholder audio)
 - Comprehensive validation (file size, duration, non-zero samples)
-- Always runs on macOS (no external dependencies)
+- Always runs on all platforms (no external dependencies)
+- Cross-platform compatibility with consistent AIFF output format
 
 **ElevenLabs Voice Provider**:
 - Optional ephemeral API keys for testing (bypasses keychain)
@@ -230,15 +232,17 @@ Added comprehensive end-to-end integration tests with real audio generation:
 ### Usage Example
 
 ```swift
-// Apple TTS - Now generates real audio!
+// Apple TTS - Generates AIFF audio on all platforms
+// Native macOS: Real speech via NSSpeechSynthesizer
+// Catalyst/iOS: Placeholder audio via AVSpeechSynthesizer
 let provider = AppleVoiceProvider()
 let audioData = try await provider.generateAudio(
     text: "Hello, world!",
     voiceId: "com.apple.voice.compact.en-US.Samantha"
 )
-// audioData contains AIFF audio with actual speech
+// audioData contains AIFF format audio
 
-// ElevenLabs - With ephemeral API key
+// ElevenLabs - With ephemeral API key for testing
 let provider = ElevenLabsVoiceProvider(apiKey: "test-key")
 let audioData = try await provider.generateAudio(
     text: "Hello, world!",
@@ -248,10 +252,11 @@ let audioData = try await provider.generateAudio(
 
 ### Benefits
 
-1. **Production-Ready Apple TTS** - No longer just placeholder audio
-2. **Clean Testing** - No keychain pollution from test runs
-3. **Quality Assurance** - Audio validation confirms working TTS
-4. **Developer Experience** - Test artifacts for manual verification
+1. **Production-Ready Apple TTS on macOS** - Real speech via NSSpeechSynthesizer
+2. **Consistent Output Format** - AIFF files across all platforms
+3. **Clean Testing** - No keychain pollution from test runs
+4. **Quality Assurance** - Audio validation confirms working TTS
+5. **Developer Experience** - Test artifacts for manual verification
 
 ## Summary Statistics
 
