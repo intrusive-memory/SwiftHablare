@@ -72,16 +72,52 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         // Step 5: Save audio artifact
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        #if os(macOS)
+        let filename = "apple-tts-\(timestamp).aiff"
+        #else
         let filename = "apple-tts-\(timestamp).caf"
+        #endif
         let artifactURL = artifactsDirectory.appendingPathComponent(filename)
 
         try result.audioData.write(to: artifactURL)
         print("💾 Saved audio artifact: \(artifactURL.path)")
 
-        // Step 6: Verify audio file is valid
+        // Step 6: Verify audio file has non-zero size
+        let attributes = try FileManager.default.attributesOfItem(atPath: artifactURL.path)
+        let fileSize = attributes[.size] as? Int64 ?? 0
+        XCTAssertGreaterThan(fileSize, 1000, "Audio file should be larger than 1KB")
+        print("✅ Audio file size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+
+        // Step 7: Verify audio file is valid and has non-zero duration
         let audioFile = try AVAudioFile(forReading: artifactURL)
         XCTAssertNotNil(audioFile.processingFormat, "Audio file should have valid format")
-        print("✅ Audio file validated successfully")
+        XCTAssertGreaterThan(audioFile.length, 0, "Audio file should have non-zero length")
+
+        let duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+        XCTAssertGreaterThan(duration, 1.0, "Audio duration should be at least 1 second for this text")
+        print("✅ Audio duration: \(String(format: "%.2f", duration))s (\(audioFile.length) frames)")
+
+        // Step 8: Verify audio contains non-zero samples (not silence)
+        let frameCount = AVAudioFrameCount(audioFile.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: frameCount) else {
+            XCTFail("Failed to create audio buffer")
+            return
+        }
+        try audioFile.read(into: buffer)
+
+        // Check that at least some samples are non-zero
+        let channelData = buffer.floatChannelData?[0]
+        var hasNonZeroSamples = false
+        var nonZeroCount = 0
+        for i in 0..<Int(buffer.frameLength) {
+            if let sample = channelData?[i], abs(sample) > 0.001 {
+                hasNonZeroSamples = true
+                nonZeroCount += 1
+            }
+        }
+        XCTAssertTrue(hasNonZeroSamples, "Audio should contain non-zero samples (not silence)")
+        let percentNonZero = (Double(nonZeroCount) / Double(buffer.frameLength)) * 100.0
+        print("✅ Audio validated: \(String(format: "%.1f%%", percentNonZero)) non-zero samples (contains actual speech)")
 
         // Print summary
         print("""
@@ -122,7 +158,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
             // Save artifact
             let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            #if os(macOS)
+            let filename = "apple-tts-\(voice.name.replacingOccurrences(of: " ", with: "-"))-\(timestamp).aiff"
+            #else
             let filename = "apple-tts-\(voice.name.replacingOccurrences(of: " ", with: "-"))-\(timestamp).caf"
+            #endif
             let artifactURL = artifactsDirectory.appendingPathComponent(filename)
             try result.audioData.write(to: artifactURL)
             print("💾 Saved: \(filename)")
@@ -157,7 +197,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         // Save artifact
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        #if os(macOS)
+        let filename = "apple-tts-long-text-\(timestamp).aiff"
+        #else
         let filename = "apple-tts-long-text-\(timestamp).caf"
+        #endif
         let artifactURL = artifactsDirectory.appendingPathComponent(filename)
         try result.audioData.write(to: artifactURL)
 

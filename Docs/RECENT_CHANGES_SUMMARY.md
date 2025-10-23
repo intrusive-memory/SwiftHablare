@@ -196,6 +196,63 @@ Updated all UI components for macOS Catalyst compatibility:
 - ✅ No AppKit dependencies in production code
 - ✅ Tested on macOS, iOS, and Catalyst
 
+## 5. Voice Provider Integration Tests (Latest)
+
+### What Changed
+
+Added comprehensive end-to-end integration tests with real audio generation:
+
+**Apple Voice Provider**:
+- Now generates **real audio** using NSSpeechSynthesizer (not silent placeholder)
+- AIFF format output on macOS
+- Comprehensive validation (file size, duration, non-zero samples)
+- Always runs on macOS (no external dependencies)
+
+**ElevenLabs Voice Provider**:
+- Optional ephemeral API keys for testing (bypasses keychain)
+- Conditional execution (only runs with ELEVENLABS_API_KEY environment variable)
+- Clean test environment (no keychain pollution)
+- Graceful test skipping when API key unavailable
+
+**Test Improvements**:
+- Empty text validation for both providers
+- Audio quality validation (confirms actual speech, not silence)
+- Test artifacts saved to `.build/*/TestArtifacts/` directory
+- Updated .gitignore to exclude `.aiff` files and test artifacts
+
+### Key Features
+
+1. **Real Audio Generation** - Apple TTS now creates actual speech
+2. **Ephemeral API Keys** - ElevenLabs testing without keychain side effects
+3. **Comprehensive Validation** - Tests verify audio content quality
+4. **Test Artifacts** - Audio files saved for manual verification
+
+### Usage Example
+
+```swift
+// Apple TTS - Now generates real audio!
+let provider = AppleVoiceProvider()
+let audioData = try await provider.generateAudio(
+    text: "Hello, world!",
+    voiceId: "com.apple.voice.compact.en-US.Samantha"
+)
+// audioData contains AIFF audio with actual speech
+
+// ElevenLabs - With ephemeral API key
+let provider = ElevenLabsVoiceProvider(apiKey: "test-key")
+let audioData = try await provider.generateAudio(
+    text: "Hello, world!",
+    voiceId: "voice-id"
+)
+```
+
+### Benefits
+
+1. **Production-Ready Apple TTS** - No longer just placeholder audio
+2. **Clean Testing** - No keychain pollution from test runs
+3. **Quality Assurance** - Audio validation confirms working TTS
+4. **Developer Experience** - Test artifacts for manual verification
+
 ## Summary Statistics
 
 ### Code Changes
@@ -375,6 +432,6 @@ See comprehensive documentation:
 
 ---
 
-**Last Updated**: 2025-10-21
+**Last Updated**: 2025-10-23
 **Swift Version**: 6.0+
 **Platforms**: macOS 15.0+, iOS 17.0+, macCatalyst 15.0+

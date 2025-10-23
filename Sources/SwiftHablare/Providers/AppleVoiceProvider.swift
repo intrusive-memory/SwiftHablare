@@ -7,6 +7,9 @@
 
 import AVFoundation
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
 
 /// Apple Text-to-Speech implementation of VoiceProvider
 public final class AppleVoiceProvider: VoiceProvider {
@@ -97,41 +100,69 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     private func generateAudioWithAVSpeechSynthesizer(text: String, voiceId: String) async throws -> Data {
-        // NOTE: AVSpeechSynthesizer.write() is known to crash with buffer issues
-        // As a workaround, we'll generate a placeholder audio file
-        // For real TTS audio, consider using ElevenLabs or another provider
-
+        #if os(macOS)
+        // Use NSSpeechSynthesizer on macOS - more reliable than AVSpeechSynthesizer.write()
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.main.async {
+                // Validate text is not empty
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    continuation.resume(throwing: VoiceProviderError.invalidRequest("Text cannot be empty"))
+                    return
+                }
+
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString)
+                    .appendingPathExtension("aiff")
+
+                let synthesizer = NSSpeechSynthesizer()
+
+                // Find the voice by identifier
+                let voices = NSSpeechSynthesizer.availableVoices
+                if let voice = voices.first(where: { $0.rawValue.contains(voiceId) || voiceId.contains($0.rawValue) }) {
+                    synthesizer.setVoice(voice)
+                }
+
+                // Start speaking to file
+                let success = synthesizer.startSpeaking(text, to: tempURL)
+
+                if !success {
+                    continuation.resume(throwing: VoiceProviderError.networkError("Failed to start speech synthesis"))
+                    return
+                }
+
+                // Wait for synthesis to complete
+                while synthesizer.isSpeaking {
+                    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+                }
+
+                // Read the generated file
                 do {
-                    // Create a short audio file as a placeholder
-                    // This prevents crashes but won't contain actual speech
-                    let tempURL = FileManager.default.temporaryDirectory
-                        .appendingPathComponent(UUID().uuidString)
-                        .appendingPathExtension("caf")
-
-                    // Create a very short audio buffer (0.1 seconds at 44.1kHz)
-                    let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
-                    let frameCount = AVAudioFrameCount(4410) // 0.1 seconds
-                    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-                        throw VoiceProviderError.networkError("Failed to create audio buffer")
+                    guard FileManager.default.fileExists(atPath: tempURL.path) else {
+                        throw VoiceProviderError.networkError("Audio file was not created")
                     }
-                    buffer.frameLength = frameCount
 
-                    // Write silent audio to file
-                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: format.settings)
-                    try audioFile.write(from: buffer)
-
-                    // Read the file data
                     let data = try Data(contentsOf: tempURL)
                     try? FileManager.default.removeItem(at: tempURL)
 
+                    if data.isEmpty {
+                        throw VoiceProviderError.networkError("Generated audio file is empty")
+                    }
+
                     continuation.resume(returning: data)
                 } catch {
-                    continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
+                    continuation.resume(throwing: VoiceProviderError.networkError("Failed to read audio file: \(error.localizedDescription)"))
                 }
             }
         }
+        #else
+        // iOS fallback: Use AVSpeechSynthesizer with audio recording
+        // This is a simplified implementation for cross-platform support
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume(throwing: VoiceProviderError.networkError("Audio generation not yet supported on iOS"))
+            }
+        }
+        #endif
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {

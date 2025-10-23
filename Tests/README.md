@@ -157,6 +157,44 @@ swift package clean && swift test
 - **Library Tests**: 3
 - **Provider Tests**: 59 (Apple: 24, ElevenLabs: 35)
 
+### Integration Tests
+
+#### AppleVoiceProviderIntegrationTests.swift
+End-to-end tests with real audio generation (always run on macOS):
+- **End-to-end speech generation** - Full workflow from text to audio file
+- **Multiple voice testing** - Test with different system voices
+- **Long text handling** - Performance testing with extended text
+- **Audio validation**:
+  - File format validation (AIFF on macOS)
+  - File size checks (> 1KB)
+  - Duration validation (> 1 second for test text)
+  - Non-zero sample verification (confirms actual speech, not silence)
+  - Sample percentage analysis
+- **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
+
+#### ElevenLabsVoiceProviderIntegrationTests.swift
+End-to-end tests with real API calls (conditional execution):
+- **Conditional execution** - Only runs if ELEVENLABS_API_KEY environment variable is set
+- **Ephemeral API keys** - Uses in-memory API keys (no keychain pollution)
+- **End-to-end speech generation** - Full workflow with real API
+- **Multiple voice testing** - Test with up to 3 different ElevenLabs voices
+- **Long text handling** - Performance testing with extended text
+- **Audio validation**:
+  - File format validation (MP3)
+  - File size checks
+  - Duration estimation verification
+- **Test artifacts** - Saves .mp3 files to TestArtifacts/ directory
+- **Clean test environment** - No keychain side effects
+
+**Running integration tests**:
+```bash
+# Run all tests (Apple integration tests always run)
+swift test
+
+# Run with ElevenLabs API key for full coverage
+ELEVENLABS_API_KEY=your-key-here swift test
+```
+
 ## Test Organization
 
 ```
@@ -165,6 +203,9 @@ Tests/SwiftHablareTests/
 │   ├── MockVoiceProvider.swift
 │   ├── MockAppleVoiceProviderSimulator.swift
 │   └── MockElevenLabsVoiceProviderSimulator.swift
+├── Integration/
+│   ├── AppleVoiceProviderIntegrationTests.swift
+│   └── ElevenLabsVoiceProviderIntegrationTests.swift
 ├── AudioFileTests.swift
 ├── VoiceTests.swift
 ├── VoiceModelTests.swift
@@ -176,6 +217,14 @@ Tests/SwiftHablareTests/
 └── SwiftHablareTests.swift (original)
 ```
 
+## Test Artifacts
+
+Integration tests generate audio files for manual verification:
+- **Location**: `.build/*/TestArtifacts/`
+- **Apple TTS**: `.aiff` files with timestamped names
+- **ElevenLabs**: `.mp3` files with timestamped names
+- **Git**: Excluded via .gitignore
+
 ## Notes
 
 - All tests use in-memory SwiftData containers to avoid side effects
@@ -183,3 +232,5 @@ Tests/SwiftHablareTests/
 - Mock objects support comprehensive verification
 - UserDefaults are cleaned up in tearDown methods
 - Temporary files are cleaned up after file I/O tests
+- Integration tests generate audio artifacts for verification
+- ElevenLabs integration tests gracefully skip without API key

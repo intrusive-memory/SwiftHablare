@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Voice Provider Integration Tests
+
+#### End-to-End Testing with Real Audio
+- **AppleVoiceProviderIntegrationTests** - Complete test suite for Apple TTS
+  - Real audio generation using NSSpeechSynthesizer on macOS
+  - AIFF format audio output (not silent placeholder audio)
+  - Comprehensive audio validation:
+    - File size checks (> 1KB)
+    - Duration validation (> 1 second for test text)
+    - Non-zero sample verification (confirms actual speech content)
+    - Sample percentage analysis
+  - Test artifacts saved to `.build/*/TestArtifacts/` directory
+  - Tests with multiple voices and long text passages
+  - Always runs on macOS (no external dependencies)
+
+- **ElevenLabsVoiceProviderIntegrationTests** - Complete test suite for ElevenLabs API
+  - Real API calls with production ElevenLabs service
+  - Conditional execution (only runs if ELEVENLABS_API_KEY environment variable set)
+  - Ephemeral API key support (bypasses keychain for clean testing)
+  - MP3 audio artifact generation
+  - Tests with multiple voices and long text passages
+  - Graceful test skipping when API key unavailable
+  - Clean test environment (no keychain pollution)
+
+#### Enhanced Voice Provider Implementations
+- **AppleVoiceProvider** - Real audio generation on macOS
+  - Uses NSSpeechSynthesizer (reliable, production-ready)
+  - Generates AIFF format audio files
+  - Full audio validation (duration, sample content)
+  - Platform-specific implementation (#if os(macOS))
+  - iOS/Catalyst placeholder (audio generation in progress)
+
+- **ElevenLabsVoiceProvider** - Testing improvements
+  - Optional ephemeral API key via initializer (`init(apiKey: String?)`)
+  - Bypasses keychain for test scenarios
+  - Maintains backward compatibility with keychain storage
+
+#### Validation and Error Handling
+- **Empty text validation** - Both providers now validate input
+  - Throws `.invalidRequest("Text cannot be empty")` for empty/whitespace-only text
+  - Prevents wasted API calls and invalid audio generation
+
+#### Build Configuration
+- **Updated .gitignore**
+  - Excludes `.aiff` files (Apple TTS output)
+  - Excludes `TestArtifacts/` directory
+  - Keeps test output clean and git-friendly
+
 ### Added - Thread-Safe Voice Generation
 
 #### VoiceGeneration Module

@@ -86,6 +86,7 @@ public enum VoiceProviderError: LocalizedError, Sendable {
     case invalidResponse
     case unsupportedProvider
     case notSupported
+    case invalidRequest(String)
 
     public var errorDescription: String? {
         switch self {
@@ -99,6 +100,8 @@ public enum VoiceProviderError: LocalizedError, Sendable {
             return "Unsupported voice provider"
         case .notSupported:
             return "Audio generation is not supported on this platform"
+        case .invalidRequest(let message):
+            return "Invalid request: \(message)"
         }
     }
 }

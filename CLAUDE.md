@@ -685,6 +685,29 @@ let record = TypedDataStorage(
 - Proper error propagation
 - Cancellation support
 
+### Voice Provider Test Suite Enhancements
+
+**Apple Voice Provider**:
+- Now generates real audio using NSSpeechSynthesizer on macOS (AIFF format)
+- Comprehensive audio validation (file size, duration, non-zero samples)
+- End-to-end integration tests with audio artifacts
+- Tests verify actual speech content (not silence)
+- Platform-specific support (#if os(macOS) for full functionality)
+
+**ElevenLabs Voice Provider**:
+- Ephemeral API key support for testing (bypasses keychain)
+- Cleaner test setup/teardown (no keychain pollution)
+- End-to-end integration tests with real API calls
+- Conditional test execution (skips if no API key available)
+- Audio artifact generation for verification
+
+**Test Improvements**:
+- Empty text validation (throws `.invalidRequest` error)
+- Audio quality validation (duration, sample rate, non-zero content)
+- Test artifacts saved to `.build/*/TestArtifacts/` directory
+- Updated .gitignore to exclude `.aiff` files and test artifacts
+- All 71 tests passing (ElevenLabs tests skip gracefully without API key)
+
 ## Next Steps
 
 **Phase 3: Character Mapping Models** (Upcoming)

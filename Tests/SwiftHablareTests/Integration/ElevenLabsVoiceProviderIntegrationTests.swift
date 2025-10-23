@@ -27,7 +27,8 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
             return // Will skip in each individual test
         }
 
-        provider = ElevenLabsVoiceProvider()
+        // Use ephemeral API key directly (bypasses keychain)
+        provider = ElevenLabsVoiceProvider(apiKey: key)
         service = GenerationService(voiceProvider: provider)
 
         // Create artifacts directory
@@ -40,9 +41,6 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        // Clean up API key from keychain if it was set
-        try? KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-
         provider = nil
         service = nil
         apiKey = nil
@@ -53,31 +51,23 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
     func testEndToEndSpeechGeneration() async throws {
         // Skip test if no API key is available
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
+        guard apiKey != nil, !apiKey!.isEmpty else {
             throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
         }
 
         print("🎤 Starting end-to-end ElevenLabs speech generation test...")
 
-        // Step 1: Configure provider with API key
-        print("🔑 Configuring ElevenLabs API key...")
-        do {
-            try KeychainManager.shared.saveAPIKey(apiKey, for: "elevenlabs-api-key")
-        } catch {
-            throw XCTSkip("Failed to configure keychain for testing: \(error)")
-        }
-
-        // Step 2: Fetch available voices
+        // Step 1: Fetch available voices (using ephemeral API key from setUp)
         print("📋 Fetching available voices from ElevenLabs API...")
         let voices = try await provider.fetchVoices()
         XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
         print("✅ Found \(voices.count) voices")
 
-        // Step 3: Select a voice (prefer English)
+        // Step 2: Select a voice (prefer English)
         let voice = voices.first { $0.language == "en" } ?? voices.first!
         print("🎙️  Selected voice: \(voice.name) (id: \(voice.id))")
 
-        // Step 4: Generate audio
+        // Step 3: Generate audio
         let testText = "This is an end-to-end integration test of ElevenLabs text-to-speech generation."
         print("🔊 Generating audio for text: \"\(testText)\"")
 
@@ -87,7 +77,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
             voiceName: voice.name
         )
 
-        // Step 5: Validate result
+        // Step 4: Validate result
         XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
         XCTAssertEqual(result.originalText, testText)
         XCTAssertEqual(result.voiceId, voice.id)
@@ -96,14 +86,14 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         print("✅ Generated \(result.audioData.count) bytes of audio")
         print("⏱️  Estimated duration: \(String(format: "%.2f", result.estimatedDuration))s")
 
-        // Step 6: Verify MP3 format
+        // Step 5: Verify MP3 format
         let mp3Header = result.audioData.prefix(3)
         let hasMP3Header = mp3Header.count == 3 &&
                            (mp3Header[0] == 0xFF || mp3Header[0] == 0x49) // ID3 or sync byte
         XCTAssertTrue(hasMP3Header, "Audio should be in MP3 format")
         print("✅ Audio format validated (MP3)")
 
-        // Step 7: Save audio artifact
+        // Step 6: Save audio artifact
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let filename = "elevenlabs-tts-\(timestamp).mp3"
         let artifactURL = artifactsDirectory.appendingPathComponent(filename)
@@ -127,25 +117,15 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         """)
-
-        // Clean up
-        try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
     }
 
     func testEndToEndWithMultipleVoices() async throws {
         // Skip test if no API key is available
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
+        guard apiKey != nil, !apiKey!.isEmpty else {
             throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
         }
 
         print("🎤 Testing with multiple ElevenLabs voices...")
-
-        // Configure API key
-        do {
-            try KeychainManager.shared.saveAPIKey(apiKey, for: "elevenlabs-api-key")
-        } catch {
-            throw XCTSkip("Failed to configure keychain for testing: \(error)")
-        }
 
         let voices = try await provider.fetchVoices()
         let voicesToTest = Array(voices.prefix(min(3, voices.count)))
@@ -172,25 +152,15 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         }
 
         print("\n✅ Successfully tested \(voicesToTest.count) voices")
-
-        // Clean up
-        try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
     }
 
     func testEndToEndWithLongText() async throws {
         // Skip test if no API key is available
-        guard let apiKey = apiKey, !apiKey.isEmpty else {
+        guard apiKey != nil, !apiKey!.isEmpty else {
             throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
         }
 
         print("🎤 Testing with longer text...")
-
-        // Configure API key
-        do {
-            try KeychainManager.shared.saveAPIKey(apiKey, for: "elevenlabs-api-key")
-        } catch {
-            throw XCTSkip("Failed to configure keychain for testing: \(error)")
-        }
 
         let voices = try await provider.fetchVoices()
         let voice = voices.first { $0.language == "en" } ?? voices.first!
@@ -221,9 +191,6 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         print("✅ Generated \(result.audioData.count) bytes (\(String(format: "%.2f", result.estimatedDuration))s)")
         print("💾 Saved: \(filename)")
-
-        // Clean up
-        try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
     }
 
     func testAPIKeyNotAvailable() async throws {

@@ -15,12 +15,25 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
 
     private let keychainManager = KeychainManager.shared
     private let apiKeyAccount = "elevenlabs-api-key"
+    private let ephemeralAPIKey: String?
 
-    public init() {}
+    /// Initialize with optional ephemeral API key (for testing)
+    /// - Parameter apiKey: Optional API key to use instead of keychain (primarily for testing)
+    public init(apiKey: String? = nil) {
+        self.ephemeralAPIKey = apiKey
+    }
+
+    /// Get API key from ephemeral storage (test) or keychain (production)
+    private func getAPIKey() throws -> String {
+        if let ephemeralKey = ephemeralAPIKey {
+            return ephemeralKey
+        }
+        return try keychainManager.getAPIKey(for: apiKeyAccount)
+    }
 
     public func isConfigured() -> Bool {
         do {
-            _ = try keychainManager.getAPIKey(for: apiKeyAccount)
+            _ = try getAPIKey()
             return true
         } catch {
             return false
@@ -28,7 +41,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func fetchVoices() async throws -> [Voice] {
-        guard let apiKey = try? keychainManager.getAPIKey(for: apiKeyAccount) else {
+        guard let apiKey = try? getAPIKey() else {
             throw VoiceProviderError.notConfigured
         }
 
@@ -62,8 +75,13 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func generateAudio(text: String, voiceId: String) async throws -> Data {
-        guard let apiKey = try? keychainManager.getAPIKey(for: apiKeyAccount) else {
+        guard let apiKey = try? getAPIKey() else {
             throw VoiceProviderError.notConfigured
+        }
+
+        // Validate text is not empty
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VoiceProviderError.invalidRequest("Text cannot be empty")
         }
 
         let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voiceId)")!
@@ -133,7 +151,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
         // Check if API key is configured
-        guard let apiKey = try? keychainManager.getAPIKey(for: apiKeyAccount) else {
+        guard let apiKey = try? getAPIKey() else {
             return false
         }
 

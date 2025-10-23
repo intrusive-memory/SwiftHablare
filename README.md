@@ -138,15 +138,16 @@ if provider.isConfigured() {
 ```
 
 **Features:**
-- Built-in system voices
+- Built-in system voices with real audio output
+- Uses NSSpeechSynthesizer on macOS (reliable, production-ready)
+- Generates AIFF format audio files
 - Automatic language filtering
 - Quality detection (standard/enhanced/premium)
 - Gender detection based on voice name
 
-**Limitations:**
-- Currently generates silent audio (AVSpeechSynthesizer.write() has known crashes)
-- Use for testing or fallback scenarios
-- For production TTS, use ElevenLabs
+**Platform Support:**
+- **macOS**: Full support with NSSpeechSynthesizer
+- **iOS/Catalyst**: Limited support (audio generation in progress)
 
 ### ElevenLabs Voice Provider
 

@@ -260,9 +260,20 @@ final class AppleVoiceProviderTests: XCTestCase {
         }
 
         let text = ""
-        // Should not throw, might return minimal audio
-        let audioData = try await provider.generateAudio(text: text, voiceId: firstVoice.id)
-        XCTAssertFalse(audioData.isEmpty, "Should return placeholder audio even for empty text")
+        // Should throw error for empty text
+        do {
+            _ = try await provider.generateAudio(text: text, voiceId: firstVoice.id)
+            XCTFail("Should throw error for empty text")
+        } catch let error as VoiceProviderError {
+            // Verify we get the correct error type
+            if case .invalidRequest(let message) = error {
+                XCTAssertTrue(message.contains("empty"), "Error message should mention empty text")
+            } else {
+                XCTFail("Expected invalidRequest error, got \(error)")
+            }
+        } catch {
+            XCTFail("Expected VoiceProviderError, got \(error)")
+        }
     }
 
     // MARK: - Concurrency Tests
