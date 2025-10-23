@@ -69,16 +69,52 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
                  │ • voiceId: String     │
                  │ • voiceName: String   │
                  │ • providerId: String  │
+                 │ • mimeType: String    │
+                 │ • requestId: UUID     │
                  └───────────┬───────────┘
                              │
+                             │ Return to main thread
                              ▼
                  ┌───────────────────────┐
                  │    Main Thread        │
-                 │  (@MainActor)         │
+                 │    (@MainActor)       │
+                 └───────────┬───────────┘
+                             │
+                             │ result.toTypedDataStorage()
+                             ▼
+                 ┌───────────────────────┐
+                 │   TypedDataStorage    │
+                 │   (SwiftData Model)   │
                  │                       │
-                 │ • Save to SwiftData   │
+                 │ • id: UUID            │
+                 │ • providerId          │
+                 │ • mimeType            │
+                 │ • binaryValue: Data   │
+                 │ • prompt: String      │
+                 │ • voiceID: String     │
+                 │ • voiceName: String   │
+                 └───────────┬───────────┘
+                             │
+                             │ modelContext.insert()
+                             ▼
+                 ┌───────────────────────┐
+                 │     SwiftData         │
+                 │     Database          │
+                 │                       │
+                 │ • Persisted audio     │
+                 │ • Queryable           │
+                 │ • Retrievable         │
+                 └───────────┬───────────┘
+                             │
+                             │ Fetch & use
+                             ▼
+                 ┌───────────────────────┐
+                 │   Your Application    │
+                 │                       │
+                 │ • Play audio          │
+                 │ • Export audio        │
                  │ • Link to content     │
-                 │ • Update UI           │
+                 │ • Display metadata    │
                  └───────────────────────┘
 ```
 
@@ -87,7 +123,8 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
 - **Voice Selection**: Your app selects specific voice ID from provider's available voices
 - **Thread Safety**: Generation happens on background thread via actor
 - **Consistent API**: Same flow regardless of provider choice
-- **Result Handling**: Main thread receives Sendable result for SwiftData persistence
+- **SwiftData Integration**: `toTypedDataStorage()` converts result to SwiftData model
+- **Persistence**: Audio and metadata saved to database for later retrieval
 
 ## Installation
 
