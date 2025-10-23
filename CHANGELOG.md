@@ -55,6 +55,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Excludes `TestArtifacts/` directory
   - Keeps test output clean and git-friendly
 
+#### CI/CD Integration
+- **GitHub Actions Workflow Updates**
+  - Integration tests now run automatically on all PRs
+  - `ELEVENLABS_API_KEY` repository secret support for ElevenLabs tests
+  - Test artifacts (AIFF and MP3 files) uploaded to GitHub Actions artifacts
+  - Integration test summary in GitHub Actions job summary:
+    - Shows Apple Voice Provider test execution status
+    - Shows ElevenLabs test execution status (or skip reason)
+    - Displays number of audio artifacts generated
+  - Clear logging when ElevenLabs API key is/isn't available
+
 ### Added - Thread-Safe Voice Generation
 
 #### VoiceGeneration Module

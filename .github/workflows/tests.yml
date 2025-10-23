@@ -31,7 +31,16 @@ jobs:
           rm -rf ~/Library/Application\ Support/*.store
 
       - name: Run tests
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
+          # Run all tests including integration tests (if ELEVENLABS_API_KEY is set)
+          if [ -n "$ELEVENLABS_API_KEY" ]; then
+            echo "✅ ElevenLabs API key found - integration tests will run"
+          else
+            echo "⚠️  ElevenLabs API key not found - integration tests will be skipped"
+          fi
+
           # Run all tests and capture output
           swift test --parallel 2>&1 | tee test-output.log
 
@@ -121,6 +130,30 @@ jobs:
             else
               echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
             fi
+
+            # Check for integration test execution
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Integration Tests" >> $GITHUB_STEP_SUMMARY
+
+            # Check if Apple integration tests ran
+            if grep -q "AppleVoiceProviderIntegrationTests" test-output.log; then
+              APPLE_TESTS=$(grep -c "✅.*apple-tts-.*\.aiff" test-output.log || echo "0")
+              echo "- ✅ Apple Voice Provider: $APPLE_TESTS audio artifacts generated" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ⚠️  Apple Voice Provider: No integration tests found" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check if ElevenLabs integration tests ran
+            if grep -q "ElevenLabsVoiceProviderIntegrationTests" test-output.log; then
+              if grep -q "ELEVENLABS_API_KEY.*not set.*skipping" test-output.log; then
+                echo "- ⏭️  ElevenLabs: Tests skipped (no API key)" >> $GITHUB_STEP_SUMMARY
+              else
+                ELEVENLABS_TESTS=$(grep -c "✅.*elevenlabs-tts-.*\.mp3" test-output.log || echo "0")
+                echo "- ✅ ElevenLabs: $ELEVENLABS_TESTS audio artifacts generated" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "- ⚠️  ElevenLabs: No integration tests found" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "No test output found" >> $GITHUB_STEP_SUMMARY
           fi
@@ -188,6 +221,8 @@ jobs:
             coverage-report.txt
             coverage.lcov
             .github/coverage-badge.json
+            .build/*/TestArtifacts/**/*.aiff
+            .build/*/TestArtifacts/**/*.mp3
           retention-days: 30
 
       - name: Check coverage threshold

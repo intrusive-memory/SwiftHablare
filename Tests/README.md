@@ -187,7 +187,7 @@ End-to-end tests with real API calls (conditional execution):
 - **Test artifacts** - Saves .mp3 files to TestArtifacts/ directory
 - **Clean test environment** - No keychain side effects
 
-**Running integration tests**:
+**Running integration tests locally**:
 ```bash
 # Run all tests (Apple integration tests always run)
 swift test
@@ -195,6 +195,30 @@ swift test
 # Run with ElevenLabs API key for full coverage
 ELEVENLABS_API_KEY=your-key-here swift test
 ```
+
+**Running integration tests in GitHub Actions**:
+
+Integration tests automatically run in CI/CD:
+
+1. **Apple Voice Provider Integration Tests**:
+   - Always run on every PR and push to main/master
+   - Generate AIFF audio artifacts
+   - No API key required
+
+2. **ElevenLabs Integration Tests**:
+   - Run if `ELEVENLABS_API_KEY` repository secret is configured
+   - Generate MP3 audio artifacts
+   - Gracefully skip if API key not available
+
+**Setting up ElevenLabs API key for CI**:
+
+1. Go to repository Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Name: `ELEVENLABS_API_KEY`
+4. Value: Your ElevenLabs API key
+5. Click "Add secret"
+
+Once configured, all PRs will automatically run ElevenLabs integration tests.
 
 ## Test Organization
 

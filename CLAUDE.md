@@ -711,6 +711,13 @@ let record = TypedDataStorage(
 - All tests pass on native macOS, Mac Catalyst, and iOS
 - ElevenLabs tests skip gracefully without API key
 
+**CI/CD Integration**:
+- Integration tests run automatically on all PRs via GitHub Actions
+- Apple Voice Provider tests always run (no API key needed)
+- ElevenLabs tests run when `ELEVENLABS_API_KEY` secret is configured
+- Test artifacts (audio files) uploaded to GitHub Actions artifacts
+- Integration test summary displayed in GitHub Actions summary
+
 ## Next Steps
 
 **Phase 3: Character Mapping Models** (Upcoming)
