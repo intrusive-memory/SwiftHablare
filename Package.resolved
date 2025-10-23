@@ -1,15 +1,6 @@
 {
-  "originHash" : "5cef1356985b08f86abda2742a8fd0b621b42ddcb52bb3f5348e15b24f8b2f7f",
+  "originHash" : "aee33655d527725506e5021a3173eaa5edb2c8f8dacf4830be58504ba8063595",
   "pins" : [
-    {
-      "identity" : "swiftcompartido",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/intrusive-memory/SwiftCompartido.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "a3724b56e2c1202a018009114cdad0f6b9cf85da"
-      }
-    },
     {
       "identity" : "swiftfijos",
       "kind" : "remoteSourceControl",
