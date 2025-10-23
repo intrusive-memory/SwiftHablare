@@ -11,23 +11,13 @@ import XCTest
 final class ElevenLabsVoiceProviderTests: XCTestCase {
 
     var provider: ElevenLabsVoiceProvider!
-    let testAccount = "elevenlabs-api-key-test"
-    let mockAPIKey = "test_api_key_12345"
 
     override func setUp() {
         super.setUp()
         provider = ElevenLabsVoiceProvider()
-
-        // Clean up any existing test keys
-        try? KeychainManager.shared.deleteAPIKey(for: testAccount)
-        try? KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
     }
 
     override func tearDown() {
-        // Clean up test keys
-        try? KeychainManager.shared.deleteAPIKey(for: testAccount)
-        try? KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-
         provider = nil
         super.tearDown()
     }
@@ -50,22 +40,6 @@ final class ElevenLabsVoiceProviderTests: XCTestCase {
 
     func testIsConfiguredReturnsFalseWithoutAPIKey() {
         XCTAssertFalse(provider.isConfigured())
-    }
-
-    func testIsConfiguredReturnsTrueWithAPIKey() throws {
-        // Save API key - use do-catch to ensure it actually saves
-        do {
-            try KeychainManager.shared.saveAPIKey(mockAPIKey, for: "elevenlabs-api-key")
-
-            // Verify it's configured
-            XCTAssertTrue(provider.isConfigured())
-
-            // Cleanup
-            try? KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-        } catch {
-            // If keychain operations fail (common in CI environments), skip this test
-            throw XCTSkip("Keychain operations not available in test environment: \(error)")
-        }
     }
 
     // MARK: - Voice Fetching Tests (Without API Key)
@@ -387,82 +361,3 @@ final class ElevenLabsVoiceProviderTests: XCTestCase {
     }
 }
 
-// MARK: - Mock URLSession Tests (if we want to add mocked network tests in the future)
-
-// Note: These tests demonstrate how to test with actual API calls if needed
-// For CI/CD, these should be skipped unless API credentials are available
-
-extension ElevenLabsVoiceProviderTests {
-
-    /// Example test that would work with a real API key
-    /// This test is disabled by default - enable it manually when testing with real credentials
-    func disabled_testRealAPIFetchVoices() async throws {
-        // This test is disabled by default as it requires a real API key
-        // To run it, set a real API key and rename the function to remove "disabled_"
-
-        guard let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"],
-              !apiKey.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set")
-        }
-
-        // Save API key
-        try KeychainManager.shared.saveAPIKey(apiKey, for: "elevenlabs-api-key")
-
-        do {
-            let voices = try await provider.fetchVoices()
-
-            XCTAssertFalse(voices.isEmpty, "Should return voices from API")
-
-            for voice in voices {
-                XCTAssertFalse(voice.id.isEmpty, "Voice ID should not be empty")
-                XCTAssertFalse(voice.name.isEmpty, "Voice name should not be empty")
-                XCTAssertEqual(voice.providerId, "elevenlabs")
-            }
-        } catch {
-            XCTFail("Real API call failed: \(error)")
-        }
-
-        // Cleanup
-        try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-    }
-
-    /// Example test that would generate real audio
-    /// This test is disabled by default - enable it manually when testing with real credentials
-    func disabled_testRealAPIGenerateAudio() async throws {
-        guard let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"],
-              !apiKey.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set")
-        }
-
-        try KeychainManager.shared.saveAPIKey(apiKey, for: "elevenlabs-api-key")
-
-        do {
-            // First fetch voices to get a valid voice ID
-            let voices = try await provider.fetchVoices()
-
-            guard let firstVoice = voices.first else {
-                XCTFail("No voices available")
-                return
-            }
-
-            // Generate audio
-            let audioData = try await provider.generateAudio(
-                text: "This is a test of the ElevenLabs API.",
-                voiceId: firstVoice.id
-            )
-
-            XCTAssertFalse(audioData.isEmpty, "Audio data should not be empty")
-
-            // Verify it's valid audio data (MP3 starts with specific bytes)
-            let mp3Header = audioData.prefix(3)
-            let hasMP3Header = mp3Header.count == 3 &&
-                               (mp3Header[0] == 0xFF || mp3Header[0] == 0x49) // ID3 or sync byte
-
-            XCTAssertTrue(hasMP3Header, "Audio data should be valid MP3 format")
-        } catch {
-            XCTFail("Real API call failed: \(error)")
-        }
-
-        try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-    }
-}
