@@ -17,7 +17,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", from: "1.0.0"),
-        .package(path: "../SwiftCompartido")
+        .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main")
     ],
     targets: [
         .target(
