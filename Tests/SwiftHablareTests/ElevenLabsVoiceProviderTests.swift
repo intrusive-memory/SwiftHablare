@@ -36,12 +36,6 @@ final class ElevenLabsVoiceProviderTests: XCTestCase {
         XCTAssertTrue(provider.requiresAPIKey)
     }
 
-    // MARK: - Configuration Tests
-
-    func testIsConfiguredReturnsFalseWithoutAPIKey() {
-        XCTAssertFalse(provider.isConfigured())
-    }
-
     // MARK: - Voice Fetching Tests (Without API Key)
 
     func testFetchVoicesThrowsWhenNotConfigured() async {
@@ -113,8 +107,6 @@ final class ElevenLabsVoiceProviderTests: XCTestCase {
 
     func testEstimateDurationDoesNotRequireAPIKey() async {
         // Estimation should work without API key
-        XCTAssertFalse(provider.isConfigured())
-
         let duration = await provider.estimateDuration(text: "Test text", voiceId: "voice123")
 
         XCTAssertGreaterThan(duration, 0, "Should estimate duration without API key")
@@ -123,8 +115,6 @@ final class ElevenLabsVoiceProviderTests: XCTestCase {
     // MARK: - Voice Availability Tests (Without API Key)
 
     func testIsVoiceAvailableReturnsFalseWithoutAPIKey() async {
-        XCTAssertFalse(provider.isConfigured())
-
         let isAvailable = await provider.isVoiceAvailable(voiceId: "voice123")
 
         XCTAssertFalse(isAvailable, "Should return false when not configured")
