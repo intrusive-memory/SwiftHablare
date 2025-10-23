@@ -164,12 +164,14 @@ End-to-end tests with audio generation (always run):
 - **End-to-end speech generation** - Full workflow from text to audio file
 - **Multiple voice testing** - Test with different system voices
 - **Long text handling** - Performance testing with extended text
+- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
 - **Audio validation**:
   - File format validation (AIFF on all platforms)
   - File size checks (> 1KB)
   - Duration validation (> 1 second for test text)
   - Non-zero sample verification (confirms actual speech on native macOS)
   - Sample percentage analysis
+  - Data integrity verification (retrieved audio matches original)
 - **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
 - **Cross-platform** - Runs on native macOS, Mac Catalyst, and iOS
 
@@ -180,10 +182,13 @@ End-to-end tests with real API calls (conditional execution):
 - **End-to-end speech generation** - Full workflow with real API
 - **Multiple voice testing** - Test with up to 3 different ElevenLabs voices
 - **Long text handling** - Performance testing with extended text
+- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
 - **Audio validation**:
   - File format validation (MP3)
   - File size checks
   - Duration estimation verification
+  - Data integrity verification (retrieved audio matches original)
+  - MP3 header validation on retrieved data
 - **Test artifacts** - Saves .mp3 files to TestArtifacts/ directory
 - **Clean test environment** - No keychain side effects
 

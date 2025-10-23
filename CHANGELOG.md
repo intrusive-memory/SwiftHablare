@@ -32,9 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Only documentation updates
 - Future development will focus on voice generation quality and performance
 
-### Added - Voice Provider Integration Tests
+### Added - Voice Provider Integration Tests with SwiftData Persistence
 
-#### End-to-End Testing with Real Audio
+#### End-to-End Testing with Real Audio and Database Persistence
 - **AppleVoiceProviderIntegrationTests** - Complete test suite for Apple TTS
   - Real audio generation using NSSpeechSynthesizer on macOS
   - AIFF format audio output (not silent placeholder audio)
@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test artifacts saved to `.build/*/TestArtifacts/` directory
   - Tests with multiple voices and long text passages
   - Always runs on macOS (no external dependencies)
+  - **SwiftData persistence test**: Full end-to-end database flow
+    - Generate audio → `toTypedDataStorage()` → SwiftData insert → save → fetch → verify
+    - Validates data integrity after round-trip through database
+    - Tests that retrieved audio matches original audio exactly
 
 - **ElevenLabsVoiceProviderIntegrationTests** - Complete test suite for ElevenLabs API
   - Real API calls with production ElevenLabs service
@@ -55,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tests with multiple voices and long text passages
   - Graceful test skipping when API key unavailable
   - Clean test environment (no keychain pollution)
+  - **SwiftData persistence test**: Full end-to-end database flow
+    - Generate audio → `toTypedDataStorage()` → SwiftData insert → save → fetch → verify
+    - Validates data integrity after round-trip through database
+    - Validates MP3 format on retrieved audio
+    - Tests that retrieved audio matches original audio exactly
 
 #### Enhanced Voice Provider Implementations
 - **AppleVoiceProvider** - Audio generation on all platforms (AIFF format)

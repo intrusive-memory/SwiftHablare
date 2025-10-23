@@ -7,6 +7,8 @@
 //
 
 import XCTest
+import SwiftData
+import SwiftCompartido
 @testable import SwiftHablare
 
 final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
@@ -198,5 +200,115 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         if apiKey == nil || apiKey!.isEmpty {
             print("✅ Verified: ElevenLabs tests are properly skipped when ELEVENLABS_API_KEY is not set")
         }
+    }
+
+    // MARK: - SwiftData Persistence Integration Test
+
+    @MainActor
+    func testEndToEndWithSwiftDataPersistence() async throws {
+        // Skip test if no API key is available
+        guard apiKey != nil, !apiKey!.isEmpty else {
+            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+        }
+
+        print("🎤 Starting end-to-end test with SwiftData persistence...")
+
+        // Step 1: Create in-memory SwiftData container
+        print("💾 Setting up in-memory SwiftData container...")
+        let schema = Schema([TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let modelContext = ModelContext(container)
+
+        // Step 2: Fetch available voices
+        print("📋 Fetching available voices from ElevenLabs API...")
+        let voices = try await provider.fetchVoices()
+        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        print("✅ Found \(voices.count) voices")
+
+        // Step 3: Select a voice
+        let voice = voices.first { $0.language == "en" } ?? voices.first!
+        print("🎙️  Selected voice: \(voice.name) (id: \(voice.id))")
+
+        // Step 4: Generate audio (background thread)
+        let testText = "Testing SwiftData persistence with ElevenLabs."
+        print("🔊 Generating audio: \"\(testText)\"")
+
+        let result = try await service.generate(
+            text: testText,
+            voiceId: voice.id,
+            voiceName: voice.name
+        )
+
+        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
+        print("✅ Generated \(result.audioData.count) bytes of audio")
+
+        // Step 5: Convert to TypedDataStorage (main thread)
+        print("💾 Converting result to TypedDataStorage...")
+        let audioRecord = result.toTypedDataStorage()
+
+        XCTAssertEqual(audioRecord.id, result.requestId)
+        XCTAssertEqual(audioRecord.providerId, "elevenlabs")
+        XCTAssertEqual(audioRecord.requestorID, "elevenlabs.audio.tts")
+        XCTAssertEqual(audioRecord.mimeType, result.mimeType)
+        XCTAssertNotNil(audioRecord.binaryValue)
+        XCTAssertEqual(audioRecord.binaryValue, result.audioData)
+        XCTAssertEqual(audioRecord.prompt, testText)
+        XCTAssertEqual(audioRecord.voiceID, voice.id)
+        XCTAssertEqual(audioRecord.voiceName, voice.name)
+        print("✅ TypedDataStorage created successfully")
+
+        // Step 6: Insert into SwiftData context
+        print("💾 Inserting into SwiftData context...")
+        modelContext.insert(audioRecord)
+
+        // Step 7: Save to SwiftData
+        print("💾 Saving to SwiftData...")
+        try modelContext.save()
+        print("✅ Saved to SwiftData successfully")
+
+        // Step 8: Verify persistence by fetching from database
+        print("🔍 Verifying persistence...")
+        let descriptor = FetchDescriptor<TypedDataStorage>()
+        let savedRecords = try modelContext.fetch(descriptor)
+
+        XCTAssertEqual(savedRecords.count, 1, "Should have exactly one saved record")
+
+        let savedRecord = savedRecords.first!
+        XCTAssertEqual(savedRecord.id, result.requestId)
+        XCTAssertEqual(savedRecord.providerId, "elevenlabs")
+        XCTAssertEqual(savedRecord.binaryValue, result.audioData)
+        XCTAssertEqual(savedRecord.prompt, testText)
+        XCTAssertEqual(savedRecord.voiceID, voice.id)
+        print("✅ Record successfully persisted and retrieved from SwiftData")
+
+        // Step 9: Verify audio data integrity
+        print("🔍 Verifying audio data integrity...")
+        let retrievedAudioData = try savedRecord.getBinary()
+        XCTAssertEqual(retrievedAudioData, result.audioData, "Retrieved audio should match original")
+        XCTAssertFalse(retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
+
+        // Verify MP3 format
+        let mp3Header = retrievedAudioData.prefix(3)
+        let hasMP3Header = mp3Header.count == 3 &&
+                           (mp3Header[0] == 0xFF || mp3Header[0] == 0x49)
+        XCTAssertTrue(hasMP3Header, "Retrieved audio should be in MP3 format")
+        print("✅ Audio data integrity verified (MP3 format)")
+
+        // Print summary
+        print("""
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        🎉 SwiftData Persistence Test Complete!
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Provider: ElevenLabs
+        Voice: \(voice.name)
+        Text: "\(testText)"
+        Audio Size: \(ByteCountFormatter.string(fromByteCount: Int64(result.audioData.count), countStyle: .file))
+        Request ID: \(result.requestId)
+        ✅ Generated → TypedDataStorage → SwiftData → Retrieved
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        """)
     }
 }

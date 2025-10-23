@@ -7,6 +7,8 @@
 
 import XCTest
 import AVFoundation
+import SwiftData
+import SwiftCompartido
 @testable import SwiftHablare
 
 final class AppleVoiceProviderIntegrationTests: XCTestCase {
@@ -195,5 +197,104 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         print("✅ Generated \(result.audioData.count) bytes (\(String(format: "%.2f", result.estimatedDuration))s)")
         print("💾 Saved: \(filename)")
+    }
+
+    // MARK: - SwiftData Persistence Integration Test
+
+    @MainActor
+    func testEndToEndWithSwiftDataPersistence() async throws {
+        print("🎤 Starting end-to-end test with SwiftData persistence...")
+
+        // Step 1: Create in-memory SwiftData container
+        print("💾 Setting up in-memory SwiftData container...")
+        let schema = Schema([TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let modelContext = ModelContext(container)
+
+        // Step 2: Fetch available voices
+        print("📋 Fetching available voices...")
+        let voices = try await provider.fetchVoices()
+        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        print("✅ Found \(voices.count) voices")
+
+        // Step 3: Select a voice
+        let voice = voices.first { $0.language == "en" } ?? voices.first!
+        print("🎙️  Selected voice: \(voice.name) (id: \(voice.id))")
+
+        // Step 4: Generate audio (background thread)
+        let testText = "Testing SwiftData persistence integration."
+        print("🔊 Generating audio: \"\(testText)\"")
+
+        let result = try await service.generate(
+            text: testText,
+            voiceId: voice.id,
+            voiceName: voice.name
+        )
+
+        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
+        print("✅ Generated \(result.audioData.count) bytes of audio")
+
+        // Step 5: Convert to TypedDataStorage (main thread)
+        print("💾 Converting result to TypedDataStorage...")
+        let audioRecord = result.toTypedDataStorage()
+
+        XCTAssertEqual(audioRecord.id, result.requestId)
+        XCTAssertEqual(audioRecord.providerId, "apple")
+        XCTAssertEqual(audioRecord.requestorID, "apple.audio.tts")
+        XCTAssertEqual(audioRecord.mimeType, result.mimeType)
+        XCTAssertNotNil(audioRecord.binaryValue)
+        XCTAssertEqual(audioRecord.binaryValue, result.audioData)
+        XCTAssertEqual(audioRecord.prompt, testText)
+        XCTAssertEqual(audioRecord.voiceID, voice.id)
+        XCTAssertEqual(audioRecord.voiceName, voice.name)
+        print("✅ TypedDataStorage created successfully")
+
+        // Step 6: Insert into SwiftData context
+        print("💾 Inserting into SwiftData context...")
+        modelContext.insert(audioRecord)
+
+        // Step 7: Save to SwiftData
+        print("💾 Saving to SwiftData...")
+        try modelContext.save()
+        print("✅ Saved to SwiftData successfully")
+
+        // Step 8: Verify persistence by fetching from database
+        print("🔍 Verifying persistence...")
+        let descriptor = FetchDescriptor<TypedDataStorage>()
+        let savedRecords = try modelContext.fetch(descriptor)
+
+        XCTAssertEqual(savedRecords.count, 1, "Should have exactly one saved record")
+
+        let savedRecord = savedRecords.first!
+        XCTAssertEqual(savedRecord.id, result.requestId)
+        XCTAssertEqual(savedRecord.providerId, "apple")
+        XCTAssertEqual(savedRecord.binaryValue, result.audioData)
+        XCTAssertEqual(savedRecord.prompt, testText)
+        XCTAssertEqual(savedRecord.voiceID, voice.id)
+        print("✅ Record successfully persisted and retrieved from SwiftData")
+
+        // Step 9: Verify audio data integrity
+        print("🔍 Verifying audio data integrity...")
+        let retrievedAudioData = try savedRecord.getBinary()
+        XCTAssertEqual(retrievedAudioData, result.audioData, "Retrieved audio should match original")
+        XCTAssertFalse(retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
+        print("✅ Audio data integrity verified")
+
+        // Print summary
+        print("""
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        🎉 SwiftData Persistence Test Complete!
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Provider: Apple TTS
+        Voice: \(voice.name)
+        Text: "\(testText)"
+        Audio Size: \(ByteCountFormatter.string(fromByteCount: Int64(result.audioData.count), countStyle: .file))
+        Request ID: \(result.requestId)
+        ✅ Generated → TypedDataStorage → SwiftData → Retrieved
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        """)
     }
 }
