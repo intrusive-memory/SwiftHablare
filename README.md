@@ -21,6 +21,74 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 
 SwiftHablare focuses on doing one thing well: generating high-quality audio from text with a specified voice.
 
+## Generation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Your Application                            │
+│                                                                   │
+│  1. Select voice provider (Apple or ElevenLabs)                 │
+│  2. Choose voice ID from provider's voice list                  │
+│  3. Provide text to speak                                       │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             │ text + voiceId
+                             ▼
+                 ┌───────────────────────┐
+                 │  GenerationService    │
+                 │  (Actor - Thread Safe)│
+                 └───────────┬───────────┘
+                             │
+                             │ Routes to provider
+                             │
+            ┌────────────────┴────────────────┐
+            │                                 │
+            ▼                                 ▼
+  ┌─────────────────────┐         ┌─────────────────────┐
+  │ AppleVoiceProvider  │         │ElevenLabsProvider   │
+  │                     │         │                     │
+  │ • Built-in TTS      │         │ • Neural voices     │
+  │ • No API key needed │         │ • API key required  │
+  │ • AIFF output       │         │ • MP3 output        │
+  │ • Native macOS:     │         │ • Production quality│
+  │   NSSpeechSynth     │         │ • 11+ voices        │
+  │ • Catalyst/iOS:     │         │ • Emotional range   │
+  │   AVSpeechSynth     │         │                     │
+  └──────────┬──────────┘         └──────────┬──────────┘
+             │                               │
+             │ Audio Data (AIFF)             │ Audio Data (MP3)
+             │                               │
+             └───────────────┬───────────────┘
+                             │
+                             ▼
+                 ┌───────────────────────┐
+                 │   GenerationResult    │
+                 │   (Sendable)          │
+                 │                       │
+                 │ • audioData: Data     │
+                 │ • voiceId: String     │
+                 │ • voiceName: String   │
+                 │ • providerId: String  │
+                 └───────────┬───────────┘
+                             │
+                             ▼
+                 ┌───────────────────────┐
+                 │    Main Thread        │
+                 │  (@MainActor)         │
+                 │                       │
+                 │ • Save to SwiftData   │
+                 │ • Link to content     │
+                 │ • Update UI           │
+                 └───────────────────────┘
+```
+
+**Key Points:**
+- **Provider Selection**: Your app chooses Apple or ElevenLabs based on needs
+- **Voice Selection**: Your app selects specific voice ID from provider's available voices
+- **Thread Safety**: Generation happens on background thread via actor
+- **Consistent API**: Same flow regardless of provider choice
+- **Result Handling**: Main thread receives Sendable result for SwiftData persistence
+
 ## Installation
 
 ### Swift Package Manager
