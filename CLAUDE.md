@@ -718,21 +718,26 @@ let record = TypedDataStorage(
 - Test artifacts (audio files) uploaded to GitHub Actions artifacts
 - Integration test summary displayed in GitHub Actions summary
 
-## Next Steps
+## Library Scope and Philosophy
 
-**Phase 3: Character Mapping Models** (Upcoming)
-- CharacterVoiceMapping SwiftData model
-- Character detection and mapping generator
-- Bidirectional voice assignment UI
-- 90%+ test coverage target
+**SwiftHablaré is a focused voice generation library**:
+- Takes text and voice ID (provider + voice identifier) as input
+- Generates audio using the specified voice provider
+- No character mapping or screenplay analysis - handled by consuming applications
+- Simple, predictable API: `text + voiceId → audio`
 
-**Phase 4: Core UI Scaffolding** (Upcoming)
-- Main screenplay speech view
-- Tab-based navigation
-- BackgroundTasksPalette integration
-- ProviderPickerView
+**Out of Scope**:
+- ❌ Character-to-voice mapping (handled by consuming apps)
+- ❌ Character detection from screenplays (handled by consuming apps)
+- ❌ Automatic voice assignment (handled by consuming apps)
+- ❌ Screenplay structure analysis (handled by consuming apps)
 
-See `Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md` for complete roadmap.
+**In Scope**:
+- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice caching and management
+- ✅ Thread-safe audio generation
+- ✅ SwiftData persistence for generated audio
+- ✅ Cross-platform support (macOS, iOS, Catalyst)
 
 ---
 

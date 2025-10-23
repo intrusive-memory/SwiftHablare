@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Library Scope Clarification
+
+**SwiftHablare is now a focused voice generation library**:
+- Simple API: `text + voiceId → audio`
+- No character mapping (handled by consuming applications)
+- No screenplay analysis (handled by consuming applications)
+- No automatic voice assignment (handled by consuming applications)
+
+**Rationale**:
+- Single Responsibility Principle: SwiftHablare does voice generation, consuming apps handle character mapping
+- Simpler API surface area
+- Easier to test and maintain
+- Character mapping logic should live in screenplay-specific libraries
+
+**Documentation Updates**:
+- README.md: Clarified library scope and out-of-scope features
+- CLAUDE.md: Added "Library Scope and Philosophy" section
+- AI_DEVELOPMENT_GUIDE.md: Updated project status
+- AI_REFERENCE.md: Replaced Phase 3 character mapping plans with scope clarification
+
+**Impact**:
+- No code changes required (character mapping was never implemented)
+- Only documentation updates
+- Future development will focus on voice generation quality and performance
+
 ### Added - Voice Provider Integration Tests
 
 #### End-to-End Testing with Real Audio

@@ -1,17 +1,25 @@
 # SwiftHablare
 
-**Audio generation library for screenplays** - Convert screenplay elements into spoken audio using Apple TTS or ElevenLabs.
+**Simple voice generation library** - Convert text into spoken audio using Apple TTS or ElevenLabs.
 
 ## Overview
 
-SwiftHablare is a focused, generation-only Swift library that converts `GuionElementModel` instances from SwiftCompartido into spoken audio. It provides:
+SwiftHablare is a focused Swift library that takes text and a voice ID, then generates audio. Simple API: `text + voiceId → audio`.
 
+**Core Features:**
 - **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
 - **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
-- **TypedDataStorage integration**: Saves audio using SwiftCompartido's unified storage model
+- **Cross-platform**: macOS, iOS, and Mac Catalyst support
 - **No UI components**: Pure generation logic - UI lives in consuming apps
-- **No circular dependencies**: Depends on SwiftCompartido, but SwiftCompartido doesn't depend on SwiftHablare
+- **No character mapping**: Voice selection is handled by consuming applications
+
+**Out of Scope:**
+- ❌ Character-to-voice mapping (consuming apps handle this)
+- ❌ Screenplay analysis or structure parsing (consuming apps handle this)
+- ❌ Automatic voice assignment (consuming apps handle this)
+
+SwiftHablare focuses on doing one thing well: generating high-quality audio from text with a specified voice.
 
 ## Installation
 

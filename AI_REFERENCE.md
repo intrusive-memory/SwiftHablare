@@ -496,16 +496,16 @@ import SwiftData
   - screenplayID added to SpeakableItem model
   - Periodic saves, cancellation support
   - 90%+ test coverage (96.85% on task, 100% on models)
-- 🔄 Phase 3: Character Mapping (In Progress)
-- 📋 Phase 4-7: UI Implementation (Planned)
+- ✅ Voice Generation Complete (text + voiceId → audio)
 
-**Next Steps**:
-- Phase 3: CharacterVoiceMapping model and CharacterMappingGenerator
-- Phase 4: Core UI scaffolding with screenplay list
-- Phase 5: Voice assignment interface
-- Phase 6: Audio generation and playback
-- Phase 7: Polish and final integration
-- Phase 8: Sample applications and examples
+**Library Scope**:
+- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice caching and management
+- ✅ Thread-safe audio generation
+- ✅ SwiftData persistence for generated audio
+- ✅ Cross-platform support (macOS, iOS, Catalyst)
+- ❌ Character mapping (handled by consuming applications)
+- ❌ Screenplay analysis (handled by consuming applications)
 
 ---
 
