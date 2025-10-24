@@ -4,188 +4,221 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Project Overview
 
-**SwiftHablaré** is a unified Swift framework for integrating multiple AI services with automatic SwiftData persistence. Currently focused on text-to-speech with screenplay processing capabilities, it's designed to expand into a comprehensive AI service integration framework.
+**SwiftHablaré** is a Swift voice generation library for iOS and Mac Catalyst applications. It provides a simple, unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching and secure API key management.
 
-## Current Development Sprint: UI Sprint (Phase 1-2)
+**Key Focus**: Voice generation only - no UI components, no data persistence beyond voice caching, no screenplay processing. SwiftHablaré is a **generation library**, not an application framework.
 
-### Completed in PR #38
+## Version Information
 
-The UI sprint focuses on building the **ScreenplaySpeech** system - a comprehensive background task management system for processing screenplays into speakable audio content.
-
-#### Phase 1: Background Tasks Architecture ✅
-- **BackgroundTask**: Observable state machine with progress tracking (100% test coverage)
-- **BackgroundTaskManager**: Sequential task execution and queueing (90.48% coverage)
-- **ScreenplayTask**: Protocol for executable background tasks
-- **UI Components**:
-  - `BackgroundTasksPalette`: Floating palette for task visualization
-  - `BackgroundTaskRow`: Individual task display with status badges and progress bars
-
-**Features**:
-- State machine: `queued → running → completed/failed/cancelled`
-- Progress tracking with step-by-step messages
-- Auto-execution with sequential task queuing
-- Cancellation support (preserves partial results)
-- Error capture with user-friendly messages
-- Blocking task indicators
-
-**Test Coverage**:
-- 28 total tests in Phase 1, all passing
-- 100% coverage on BackgroundTask state machine
-- 90.48% coverage on BackgroundTaskManager
-- Integration tests for end-to-end task lifecycle
-
-#### Phase 2: SpeakableItem Generation Task ✅
-- **SpeakableItem Model Enhancement**: Added `screenplayID` property for screenplay tracking
-- **SpeakableItemGenerationTask**: Complete task implementation with progress tracking
-- **Processor Updates**: Updated `SpeechLogicRulesV1_0` and `ScreenplayToSpeechProcessor` for screenplay ID propagation
-
-**Features**:
-- Wraps ScreenplayToSpeechProcessor with progress tracking
-- Reports progress per element processed
-- Handles cancellation gracefully (preserves partial results)
-- Periodic saves every 50 elements to prevent data loss
-- Full integration with BackgroundTaskManager
-
-**Test Coverage**:
-- 15 comprehensive tests covering all scenarios
-- 96.85% coverage on SpeakableItemGenerationTask
-- 100% coverage on SpeakableItem model
-- 92.81% coverage on SpeechLogicRulesV1_0
-- Total: 787 tests passing
+- **Current Version**: 2.0.1
+- **Swift Version**: 6.0+
+- **Minimum Deployments**: iOS 26.0, macCatalyst 15.0
+- **macOS Support**: Build/test compatibility only (placeholder audio for TTS)
+- **Total Tests**: 73 passing
+- **Test Coverage**: 96%+ on voice generation components
+- **Swift Concurrency**: Full Swift 6 compliance
 
 ## Platform Support
 
 ### iOS and Catalyst Only
 
-SwiftHablaré is fully compatible with:
-- **iOS 26.0+**
-- **macCatalyst 15.0+**
-- **NO macOS support** (UIKit-based library)
+SwiftHablaré targets UIKit-based platforms:
+- **iOS 26.0+** ✅ Full TTS support with real audio generation
+- **macCatalyst 15.0+** ✅ Full TTS support with real audio generation
+- **macOS 26.0+** ⚠️ Build/test compatibility only (placeholder audio)
 
-All UI components use UIKit-based APIs:
-- SwiftUI for all user interfaces
-- Cross-platform color APIs (`.systemBackground`, `.systemGray`, etc.)
-- Platform-specific settings access (Settings app for Accessibility > Spoken Content)
-- UIKit-only, no AppKit dependencies
+### Why No macOS Support?
 
-### UIKit-Only Implementation
-
-**VoiceSettingsWidget.swift**:
-- Opens Settings app for Accessibility > Spoken Content
-- Uses `UIApplication.shared.open()` for settings access
-
-**Color API**:
-All UI components use UIKit-compatible color APIs:
-- `Color(.systemBackground)` for backgrounds
-- `Color(.systemGray)` for secondary elements
-- No AppKit dependencies
-
-**UIKit-Compatible Files**:
-- `VoiceSettingsWidget.swift` - Settings app integration
-- `VoiceProviderWidget.swift` - UIKit colors
-- `BackgroundTaskRow.swift` - UIKit colors
-- `AudioPlayerWidget.swift` - UIKit colors
-- `VoicePickerWidget.swift` - UIKit colors
-- `AppleVoiceProvider.swift` - AVFoundation only, no AppKit
+- `AVSpeechSynthesizer.write()` does not properly invoke buffer callbacks on macOS
+- The library uses platform-specific code (`#if os(macOS)`) to return placeholder audio for tests
+- Real text-to-speech synthesis only works on iOS and Mac Catalyst
 
 ## Architecture
 
-### Core Modules
+### Core Components
 
-**SwiftDataModels** (Consolidated Storage):
 ```
-SwiftDataModels/
-├── TypedDataStorage.swift         # ✨ NEW: Unified model for all content types
-├── AIGeneratedContent.swift       # Base model class
-├── GeneratedText.swift            # Text content (legacy)
-├── GeneratedAudio.swift           # Audio content (legacy)
-├── GeneratedImage.swift           # Image content (legacy)
-├── GeneratedVideo.swift           # Video content (legacy)
-├── GeneratedStructuredData.swift  # Structured data (legacy)
-├── VoiceModel.swift               # Voice caching
-└── AudioFile.swift                # Audio file storage
-```
-
-**TypedDataStorage**: Unified model using MIME types
-- **text/** types → `textValue` field
-- **audio/**, **video/**, **image/** → `binaryValue` field
-- **application/**, **multipart/** → Rejected (out of scope)
-- Type-specific metadata stored as JSON
-
-**VoiceGeneration** (Thread-Safe Audio):
-```
-VoiceGeneration/
-├── VoiceGenerationRequest.swift   # ✨ Sendable input DTO
-├── VoiceGenerationResult.swift    # ✨ Sendable output DTO
-└── VoiceGenerationService.swift   # ✨ Actor-based service
-```
-
-**Thread Safety Architecture**:
-```
-Background Thread              Main Thread (@MainActor)
-─────────────────              ────────────────────────
-generate(request)
-├─> Call provider API
-├─> Process audio
-└─> Return result ─────────────> toTypedDataStorage()
-    (Sendable)                    ├─> Create model
-                                  ├─> Insert to context
-                                  └─> Save
-```
-
-**ScreenplaySpeech** (UI Sprint):
-```
-ScreenplaySpeech/
-├── Tasks/
-│   ├── BackgroundTask.swift          # State machine for async tasks
-│   ├── BackgroundTaskManager.swift   # Task queue and execution
-│   ├── ScreenplayTask.swift          # Task protocol
-│   └── SpeakableItemGenerationTask.swift  # Screenplay processing task
-├── UI/
-│   ├── BackgroundTasksPalette.swift  # Floating task palette
-│   └── BackgroundTaskRow.swift       # Task UI component
+SwiftHablare/
+├── VoiceProvider.swift              # Protocol for voice providers
 ├── Models/
-│   ├── SpeakableItem.swift           # SwiftData model with screenplayID
-│   └── SpeakableAudio.swift          # Audio versions for items
-├── Processing/
-│   └── ScreenplayToSpeechProcessor.swift  # Screenplay → SpeakableItems
-└── Logic/
-    └── SpeechLogicRulesV1_0.swift    # Processing rules
+│   └── Voice.swift                  # Voice model (id, name, language, etc.)
+├── Providers/
+│   ├── AppleVoiceProvider.swift     # Apple TTS implementation
+│   └── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
+├── Generation/
+│   └── GenerationService.swift      # Actor-based generation service
+├── Security/
+│   └── KeychainManager.swift        # Secure API key storage
+└── SwiftDataModels/
+    └── VoiceCacheModel.swift        # Voice caching with SwiftData
 ```
 
-**UI Widgets** (Catalyst-compatible):
+### No UI Components
+
+SwiftHablaré is a **generation library only**. There are NO UI components:
+- ❌ No widgets
+- ❌ No views
+- ❌ No SwiftUI components
+- ❌ No audio players
+- ❌ No voice pickers
+
+Consuming applications are responsible for building their own UI using SwiftHablaré's generation APIs.
+
+### No Data Persistence (Beyond Voice Caching)
+
+SwiftHablaré does NOT provide:
+- ❌ TypedDataStorage
+- ❌ SwiftData models for generated content
+- ❌ Audio file storage
+- ❌ Persistence coordinators
+
+The only SwiftData model is `VoiceCacheModel` for caching fetched voices to improve performance.
+
+### No Screenplay Processing
+
+SwiftHablaré does NOT include:
+- ❌ ScreenplaySpeech system
+- ❌ BackgroundTask/BackgroundTaskManager
+- ❌ SpeakableItem models
+- ❌ Screenplay-to-speech processors
+
+These were removed in version 2.0. SwiftHablaré is a focused voice generation library.
+
+## Voice Providers
+
+### AppleVoiceProvider
+
+**Platform-Specific Behavior:**
+```swift
+#if os(macOS)
+// Returns placeholder AIFF audio (silent) for test compatibility
+// Real TTS not available on macOS due to AVSpeechSynthesizer.write() limitation
+#else
+// iOS/Catalyst: Real speech synthesis using AVSpeechSynthesizer.write()
+// Captures audio buffers and writes to AIFF file
+#endif
 ```
-UI/
-├── VoiceSettingsWidget.swift      # API key and voice settings
-├── VoiceProviderWidget.swift      # Provider selection
-├── VoicePickerWidget.swift        # Voice selection
-├── AudioPlayerWidget.swift        # Audio playback
-├── TextConfigurationView.swift    # Text generation config
-└── CrossPlatformColors.swift      # Color helpers
+
+**Features:**
+- Always configured (no API key required)
+- Fetches voices from `AVSpeechSynthesisVoice`
+- Filters voices by system language
+- Estimates duration using text length heuristics
+- Generates AIFF format audio
+
+**Test Coverage:**
+- 22 unit tests (100% coverage)
+- 4 integration tests (skipped on macOS)
+
+### ElevenLabsVoiceProvider
+
+**Features:**
+- Requires API key (stored in Keychain)
+- Fetches voices from ElevenLabs API
+- Generates MP3 format audio
+- Supports ephemeral API keys for testing
+
+**Test Coverage:**
+- 30 unit tests (95%+ coverage)
+- 5 integration tests (conditional - require API key)
+
+## Key Patterns
+
+### 1. Voice Generation
+
+**Basic Usage:**
+```swift
+// Initialize provider
+let provider = AppleVoiceProvider()
+// OR
+let provider = ElevenLabsVoiceProvider()
+
+// Fetch available voices
+let voices = try await provider.fetchVoices()
+
+// Generate audio
+let audioData = try await provider.generateAudio(
+    text: "Hello, world!",
+    voiceId: voices.first!.id
+)
 ```
 
-### Testing Strategy
+### 2. Thread-Safe Generation with GenerationService
 
-**Coverage Targets**:
-- Unit Tests: 95%+ coverage
-- Integration Tests: 90%+ coverage
-- UI Tests: Xcode Previews + manual testing
-- Performance Tests: For large datasets (500+ elements)
+**Recommended Pattern:**
+```swift
+// Create service (actor for thread safety)
+let service = GenerationService(voiceProvider: provider)
 
-**Current Status**:
-- 787 total tests passing
-- 96%+ average coverage on ScreenplaySpeech modules
-- 100% coverage on critical paths (BackgroundTask, SpeakableItem)
-- Swift 6 strict concurrency compliance
+// Generate audio (thread-safe)
+let audioData = try await service.generate(
+    text: "Hello, world!",
+    voiceId: "voice-id",
+    voiceName: "Voice Name"
+)
+```
+
+**Benefits:**
+- ✅ Actor-based synchronization (no data races)
+- ✅ Swift 6 concurrency compliant
+- ✅ Automatic thread management
+- ✅ Clean separation of concerns
+
+### 3. API Key Management
+
+**Storing API Keys:**
+```swift
+let keychain = KeychainManager()
+
+// Store API key
+try keychain.save(
+    key: "elevenlabs-api-key",
+    value: "your-api-key-here"
+)
+
+// Retrieve API key
+let apiKey = try keychain.get(key: "elevenlabs-api-key")
+
+// Delete API key
+try keychain.delete(key: "elevenlabs-api-key")
+```
+
+**Security:**
+- ✅ Uses system Keychain for secure storage
+- ✅ Thread-safe operations
+- ✅ Automatic cleanup on delete
+
+### 4. Voice Caching
+
+**SwiftData Model:**
+```swift
+@Model
+public final class VoiceCacheModel {
+    @Attribute(.unique) public var id: String
+    public var name: String
+    public var providerId: String
+    public var language: String?
+    public var locality: String?
+    public var gender: String?
+    public var cachedAt: Date
+}
+```
+
+**Usage:**
+```swift
+// Voices are automatically cached when fetched
+// Cache reduces API calls and improves performance
+// Consuming apps should invalidate cache periodically
+```
 
 ## Development Workflow
 
 ### For New Features
 
 1. **Read Documentation**:
-   - `AI_DEVELOPMENT_GUIDE.md` - Comprehensive development patterns
-   - `AI_REFERENCE.md` - Quick reference for common tasks
-   - `SCREENPLAY_UI_SPRINT_METHODOLOGY.md` - UI sprint phases
+   - This file (CLAUDE.md)
+   - README.md for API overview
+   - Test files for usage examples
 
 2. **Plan with Todos**:
    - Use TodoWrite tool for complex tasks
@@ -194,18 +227,18 @@ UI/
 
 3. **Write Tests First** (TDD approach):
    - Unit tests for core logic
-   - Integration tests for workflows
-   - Xcode previews for UI components
+   - Integration tests for end-to-end workflows
+   - Aim for 95%+ coverage
 
 4. **Implement Features**:
    - Follow existing patterns
-   - Use `@MainActor` for UI code
+   - Use actors for thread safety
    - Ensure Swift 6 concurrency compliance
 
 5. **Verify Coverage**:
    - Run tests: `swift test --enable-code-coverage`
    - Check coverage: `xcrun llvm-cov report`
-   - Aim for 90%+ on all new code
+   - Aim for 95%+ on all new code
 
 ### For Bug Fixes
 
@@ -214,304 +247,130 @@ UI/
 3. **Verify**: Ensure the test passes and existing tests still work
 4. **Document**: Update comments and docs as needed
 
-### For iOS/Catalyst Work
-
-1. **Use UIKit-Compatible APIs**:
-   - `Color(.systemBackground)` for all color needs
-   - UIKit-based APIs only, no AppKit
-   - SwiftUI for all user interfaces
-
-2. **Test on Multiple Platforms**:
-   - Build for iOS and Catalyst
-   - Verify UI layouts work on both platforms
-   - Test platform-specific features (settings, file access, etc.)
-
 ## Code Style
 
-### SwiftUI Components
+### Voice Provider Implementation
 
 ```swift
-public struct MyWidget: View {
-    @ObservedObject var manager: MyManager
-    @State private var selection: String?
+public final class MyVoiceProvider: VoiceProvider {
+    public let providerId = "my-provider"
+    public let displayName = "My Provider"
+    public let requiresAPIKey = true
 
-    public init(manager: MyManager) {
-        self.manager = manager
+    public func isConfigured() -> Bool {
+        // Check if API key exists
+        return (try? keychain.get(key: "\(providerId)-api-key")) != nil
     }
 
-    public var body: some View {
-        VStack(spacing: 16) {
-            // Content
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))  // Cross-platform!
-                .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
-        )
-    }
-}
-
-#Preview {
-    MyWidget(manager: MyManager())
-}
-```
-
-### Background Tasks
-
-```swift
-@MainActor
-final class MyTask: ScreenplayTask {
-    let task: BackgroundTask
-
-    init(name: String, isBlocking: Bool = false) {
-        self.task = BackgroundTask(name: name, isBlocking: isBlocking)
+    public func fetchVoices() async throws -> [Voice] {
+        // Fetch voices from API
+        // Return Voice models
     }
 
-    func execute() async throws {
-        task.state = .running
-        task.totalSteps = 100
+    public func generateAudio(text: String, voiceId: String) async throws -> Data {
+        // Generate audio using API
+        // Return audio data (MP3, AIFF, etc.)
+    }
 
-        for step in 0..<100 {
-            // Check for cancellation
-            if task.state == .cancelled {
-                throw CancellationError()
-            }
+    public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
+        // Estimate duration based on text length
+        // Return estimated seconds
+    }
 
-            task.currentStep = step
-            task.message = "Processing item \(step)..."
-
-            // Do work...
-        }
-
-        task.state = .completed
+    public func isVoiceAvailable(voiceId: String) async -> Bool {
+        // Check if voice is available
+        // Return true/false
     }
 }
 ```
 
-### SwiftData Models
+### Actor-Based Services
 
-**TypedDataStorage** (Preferred for new code):
 ```swift
-// Unified model for all content types
-let record = TypedDataStorage(
-    providerId: "elevenlabs",
-    requestorID: "elevenlabs.audio.tts",
-    mimeType: "audio/mpeg",           // Determines storage field
-    binaryValue: audioData,            // For audio/*, video/*, image/*
-    prompt: "Speak this text",
-    metadata: try? JSONSerialization.data(withJSONObject: [
-        "voiceID": "voice123",
-        "voiceName": "Rachel",
-        "durationSeconds": 10.5
-    ])
-)
-modelContext.insert(record)
-try modelContext.save()
-```
-
-**Domain-Specific Models**:
-```swift
-@Model
-public final class MyModel {
-    @Attribute(.unique) public var id: UUID
-    public var createdAt: Date
-    public var screenplayID: String  // For screenplay-related models
-
-    public init(screenplayID: String) {
-        self.id = UUID()
-        self.createdAt = Date()
-        self.screenplayID = screenplayID
-    }
-}
-```
-
-**MIME Type Validation**:
-```swift
-// Validate MIME type before storage
-try MimeTypeHelper.validate("audio/mpeg")  // ✅ OK
-try MimeTypeHelper.validate("text/plain")  // ✅ OK
-try MimeTypeHelper.validate("application/json")  // ❌ Throws unsupportedMimeType
-```
-
-## Key Patterns
-
-### 1. Thread-Safe Voice Generation
-
-**Using VoiceGenerationService** (Recommended):
-```swift
-// Create service (actor for thread safety)
-let service = VoiceGenerationService(voiceProvider: provider)
-
-// Create request (Sendable - can cross thread boundaries)
-let request = VoiceGenerationRequest(
-    text: "Hello, world!",
-    voiceId: "voice123",
-    providerId: "elevenlabs",
-    requestorId: "elevenlabs.audio.tts",
-    mimeType: "audio/mpeg"
-)
-
-// Option 1: Manual two-step process
-let result = try await service.generate(request)  // Background thread
-await MainActor.run {
-    let record = result.toTypedDataStorage()
-    modelContext.insert(record)
-    try? modelContext.save()
-}
-
-// Option 2: Convenience method (must be on @MainActor)
-@MainActor
-func generateAndSave() async throws {
-    let record = try await service.generateAndSave(request, to: modelContext)
-}
-```
-
-**Key Points**:
-- ✅ `VoiceGenerationService` is an **actor** (automatic synchronization)
-- ✅ `VoiceGenerationRequest` and `VoiceGenerationResult` are **Sendable**
-- ✅ Generation happens on **background thread** (non-blocking)
-- ✅ SwiftData operations on **@MainActor** (thread-safe)
-- ✅ No data races or concurrency issues
-
-### 2. TypedDataStorage with MIME Types
-
-**Storing Different Content Types**:
-```swift
-// Text content
-let textRecord = TypedDataStorage(
-    providerId: "openai",
-    requestorID: "openai.text.gpt4",
-    mimeType: "text/plain",
-    textValue: "Generated text...",    // text/* uses textValue
-    prompt: "Write a story"
-)
-
-// Audio content
-let audioRecord = TypedDataStorage(
-    providerId: "elevenlabs",
-    requestorID: "elevenlabs.audio.tts",
-    mimeType: "audio/mpeg",
-    binaryValue: audioData,             // audio/* uses binaryValue
-    prompt: "Speak this"
-)
-
-// Image content
-let imageRecord = TypedDataStorage(
-    providerId: "openai",
-    requestorID: "openai.image.dalle3",
-    mimeType: "image/png",
-    binaryValue: imageData,             // image/* uses binaryValue
-    prompt: "Generate image"
-)
-```
-
-**Querying by Type**:
-```swift
-let descriptor = FetchDescriptor<TypedDataStorage>()
-let allRecords = try modelContext.fetch(descriptor)
-
-// Filter by MIME type
-let audioRecords = allRecords.filter { $0.mimeType.hasPrefix("audio/") }
-let textRecords = allRecords.filter { MimeTypeHelper.isTextMimeType($0.mimeType) }
-```
-
-**Retrieving Content**:
-```swift
-// Get text content (validates MIME type is text/*)
-let text = try record.getText()
-
-// Get binary content
-let data = try record.getBinary()
-
-// Get metadata
-if let metadata = try record.decodeMetadata() {
-    let duration = metadata["durationSeconds"] as? Double
-    let voiceID = metadata["voiceID"] as? String
-}
-```
-
-### 3. Progress Tracking
-```swift
-task.totalSteps = items.count
-for (index, item) in items.enumerated() {
-    task.currentStep = index
-    task.message = "Processing \(item.name)..."
-    // Process item
-}
-```
-
-### 4. Sendable DTOs for Thread Safety
-
-**Creating Sendable Data Transfer Objects**:
-```swift
-// ✅ Good - Sendable struct with immutable properties
-public struct MyRequest: Sendable {
-    public let text: String
-    public let voiceId: String
-    public let metadata: [String: String]  // Dictionary is Sendable
-
-    // All properties are 'let' (immutable)
-    // No classes or mutable state
-}
-
-// ❌ Bad - Non-Sendable class
-public class MyRequest {
-    public var text: String  // Mutable property
-    public var voiceId: String
-}
-```
-
-**Passing Data Between Threads**:
-```swift
-// Background thread creates Sendable result
 actor MyService {
-    func process(_ request: MyRequest) async -> MyResult {
-        // Process on background thread
-        let data = await someOperation()
+    private let provider: VoiceProvider
 
-        // Return Sendable result
-        return MyResult(data: data)  // ✅ Safe to return
+    init(voiceProvider: VoiceProvider) {
+        self.provider = voiceProvider
+    }
+
+    func process(_ request: MyRequest) async throws -> MyResult {
+        // Actor ensures thread-safe operations
+        // All state access is synchronized
+        return MyResult()
     }
 }
+```
 
-// Main thread receives and uses result
-@MainActor
-func handleResult() async {
-    let result = await service.process(request)  // ✅ Safe transfer
-    // Use result on main thread
+### Platform-Specific Code
+
+```swift
+#if os(macOS)
+// macOS-specific implementation
+// Usually placeholder/mock for testing
+#else
+// iOS/Catalyst implementation
+// Real functionality
+#endif
+```
+
+## Testing Strategy
+
+### Unit Tests
+
+**Coverage Targets:**
+- Voice Providers: 95%+
+- GenerationService: 95%+
+- KeychainManager: 95%+
+- Models: 100%
+
+**Current Status:**
+- 73 total tests passing
+- 96%+ average coverage
+- 0 test failures
+- Swift 6 strict concurrency compliance
+
+### Integration Tests
+
+**Apple Voice Provider:**
+```swift
+func testEndToEndSpeechGeneration() async throws {
+    #if os(macOS)
+    throw XCTSkip("Apple TTS integration test skipped on macOS")
+    #endif
+
+    // Test on iOS/Catalyst only
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+    let audioData = try await provider.generateAudio(text: "Test", voiceId: voices.first!.id)
+
+    // Validate audio
+    XCTAssertGreaterThan(audioData.count, 1024)
 }
 ```
 
-### 5. Cancellation Handling
+**ElevenLabs Voice Provider:**
 ```swift
-if task.state == .cancelled {
-    throw CancellationError()
+func testEndToEndWithElevenLabs() async throws {
+    guard let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] else {
+        throw XCTSkip("ELEVENLABS_API_KEY not set")
+    }
+
+    // Test with real API
+    let provider = ElevenLabsVoiceProvider()
+    // ... test implementation
 }
 ```
 
-### 6. Error Handling
-```swift
-do {
-    try await performOperation()
-    task.state = .completed
-} catch {
-    task.state = .failed
-    task.error = error
-}
-```
+### Performance Tests
 
-### 7. Periodic Saves
 ```swift
-let saveInterval = 50
-for (index, item) in items.enumerated() {
-    // Process item
-
-    if (index + 1) % saveInterval == 0 {
-        try modelContext.save()
+func testVoiceFetchingPerformance() async throws {
+    measure {
+        let voices = try await provider.fetchVoices()
+        XCTAssertFalse(voices.isEmpty)
     }
 }
-try modelContext.save()  // Final save
 ```
 
 ## Quality Gates
@@ -519,223 +378,97 @@ try modelContext.save()  // Final save
 Before submitting a PR:
 
 - ✅ All tests pass
-- ✅ 90%+ test coverage on new code
+- ✅ 95%+ test coverage on new code
 - ✅ Swift 6 strict concurrency compliance
 - ✅ No compiler warnings
-- ✅ Xcode previews work
 - ✅ Documentation updated
 - ✅ CHANGELOG.md updated
-- ✅ Cross-platform compatibility verified (if UI changes)
+- ✅ Platform compatibility verified (iOS/Catalyst)
+
+## Common Tasks
+
+### Add a New Voice Provider
+
+1. Create class conforming to `VoiceProvider`
+2. Implement all required methods
+3. Add API key support if needed
+4. Write comprehensive tests (20+ test cases)
+5. Update documentation
+
+### Generate Audio
+
+```swift
+let provider = AppleVoiceProvider()
+let voices = try await provider.fetchVoices()
+let audioData = try await provider.generateAudio(
+    text: "Hello, world!",
+    voiceId: voices.first!.id
+)
+// Use audioData in your app
+```
+
+### Cache Voices in SwiftData
+
+```swift
+@MainActor
+func cacheVoices() async throws {
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+
+    for voice in voices {
+        let cache = VoiceCacheModel(
+            id: voice.id,
+            name: voice.name,
+            providerId: voice.providerId,
+            language: voice.language,
+            locality: voice.locality,
+            gender: voice.gender
+        )
+        modelContext.insert(cache)
+    }
+    try modelContext.save()
+}
+```
 
 ## Resources
 
 ### Documentation
-- `AI_DEVELOPMENT_GUIDE.md` - Comprehensive guide for AI assistants
-- `AI_REFERENCE.md` - Quick reference
-- `README.md` - Project overview
-- `Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md` - UI sprint phases
-- `Docs/SCREENPLAY_UI_DECISIONS.md` - Design decisions
-- `Docs/TYPED_DATA_STORAGE.md` - ✨ TypedDataStorage guide
-- `Docs/VOICE_GENERATION_THREAD_SAFETY.md` - ✨ Thread safety architecture
-- `Docs/SWIFTDATA_MODELS_ORGANIZATION.md` - Model organization
-- `Docs/RECENT_CHANGES_SUMMARY.md` - Latest changes overview
+- `README.md` - Project overview and API documentation
+- `CHANGELOG.md` - Version history
+- `Tests/README.md` - Test suite documentation
+- `VOICE_PROVIDER_INTEGRATION_GUIDE.md` - Provider integration guide
 
 ### Testing
 - `Tests/SwiftHablareTests/` - All test suites
-- `Docs/Previous/PHASE1_TESTING_STRATEGY.md` - Testing methodology
+  - `AppleVoiceProviderTests.swift` - Apple provider tests
+  - `GenerationServiceTests.swift` - Service tests
+  - `VoiceModelTests.swift` - Model tests
+  - `Integration/` - End-to-end integration tests
 
 ### Examples
-- `Examples/Hablare/` - Sample application
-
-## Common Tasks
-
-### Generate Audio with Thread Safety
-
-**Recommended Pattern**:
-```swift
-// 1. Create service
-let service = VoiceGenerationService(voiceProvider: provider)
-
-// 2. Create request
-let request = VoiceGenerationRequest(
-    text: "Text to speak",
-    voiceId: "voice123",
-    providerId: "elevenlabs",
-    requestorId: "elevenlabs.audio.tts"
-)
-
-// 3. Generate and save (must be on @MainActor)
-@MainActor
-func generate() async throws {
-    let record = try await service.generateAndSave(request, to: modelContext)
-    print("Saved audio: \(record.id)")
-}
-```
-
-### Store Content with TypedDataStorage
-
-**Text Content**:
-```swift
-let record = TypedDataStorage(
-    providerId: "openai",
-    requestorID: "openai.text.gpt4",
-    mimeType: "text/plain",
-    textValue: generatedText,
-    prompt: originalPrompt
-)
-modelContext.insert(record)
-try modelContext.save()
-```
-
-**Audio Content**:
-```swift
-let record = TypedDataStorage(
-    providerId: "elevenlabs",
-    requestorID: "elevenlabs.audio.tts",
-    mimeType: "audio/mpeg",
-    binaryValue: audioData,
-    prompt: textToSpeak,
-    metadata: try? JSONSerialization.data(withJSONObject: [
-        "voiceID": voiceId,
-        "durationSeconds": duration
-    ])
-)
-modelContext.insert(record)
-try modelContext.save()
-```
-
-### Add a New Background Task
-1. Create class conforming to `ScreenplayTask`
-2. Implement `execute()` method with progress tracking
-3. Add cancellation checks
-4. Write comprehensive tests (15+ test cases)
-5. Update documentation
-
-### Add a New UI Widget
-1. Create SwiftUI view with public init
-2. Use UIKit-compatible colors (`Color(.systemBackground)`)
-3. Add Xcode preview
-4. Test on iOS and Catalyst
-5. Document in CLAUDE.md
-
-### Create Thread-Safe Service
-1. Use `actor` for the service class
-2. Create `Sendable` request/result DTOs (structs with `let` properties)
-3. Background generation returns `Sendable` result
-4. @MainActor for SwiftData operations
-5. Add cancellation support
-
-### Update for iOS/Catalyst Compatibility
-1. Use UIKit-compatible APIs only
-2. Use `Color(.systemBackground)` for all color needs
-3. Remove any AppKit dependencies
-4. Test on iOS and Catalyst platforms
-5. Update documentation
-
-## Version Information
-
-- **Current Version**: 2.0 (in development)
-- **Swift Version**: 6.0+
-- **Minimum Deployments**: iOS 26.0, macCatalyst 15.0 (no macOS)
-- **Total Tests**: 787 passing
-- **Average Coverage**: 96%+ on ScreenplaySpeech modules
-- **SwiftData Models**: 15 total (9 general, 2 ScreenplaySpeech, 4 TypedData)
-- **Thread Safety**: Full Swift 6 concurrency compliance
-- **Platform Support**: iOS 26+ and Mac Catalyst 15+ only (UIKit-based, no macOS)
-- **UI Components**: None (pure generation library)
-
-## Recent Changes
-
-### TypedDataStorage Consolidation
-
-**Before**: 4 separate models (GeneratedTextRecord, GeneratedAudioRecord, etc.)
-**After**: 1 unified TypedDataStorage model with MIME type routing
-
-**Migration**:
-```swift
-// Old (deprecated but still works)
-let record = GeneratedAudioRecord(
-    audioData: data,
-    format: "mp3",
-    voiceID: "voice123"
-)
-
-// New (recommended)
-let record = TypedDataStorage(
-    mimeType: "audio/mpeg",
-    binaryValue: data,
-    metadata: try? JSONSerialization.data(withJSONObject: [
-        "voiceID": "voice123"
-    ])
-)
-```
-
-### Thread-Safe Voice Generation
-
-**New Architecture**:
-- `VoiceGenerationService` (actor) - Thread-safe coordinator
-- `VoiceGenerationRequest` (Sendable) - Input DTO
-- `VoiceGenerationResult` (Sendable) - Output DTO
-- Background generation with main thread SwiftData saves
-
-**Benefits**:
-- Swift 6 concurrency compliant
-- No data races
-- Responsive UI during generation
-- Proper error propagation
-- Cancellation support
-
-### Voice Provider Test Suite Enhancements
-
-**Apple Voice Provider**:
-- Generates audio using AVSpeechSynthesizer.write() (AIFF format)
-- UIKit-only implementation for iOS and Catalyst
-- Comprehensive audio validation (file size, duration, non-zero samples)
-- End-to-end integration tests with audio artifacts
-- Consistent AIFF output format across platforms
-
-**ElevenLabs Voice Provider**:
-- Ephemeral API key support for testing (bypasses keychain)
-- Cleaner test setup/teardown (no keychain pollution)
-- End-to-end integration tests with real API calls
-- Conditional test execution (skips if no API key available)
-- Audio artifact generation for verification
-
-**Test Improvements**:
-- Empty text validation (throws `.invalidRequest` error)
-- Audio quality validation (duration, sample rate, non-zero content)
-- Test artifacts saved to `.build/*/TestArtifacts/` directory (AIFF format)
-- Updated .gitignore to exclude `.aiff` files and test artifacts
-- All tests pass on iOS and Catalyst
-- ElevenLabs tests skip gracefully without API key
-
-**CI/CD Integration**:
-- Integration tests run automatically on all PRs via GitHub Actions
-- Apple Voice Provider tests always run (no API key needed)
-- ElevenLabs tests run when `ELEVENLABS_API_KEY` secret is configured
-- Test artifacts (audio files) uploaded to GitHub Actions artifacts
-- Integration test summary displayed in GitHub Actions summary
+- `Examples/Hablare/` - Sample application (minimal reference)
 
 ## Library Scope and Philosophy
 
 **SwiftHablaré is a focused voice generation library**:
-- Takes text and voice ID (provider + voice identifier) as input
+- Takes text and voice ID as input
 - Generates audio using the specified voice provider
-- No character mapping or screenplay analysis - handled by consuming applications
-- Simple, predictable API: `text + voiceId → audio`
+- Returns audio data for the consuming application to use
 
 **Out of Scope**:
-- ❌ Character-to-voice mapping (handled by consuming apps)
-- ❌ Character detection from screenplays (handled by consuming apps)
-- ❌ Automatic voice assignment (handled by consuming apps)
-- ❌ Screenplay structure analysis (handled by consuming apps)
+- ❌ UI components (apps build their own)
+- ❌ Data persistence (beyond voice caching)
+- ❌ Audio playback (apps handle playback)
+- ❌ Screenplay processing
+- ❌ Background task management
+- ❌ Character-to-voice mapping
 
 **In Scope**:
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
-- ✅ Voice caching and management
+- ✅ Voice fetching and caching
 - ✅ Thread-safe audio generation
-- ✅ SwiftData persistence for generated audio
-- ✅ Cross-platform support (iOS, Catalyst)
+- ✅ API key management
+- ✅ Platform compatibility (iOS, Catalyst)
 
 ---
 
