@@ -41,6 +41,10 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     // MARK: - End-to-End Integration Tests
 
     func testEndToEndSpeechGeneration() async throws {
+        #if os(macOS)
+        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        #endif
+
         print("🎤 Starting end-to-end Apple TTS speech generation test...")
 
         // Step 1: Fetch available voices
@@ -136,6 +140,10 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithMultipleVoices() async throws {
+        #if os(macOS)
+        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        #endif
+
         print("🎤 Testing with multiple Apple voices...")
 
         let voices = try await provider.fetchVoices()
@@ -166,6 +174,10 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithLongText() async throws {
+        #if os(macOS)
+        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        #endif
+
         print("🎤 Testing with longer text...")
 
         let voices = try await provider.fetchVoices()
@@ -203,6 +215,10 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
     @MainActor
     func testEndToEndWithSwiftDataPersistence() async throws {
+        #if os(macOS)
+        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        #endif
+
         print("🎤 Starting end-to-end test with SwiftData persistence...")
 
         // Step 1: Create in-memory SwiftData container
