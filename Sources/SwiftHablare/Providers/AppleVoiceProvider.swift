@@ -7,9 +7,6 @@
 
 import AVFoundation
 import Foundation
-#if os(macOS)
-import AppKit
-#endif
 
 /// Apple Text-to-Speech implementation of VoiceProvider
 public final class AppleVoiceProvider: VoiceProvider {
@@ -20,7 +17,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     public init() {}
 
     public func isConfigured() -> Bool {
-        // Apple TTS is always available on macOS
+        // Apple TTS is always available on iOS/Catalyst
         return true
     }
 
@@ -100,62 +97,6 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     private func generateAudioWithAVSpeechSynthesizer(text: String, voiceId: String) async throws -> Data {
-        #if os(macOS) && !targetEnvironment(macCatalyst)
-        // Use NSSpeechSynthesizer on native macOS - more reliable than AVSpeechSynthesizer.write()
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                // Validate text is not empty
-                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    continuation.resume(throwing: VoiceProviderError.invalidRequest("Text cannot be empty"))
-                    return
-                }
-
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString)
-                    .appendingPathExtension("aiff")
-
-                let synthesizer = NSSpeechSynthesizer()
-
-                // Find the voice by identifier
-                let voices = NSSpeechSynthesizer.availableVoices
-                if let voice = voices.first(where: { $0.rawValue.contains(voiceId) || voiceId.contains($0.rawValue) }) {
-                    synthesizer.setVoice(voice)
-                }
-
-                // Start speaking to file
-                let success = synthesizer.startSpeaking(text, to: tempURL)
-
-                if !success {
-                    continuation.resume(throwing: VoiceProviderError.networkError("Failed to start speech synthesis"))
-                    return
-                }
-
-                // Wait for synthesis to complete
-                while synthesizer.isSpeaking {
-                    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
-                }
-
-                // Read the generated file
-                do {
-                    guard FileManager.default.fileExists(atPath: tempURL.path) else {
-                        throw VoiceProviderError.networkError("Audio file was not created")
-                    }
-
-                    let data = try Data(contentsOf: tempURL)
-                    try? FileManager.default.removeItem(at: tempURL)
-
-                    if data.isEmpty {
-                        throw VoiceProviderError.networkError("Generated audio file is empty")
-                    }
-
-                    continuation.resume(returning: data)
-                } catch {
-                    continuation.resume(throwing: VoiceProviderError.networkError("Failed to read audio file: \(error.localizedDescription)"))
-                }
-            }
-        }
-        #else
-        // iOS/Catalyst: Use AVSpeechSynthesizer.write()
         // Validate text is not empty
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw VoiceProviderError.invalidRequest("Text cannot be empty")
@@ -190,7 +131,7 @@ public final class AppleVoiceProvider: VoiceProvider {
                     }
                     pcmBuffer.frameLength = frameCount
 
-                    // Write to AIFF file for consistency with native macOS
+                    // Write to AIFF file
                     let settings: [String: Any] = [
                         AVFormatIDKey: kAudioFormatLinearPCM,
                         AVSampleRateKey: 44100.0,
@@ -211,7 +152,6 @@ public final class AppleVoiceProvider: VoiceProvider {
                 }
             }
         }
-        #endif
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {

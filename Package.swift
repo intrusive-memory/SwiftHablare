@@ -26,7 +26,6 @@ let compartidoDependency: Package.Dependency = useLocalCompartido
 let package = Package(
     name: "SwiftHablare",
     platforms: [
-        .macOS(.v26),
         .iOS(.v26),
         .macCatalyst(.v26)
     ],
