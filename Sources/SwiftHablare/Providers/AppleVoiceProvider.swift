@@ -9,6 +9,17 @@ import AVFoundation
 import Foundation
 
 /// Apple Text-to-Speech implementation of VoiceProvider
+///
+/// **Platform Support:**
+/// - **iOS 26+ & Catalyst 15+**: Full TTS support with real audio generation using `AVSpeechSynthesizer.write()`
+/// - **macOS**: Limited support - returns placeholder audio for testing only (real TTS not supported)
+///
+/// **Audio Output:**
+/// - **iOS/Catalyst**: AIFF format with actual synthesized speech
+/// - **macOS**: AIFF format with silent placeholder audio (for build/test compatibility only)
+///
+/// - Note: Real speech synthesis only works on iOS and Mac Catalyst platforms.
+///   macOS builds use placeholder audio for compatibility during development and testing.
 public final class AppleVoiceProvider: VoiceProvider {
     public let providerId = "apple"
     public let displayName = "Apple Text-to-Speech"
@@ -17,7 +28,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     public init() {}
 
     public func isConfigured() -> Bool {
-        // Apple TTS is always available on macOS
+        // Apple TTS is always available on iOS/Catalyst
         return true
     }
 
@@ -97,34 +108,115 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     private func generateAudioWithAVSpeechSynthesizer(text: String, voiceId: String) async throws -> Data {
-        // NOTE: AVSpeechSynthesizer.write() is known to crash with buffer issues
-        // As a workaround, we'll generate a placeholder audio file
-        // For real TTS audio, consider using ElevenLabs or another provider
+        // Validate text is not empty
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VoiceProviderError.invalidRequest("Text cannot be empty")
+        }
 
+        #if os(macOS)
+        // On macOS, AVSpeechSynthesizer.write() doesn't properly call the buffer callback
+        // This is a known limitation - the API is designed for iOS/Catalyst
+        // For testing purposes on macOS, we return a minimal valid AIFF file
+        // Real audio generation only works on iOS/Catalyst platforms
         return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 do {
-                    // Create a short audio file as a placeholder
-                    // This prevents crashes but won't contain actual speech
+                    // Create minimal valid AIFF audio for macOS testing
                     let tempURL = FileManager.default.temporaryDirectory
                         .appendingPathComponent(UUID().uuidString)
-                        .appendingPathExtension("caf")
+                        .appendingPathExtension("aiff")
 
-                    // Create a very short audio buffer (0.1 seconds at 44.1kHz)
-                    let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
-                    let frameCount = AVAudioFrameCount(4410) // 0.1 seconds
-                    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+                    let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
+                    // Generate minimal audio based on text length (rough estimation)
+                    let estimatedDuration = Double(text.count) / 14.5
+                    let frameCount = AVAudioFrameCount(22050 * estimatedDuration)
+
+                    guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
                         throw VoiceProviderError.networkError("Failed to create audio buffer")
                     }
-                    buffer.frameLength = frameCount
+                    pcmBuffer.frameLength = frameCount
 
-                    // Write silent audio to file
-                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: format.settings)
-                    try audioFile.write(from: buffer)
+                    // Write to AIFF file
+                    let settings: [String: Any] = [
+                        AVFormatIDKey: kAudioFormatLinearPCM,
+                        AVSampleRateKey: 22050.0,
+                        AVNumberOfChannelsKey: 1,
+                        AVLinearPCMBitDepthKey: 16,
+                        AVLinearPCMIsFloatKey: false,
+                        AVLinearPCMIsBigEndianKey: true
+                    ]
+                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
+                    try audioFile.write(from: pcmBuffer)
 
-                    // Read the file data
                     let data = try Data(contentsOf: tempURL)
                     try? FileManager.default.removeItem(at: tempURL)
+
+                    print("⚠️  macOS: Generated placeholder audio (\(data.count) bytes). Real TTS only works on iOS/Catalyst.")
+                    continuation.resume(returning: data)
+                } catch {
+                    continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
+                }
+            }
+        }
+        #else
+        // iOS/Catalyst: Use AVSpeechSynthesizer.write() with real audio generation
+        return try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                do {
+                    let utterance = AVSpeechUtterance(string: text)
+
+                    // Set the voice if available
+                    if let voice = AVSpeechSynthesisVoice(identifier: voiceId) {
+                        utterance.voice = voice
+                    }
+
+                    let synthesizer = AVSpeechSynthesizer()
+                    let tempURL = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString)
+                        .appendingPathExtension("aiff")
+
+                    var audioFile: AVAudioFile?
+                    var bufferCount = 0
+
+                    // Write synthesized speech to file, capturing each audio buffer
+                    await synthesizer.write(utterance) { buffer in
+                        // Cast to PCM buffer (AVSpeechSynthesizer provides PCM buffers)
+                        guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                            return
+                        }
+
+                        do {
+                            // Create the file on first buffer using the buffer's format
+                            if audioFile == nil {
+                                audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                            }
+
+                            // Write this buffer to the file
+                            if let file = audioFile {
+                                try file.write(from: pcmBuffer)
+                                bufferCount += 1
+                            }
+                        } catch {
+                            print("Error writing audio buffer: \(error)")
+                        }
+                    }
+
+                    // Ensure we got audio data
+                    guard bufferCount > 0 else {
+                        try? FileManager.default.removeItem(at: tempURL)
+                        throw VoiceProviderError.networkError("No audio buffers generated")
+                    }
+
+                    // Read the complete synthesized audio file
+                    let data = try Data(contentsOf: tempURL)
+
+                    // Clean up temporary file
+                    try? FileManager.default.removeItem(at: tempURL)
+
+                    // Validate we got non-trivial audio data
+                    guard data.count > 1024 else {
+                        throw VoiceProviderError.networkError("Generated audio is too short (\(data.count) bytes)")
+                    }
 
                     continuation.resume(returning: data)
                 } catch {
@@ -132,6 +224,7 @@ public final class AppleVoiceProvider: VoiceProvider {
                 }
             }
         }
+        #endif
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {

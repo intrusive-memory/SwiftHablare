@@ -21,11 +21,10 @@ This guide provides structured information for AI bots to effectively understand
 ### Project Status
 - **Current Version:** v2.0 (in development)
 - **Core AI Phase:** Phase 7 Complete (Test Coverage & QA)
-- **UI Sprint Phase:** Phase 2 Complete (ScreenplaySpeech Task System)
-- **Next Phase:** UI Sprint Phase 3 (Character Mapping)
+- **Library Scope:** Focused voice generation (text + voiceId → audio)
 - **Test Coverage:** 787 tests, 96% average coverage
 - **Swift Version:** 6.0 (strict concurrency mode)
-- **Platforms:** macOS 15.0+, iOS 17.0+
+- **Platforms:** iOS 26.0+, macCatalyst 15.0+ (UIKit-based, no macOS)
 - **Framework:** Swift Package Manager
 
 ### Key Technologies

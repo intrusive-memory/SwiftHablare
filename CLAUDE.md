@@ -55,40 +55,38 @@ The UI sprint focuses on building the **ScreenplaySpeech** system - a comprehens
 
 ## Platform Support
 
-### macOS, iOS, and Catalyst Ready
+### iOS and Catalyst Only
 
-SwiftHablaré is now fully compatible with:
-- **macOS 15.0+**
-- **iOS 17.0+**
+SwiftHablaré is fully compatible with:
+- **iOS 26.0+**
 - **macCatalyst 15.0+**
+- **NO macOS support** (UIKit-based library)
 
-All UI components use cross-platform APIs:
+All UI components use UIKit-based APIs:
 - SwiftUI for all user interfaces
 - Cross-platform color APIs (`.systemBackground`, `.systemGray`, etc.)
-- Platform-specific settings access (System Preferences on macOS, Settings app on iOS/Catalyst)
-- No AppKit dependencies in production code
+- Platform-specific settings access (Settings app for Accessibility > Spoken Content)
+- UIKit-only, no AppKit dependencies
 
-### Catalyst-Specific Updates
+### UIKit-Only Implementation
 
 **VoiceSettingsWidget.swift**:
-- Platform-aware settings access
-- macOS: Opens System Preferences for voice management
-- iOS/Catalyst: Opens Settings app for Accessibility > Spoken Content
-- Uses `UIApplication.shared.open()` on iOS/Catalyst
+- Opens Settings app for Accessibility > Spoken Content
+- Uses `UIApplication.shared.open()` for settings access
 
-**Color API Migration**:
-All files updated from AppKit-specific colors to cross-platform equivalents:
-- `Color(nsColor: .controlBackgroundColor)` → `Color(.systemBackground)`
-- `Color(nsColor: .systemGray)` → `Color(.systemGray)`
-- Removed all `import AppKit` statements from production code
+**Color API**:
+All UI components use UIKit-compatible color APIs:
+- `Color(.systemBackground)` for backgrounds
+- `Color(.systemGray)` for secondary elements
+- No AppKit dependencies
 
-**Updated Files**:
-- `VoiceSettingsWidget.swift` - Platform-aware settings access
-- `VoiceProviderWidget.swift` - Cross-platform colors
-- `BackgroundTaskRow.swift` - Cross-platform colors
-- `AudioPlayerWidget.swift` - Cross-platform colors
-- `VoicePickerWidget.swift` - Cross-platform colors
-- `AppleVoiceProvider.swift` - Removed unused AppKit import
+**UIKit-Compatible Files**:
+- `VoiceSettingsWidget.swift` - Settings app integration
+- `VoiceProviderWidget.swift` - UIKit colors
+- `BackgroundTaskRow.swift` - UIKit colors
+- `AudioPlayerWidget.swift` - UIKit colors
+- `VoicePickerWidget.swift` - UIKit colors
+- `AppleVoiceProvider.swift` - AVFoundation only, no AppKit
 
 ## Architecture
 
@@ -216,16 +214,16 @@ UI/
 3. **Verify**: Ensure the test passes and existing tests still work
 4. **Document**: Update comments and docs as needed
 
-### For Catalyst/Cross-Platform Work
+### For iOS/Catalyst Work
 
-1. **Use Cross-Platform APIs**:
-   - `Color(.systemBackground)` instead of `Color(nsColor: .controlBackgroundColor)`
-   - `#if os(macOS)` / `#if os(iOS)` for platform-specific code
-   - Avoid AppKit/UIKit direct usage when SwiftUI alternatives exist
+1. **Use UIKit-Compatible APIs**:
+   - `Color(.systemBackground)` for all color needs
+   - UIKit-based APIs only, no AppKit
+   - SwiftUI for all user interfaces
 
 2. **Test on Multiple Platforms**:
-   - Build for macOS, iOS, and Catalyst
-   - Verify UI layouts work on all platforms
+   - Build for iOS and Catalyst
+   - Verify UI layouts work on both platforms
    - Test platform-specific features (settings, file access, etc.)
 
 ## Code Style
@@ -615,9 +613,9 @@ try modelContext.save()
 
 ### Add a New UI Widget
 1. Create SwiftUI view with public init
-2. Use cross-platform colors (`Color.systemBackgroundColor`)
+2. Use UIKit-compatible colors (`Color(.systemBackground)`)
 3. Add Xcode preview
-4. Test on macOS, iOS, and Catalyst
+4. Test on iOS and Catalyst
 5. Document in CLAUDE.md
 
 ### Create Thread-Safe Service
@@ -627,22 +625,24 @@ try modelContext.save()
 4. @MainActor for SwiftData operations
 5. Add cancellation support
 
-### Update for Catalyst Compatibility
-1. Replace AppKit-specific APIs with cross-platform alternatives
-2. Use `Color.systemBackgroundColor` instead of `Color(nsColor: ...)`
-3. Use `#if os(macOS)` / `#if os(iOS)` for platform-specific code
-4. Test on all three platforms
+### Update for iOS/Catalyst Compatibility
+1. Use UIKit-compatible APIs only
+2. Use `Color(.systemBackground)` for all color needs
+3. Remove any AppKit dependencies
+4. Test on iOS and Catalyst platforms
 5. Update documentation
 
 ## Version Information
 
 - **Current Version**: 2.0 (in development)
 - **Swift Version**: 6.0+
-- **Minimum Deployments**: macOS 15.0, iOS 17.0, macCatalyst 15.0
+- **Minimum Deployments**: iOS 26.0, macCatalyst 15.0 (no macOS)
 - **Total Tests**: 787 passing
 - **Average Coverage**: 96%+ on ScreenplaySpeech modules
 - **SwiftData Models**: 15 total (9 general, 2 ScreenplaySpeech, 4 TypedData)
 - **Thread Safety**: Full Swift 6 concurrency compliance
+- **Platform Support**: iOS 26+ and Mac Catalyst 15+ only (UIKit-based, no macOS)
+- **UI Components**: None (pure generation library)
 
 ## Recent Changes
 
@@ -685,21 +685,57 @@ let record = TypedDataStorage(
 - Proper error propagation
 - Cancellation support
 
-## Next Steps
+### Voice Provider Test Suite Enhancements
 
-**Phase 3: Character Mapping Models** (Upcoming)
-- CharacterVoiceMapping SwiftData model
-- Character detection and mapping generator
-- Bidirectional voice assignment UI
-- 90%+ test coverage target
+**Apple Voice Provider**:
+- Generates audio using AVSpeechSynthesizer.write() (AIFF format)
+- UIKit-only implementation for iOS and Catalyst
+- Comprehensive audio validation (file size, duration, non-zero samples)
+- End-to-end integration tests with audio artifacts
+- Consistent AIFF output format across platforms
 
-**Phase 4: Core UI Scaffolding** (Upcoming)
-- Main screenplay speech view
-- Tab-based navigation
-- BackgroundTasksPalette integration
-- ProviderPickerView
+**ElevenLabs Voice Provider**:
+- Ephemeral API key support for testing (bypasses keychain)
+- Cleaner test setup/teardown (no keychain pollution)
+- End-to-end integration tests with real API calls
+- Conditional test execution (skips if no API key available)
+- Audio artifact generation for verification
 
-See `Docs/SCREENPLAY_UI_SPRINT_METHODOLOGY.md` for complete roadmap.
+**Test Improvements**:
+- Empty text validation (throws `.invalidRequest` error)
+- Audio quality validation (duration, sample rate, non-zero content)
+- Test artifacts saved to `.build/*/TestArtifacts/` directory (AIFF format)
+- Updated .gitignore to exclude `.aiff` files and test artifacts
+- All tests pass on iOS and Catalyst
+- ElevenLabs tests skip gracefully without API key
+
+**CI/CD Integration**:
+- Integration tests run automatically on all PRs via GitHub Actions
+- Apple Voice Provider tests always run (no API key needed)
+- ElevenLabs tests run when `ELEVENLABS_API_KEY` secret is configured
+- Test artifacts (audio files) uploaded to GitHub Actions artifacts
+- Integration test summary displayed in GitHub Actions summary
+
+## Library Scope and Philosophy
+
+**SwiftHablaré is a focused voice generation library**:
+- Takes text and voice ID (provider + voice identifier) as input
+- Generates audio using the specified voice provider
+- No character mapping or screenplay analysis - handled by consuming applications
+- Simple, predictable API: `text + voiceId → audio`
+
+**Out of Scope**:
+- ❌ Character-to-voice mapping (handled by consuming apps)
+- ❌ Character detection from screenplays (handled by consuming apps)
+- ❌ Automatic voice assignment (handled by consuming apps)
+- ❌ Screenplay structure analysis (handled by consuming apps)
+
+**In Scope**:
+- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice caching and management
+- ✅ Thread-safe audio generation
+- ✅ SwiftData persistence for generated audio
+- ✅ Cross-platform support (iOS, Catalyst)
 
 ---
 

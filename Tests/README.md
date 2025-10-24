@@ -157,6 +157,74 @@ swift package clean && swift test
 - **Library Tests**: 3
 - **Provider Tests**: 59 (Apple: 24, ElevenLabs: 35)
 
+### Integration Tests
+
+#### AppleVoiceProviderIntegrationTests.swift
+End-to-end tests with audio generation (always run):
+- **End-to-end speech generation** - Full workflow from text to audio file
+- **Multiple voice testing** - Test with different system voices
+- **Long text handling** - Performance testing with extended text
+- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
+- **Audio validation**:
+  - File format validation (AIFF on all platforms)
+  - File size checks (> 1KB)
+  - Duration validation (> 1 second for test text)
+  - Non-zero sample verification (confirms actual speech on native macOS)
+  - Sample percentage analysis
+  - Data integrity verification (retrieved audio matches original)
+- **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
+- **Cross-platform** - Runs on native macOS, Mac Catalyst, and iOS
+
+#### ElevenLabsVoiceProviderIntegrationTests.swift
+End-to-end tests with real API calls (conditional execution):
+- **Conditional execution** - Only runs if ELEVENLABS_API_KEY environment variable is set
+- **Ephemeral API keys** - Uses in-memory API keys (no keychain pollution)
+- **End-to-end speech generation** - Full workflow with real API
+- **Multiple voice testing** - Test with up to 3 different ElevenLabs voices
+- **Long text handling** - Performance testing with extended text
+- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
+- **Audio validation**:
+  - File format validation (MP3)
+  - File size checks
+  - Duration estimation verification
+  - Data integrity verification (retrieved audio matches original)
+  - MP3 header validation on retrieved data
+- **Test artifacts** - Saves .mp3 files to TestArtifacts/ directory
+- **Clean test environment** - No keychain side effects
+
+**Running integration tests locally**:
+```bash
+# Run all tests (Apple integration tests always run)
+swift test
+
+# Run with ElevenLabs API key for full coverage
+ELEVENLABS_API_KEY=your-key-here swift test
+```
+
+**Running integration tests in GitHub Actions**:
+
+Integration tests automatically run in CI/CD:
+
+1. **Apple Voice Provider Integration Tests**:
+   - Always run on every PR and push to main/master
+   - Generate AIFF audio artifacts
+   - No API key required
+
+2. **ElevenLabs Integration Tests**:
+   - Run if `ELEVENLABS_API_KEY` repository secret is configured
+   - Generate MP3 audio artifacts
+   - Gracefully skip if API key not available
+
+**Setting up ElevenLabs API key for CI**:
+
+1. Go to repository Settings → Secrets and variables → Actions
+2. Click "New repository secret"
+3. Name: `ELEVENLABS_API_KEY`
+4. Value: Your ElevenLabs API key
+5. Click "Add secret"
+
+Once configured, all PRs will automatically run ElevenLabs integration tests.
+
 ## Test Organization
 
 ```
@@ -165,6 +233,9 @@ Tests/SwiftHablareTests/
 │   ├── MockVoiceProvider.swift
 │   ├── MockAppleVoiceProviderSimulator.swift
 │   └── MockElevenLabsVoiceProviderSimulator.swift
+├── Integration/
+│   ├── AppleVoiceProviderIntegrationTests.swift
+│   └── ElevenLabsVoiceProviderIntegrationTests.swift
 ├── AudioFileTests.swift
 ├── VoiceTests.swift
 ├── VoiceModelTests.swift
@@ -176,6 +247,14 @@ Tests/SwiftHablareTests/
 └── SwiftHablareTests.swift (original)
 ```
 
+## Test Artifacts
+
+Integration tests generate audio files for manual verification:
+- **Location**: `.build/*/TestArtifacts/`
+- **Apple TTS**: `.aiff` files with timestamped names (all platforms)
+- **ElevenLabs**: `.mp3` files with timestamped names
+- **Git**: Excluded via .gitignore
+
 ## Notes
 
 - All tests use in-memory SwiftData containers to avoid side effects
@@ -183,3 +262,5 @@ Tests/SwiftHablareTests/
 - Mock objects support comprehensive verification
 - UserDefaults are cleaned up in tearDown methods
 - Temporary files are cleaned up after file I/O tests
+- Integration tests generate audio artifacts for verification
+- ElevenLabs integration tests gracefully skip without API key

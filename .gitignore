@@ -9,3 +9,9 @@ DerivedData/
 /test-output.log
 performance-metrics.json
 performance-output.log
+
+# Test artifacts (generated audio files)
+/TestArtifacts/
+*.caf
+*.aiff
+*.mp3

@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Library Scope Clarification
+
+**SwiftHablare is now a focused voice generation library**:
+- Simple API: `text + voiceId → audio`
+- No character mapping (handled by consuming applications)
+- No screenplay analysis (handled by consuming applications)
+- No automatic voice assignment (handled by consuming applications)
+
+**Rationale**:
+- Single Responsibility Principle: SwiftHablare does voice generation, consuming apps handle character mapping
+- Simpler API surface area
+- Easier to test and maintain
+- Character mapping logic should live in screenplay-specific libraries
+
+**Documentation Updates**:
+- README.md: Clarified library scope and out-of-scope features
+- CLAUDE.md: Added "Library Scope and Philosophy" section
+- AI_DEVELOPMENT_GUIDE.md: Updated project status
+- AI_REFERENCE.md: Replaced Phase 3 character mapping plans with scope clarification
+
+**Impact**:
+- No code changes required (character mapping was never implemented)
+- Only documentation updates
+- Future development will focus on voice generation quality and performance
+
+### Added - Voice Provider Integration Tests with SwiftData Persistence
+
+#### End-to-End Testing with Real Audio and Database Persistence
+- **AppleVoiceProviderIntegrationTests** - Complete test suite for Apple TTS
+  - Real audio generation using AVSpeechSynthesizer
+  - AIFF format audio output (real speech audio)
+  - Comprehensive audio validation:
+    - File size checks (> 1KB)
+    - Duration validation (> 1 second for test text)
+    - Non-zero sample verification (confirms actual speech content)
+    - Sample percentage analysis
+  - Test artifacts saved to `.build/*/TestArtifacts/` directory
+  - Tests with multiple voices and long text passages
+  - Always runs on iOS 26+ and Catalyst (no external dependencies, no macOS)
+  - **SwiftData persistence test**: Full end-to-end database flow
+    - Generate audio → `toTypedDataStorage()` → SwiftData insert → save → fetch → verify
+    - Validates data integrity after round-trip through database
+    - Tests that retrieved audio matches original audio exactly
+
+- **ElevenLabsVoiceProviderIntegrationTests** - Complete test suite for ElevenLabs API
+  - Real API calls with production ElevenLabs service
+  - Conditional execution (only runs if ELEVENLABS_API_KEY environment variable set)
+  - Ephemeral API key support (bypasses keychain for clean testing)
+  - MP3 audio artifact generation
+  - Tests with multiple voices and long text passages
+  - Graceful test skipping when API key unavailable
+  - Clean test environment (no keychain pollution)
+  - **SwiftData persistence test**: Full end-to-end database flow
+    - Generate audio → `toTypedDataStorage()` → SwiftData insert → save → fetch → verify
+    - Validates data integrity after round-trip through database
+    - Validates MP3 format on retrieved audio
+    - Tests that retrieved audio matches original audio exactly
+
+#### Enhanced Voice Provider Implementations
+- **AppleVoiceProvider** - Audio generation for iOS 26+ and Catalyst (AIFF format)
+  - **iOS 26+ & Catalyst**: Uses AVSpeechSynthesizer.write() with real audio generation
+  - Full audio validation (duration, sample content)
+  - UIKit-based implementation (no macOS support)
+  - Consistent AIFF output format across iOS 26+ and Catalyst platforms
+
+- **ElevenLabsVoiceProvider** - Testing improvements
+  - Optional ephemeral API key via initializer (`init(apiKey: String?)`)
+  - Bypasses keychain for test scenarios
+  - Maintains backward compatibility with keychain storage
+
+#### Validation and Error Handling
+- **Empty text validation** - Both providers now validate input
+  - Throws `.invalidRequest("Text cannot be empty")` for empty/whitespace-only text
+  - Prevents wasted API calls and invalid audio generation
+
+#### Build Configuration
+- **Updated .gitignore**
+  - Excludes `.aiff` files (Apple TTS output)
+  - Excludes `TestArtifacts/` directory
+  - Keeps test output clean and git-friendly
+
+#### CI/CD Integration
+- **GitHub Actions Workflow Updates**
+  - Integration tests now run automatically on all PRs
+  - `ELEVENLABS_API_KEY` repository secret support for ElevenLabs tests
+  - Test artifacts (AIFF and MP3 files) uploaded to GitHub Actions artifacts
+  - Integration test summary in GitHub Actions job summary:
+    - Shows Apple Voice Provider test execution status
+    - Shows ElevenLabs test execution status (or skip reason)
+    - Displays number of audio artifacts generated
+  - Clear logging when ElevenLabs API key is/isn't available
+
 ### Added - Thread-Safe Voice Generation
 
 #### VoiceGeneration Module
@@ -194,32 +286,33 @@ let record = TypedDataStorage(
   - BackgroundTaskManager: 92.45% coverage
 
 #### Platform Support
-- **macCatalyst Support** - Full compatibility with Mac Catalyst
+- **iOS 26+ and Catalyst Support** - Full UIKit-based implementation
   - Cross-platform color APIs throughout UI components
-  - Platform-aware settings access (System Preferences on macOS, Settings app on iOS/Catalyst)
-  - No AppKit dependencies in production code
-  - Tested on macOS, iOS, and Catalyst
+  - Settings app integration for Accessibility > Spoken Content
+  - No AppKit dependencies (UIKit-only)
+  - Tested on iOS 26+ and Catalyst platforms
+  - **No macOS support** - UIKit-based library only
 
 ### Changed
 
 #### Platform Compatibility Updates
-- **VoiceSettingsWidget** - Platform-aware system voice settings access
-  - macOS: Opens System Preferences for voice management
-  - iOS/Catalyst: Opens Settings app for Accessibility > Spoken Content
-  - Uses platform-appropriate URL schemes and APIs
+- **VoiceSettingsWidget** - UIKit-based system voice settings access
+  - Opens Settings app for Accessibility > Spoken Content
+  - Uses UIApplication.shared.open() for iOS 26+ and Catalyst
+  - Platform-appropriate URL schemes
 
-- **Color API Migration** - Updated all UI components to use cross-platform colors
+- **Color API Migration** - Updated all UI components to use UIKit-compatible colors
   - `Color(nsColor: .controlBackgroundColor)` → `Color(.systemBackground)`
   - `Color(nsColor: .systemGray)` → `Color(.systemGray)`
-  - Ensures consistent appearance across macOS, iOS, and Catalyst
+  - Ensures consistent appearance across iOS 26+ and Catalyst platforms
 
-- **Files Updated for Catalyst**:
-  - `VoiceSettingsWidget.swift` - Platform-aware settings
-  - `VoiceProviderWidget.swift` - Cross-platform colors
-  - `BackgroundTaskRow.swift` - Cross-platform colors
-  - `AudioPlayerWidget.swift` - Cross-platform colors
-  - `VoicePickerWidget.swift` - Cross-platform colors
-  - `AppleVoiceProvider.swift` - Removed unused AppKit import
+- **Files Updated for iOS/Catalyst Compatibility**:
+  - `VoiceSettingsWidget.swift` - UIKit settings integration
+  - `VoiceProviderWidget.swift` - UIKit-compatible colors
+  - `BackgroundTaskRow.swift` - UIKit-compatible colors
+  - `AudioPlayerWidget.swift` - UIKit-compatible colors
+  - `VoicePickerWidget.swift` - UIKit-compatible colors
+  - `AppleVoiceProvider.swift` - AVFoundation only, no AppKit dependencies
 
 #### Documentation
 - **New Documentation Files**:

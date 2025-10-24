@@ -7,7 +7,7 @@
 //
 
 import SwiftUI
-import SwiftGuion
+import SwiftCompartido
 
 /// Main content view for Hablare.
 ///
