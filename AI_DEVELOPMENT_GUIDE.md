@@ -24,7 +24,7 @@ This guide provides structured information for AI bots to effectively understand
 - **Library Scope:** Focused voice generation (text + voiceId → audio)
 - **Test Coverage:** 787 tests, 96% average coverage
 - **Swift Version:** 6.0 (strict concurrency mode)
-- **Platforms:** macOS 15.0+, iOS 17.0+, macCatalyst 15.0+
+- **Platforms:** iOS 26.0+, macCatalyst 15.0+ (UIKit-based, no macOS)
 - **Framework:** Swift Package Manager
 
 ### Key Technologies

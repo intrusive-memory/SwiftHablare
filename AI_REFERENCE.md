@@ -6,8 +6,8 @@
 
 - **Purpose**: Unified Swift framework for AI service integration across OpenAI, Anthropic, ElevenLabs, and Apple Intelligence + Screenplay Speech Processing
 - **Version**: 2.0 (Phase 7 Complete - Core AI) + UI Sprint Phase 2 Complete (ScreenplaySpeech)
-- **Language**: Swift 6.2+ with strict concurrency
-- **Platforms**: macOS 26+, iOS 17+
+- **Language**: Swift 6.0+ with strict concurrency
+- **Platforms**: iOS 26.0+, macCatalyst 15.0+ (UIKit-based, no macOS)
 - **Architecture**: Three-layer (Application → Coordination → Provider) + ScreenplaySpeech task system
 - **Persistence**: SwiftData for all generated content and screenplay speech data
 - **Security**: Keychain for credential management
@@ -503,7 +503,7 @@ import SwiftData
 - ✅ Voice caching and management
 - ✅ Thread-safe audio generation
 - ✅ SwiftData persistence for generated audio
-- ✅ Cross-platform support (macOS, iOS, Catalyst)
+- ✅ iOS 26+ and Catalyst support (UIKit-based, no macOS)
 - ❌ Character mapping (handled by consuming applications)
 - ❌ Screenplay analysis (handled by consuming applications)
 
@@ -512,8 +512,8 @@ import SwiftData
 **Version**: 2.0 (Core AI Phase 7 + UI Sprint Phase 2)
 **Last Updated**: October 18, 2025
 **Test Coverage**: 787 tests, 96% average
-**Swift**: 6.2+ strict concurrency
-**Platforms**: macOS 26+, iOS 17+
+**Swift**: 6.0+ strict concurrency
+**Platforms**: iOS 26.0+, macCatalyst 15.0+ (UIKit-based, no macOS)
 
 **Key New Modules**:
 - `ScreenplaySpeech/` - Screenplay to audio pipeline

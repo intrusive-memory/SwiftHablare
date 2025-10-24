@@ -4,9 +4,9 @@ Get up and running with SwiftHablaré in 5 minutes.
 
 ## Prerequisites
 
-- macOS 26.0+ or iOS 17.0+
-- Swift 6.2+
-- Xcode 26+
+- iOS 26.0+ or macCatalyst 15.0+ (UIKit-based, no macOS)
+- Swift 6.0+
+- Xcode 15+
 - SwiftData framework
 
 ## Installation

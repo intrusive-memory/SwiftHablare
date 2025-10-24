@@ -36,8 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### End-to-End Testing with Real Audio and Database Persistence
 - **AppleVoiceProviderIntegrationTests** - Complete test suite for Apple TTS
-  - Real audio generation using NSSpeechSynthesizer on macOS
-  - AIFF format audio output (not silent placeholder audio)
+  - Real audio generation using AVSpeechSynthesizer
+  - AIFF format audio output (real speech audio)
   - Comprehensive audio validation:
     - File size checks (> 1KB)
     - Duration validation (> 1 second for test text)
@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Sample percentage analysis
   - Test artifacts saved to `.build/*/TestArtifacts/` directory
   - Tests with multiple voices and long text passages
-  - Always runs on macOS (no external dependencies)
+  - Always runs on iOS 26+ and Catalyst (no external dependencies, no macOS)
   - **SwiftData persistence test**: Full end-to-end database flow
     - Generate audio → `toTypedDataStorage()` → SwiftData insert → save → fetch → verify
     - Validates data integrity after round-trip through database
@@ -66,12 +66,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Tests that retrieved audio matches original audio exactly
 
 #### Enhanced Voice Provider Implementations
-- **AppleVoiceProvider** - Audio generation on all platforms (AIFF format)
-  - **Native macOS**: Uses NSSpeechSynthesizer (production-ready with real speech)
-  - **Mac Catalyst & iOS**: Uses AVSpeechSynthesizer.write() (placeholder audio)
+- **AppleVoiceProvider** - Audio generation for iOS 26+ and Catalyst (AIFF format)
+  - **iOS 26+ & Catalyst**: Uses AVSpeechSynthesizer.write() with real audio generation
   - Full audio validation (duration, sample content)
-  - Platform-specific implementations using `#if os(macOS) && !targetEnvironment(macCatalyst)`
-  - Consistent AIFF output format across all platforms
+  - UIKit-based implementation (no macOS support)
+  - Consistent AIFF output format across iOS 26+ and Catalyst platforms
 
 - **ElevenLabsVoiceProvider** - Testing improvements
   - Optional ephemeral API key via initializer (`init(apiKey: String?)`)
@@ -287,32 +286,33 @@ let record = TypedDataStorage(
   - BackgroundTaskManager: 92.45% coverage
 
 #### Platform Support
-- **macCatalyst Support** - Full compatibility with Mac Catalyst
+- **iOS 26+ and Catalyst Support** - Full UIKit-based implementation
   - Cross-platform color APIs throughout UI components
-  - Platform-aware settings access (System Preferences on macOS, Settings app on iOS/Catalyst)
-  - No AppKit dependencies in production code
-  - Tested on macOS, iOS, and Catalyst
+  - Settings app integration for Accessibility > Spoken Content
+  - No AppKit dependencies (UIKit-only)
+  - Tested on iOS 26+ and Catalyst platforms
+  - **No macOS support** - UIKit-based library only
 
 ### Changed
 
 #### Platform Compatibility Updates
-- **VoiceSettingsWidget** - Platform-aware system voice settings access
-  - macOS: Opens System Preferences for voice management
-  - iOS/Catalyst: Opens Settings app for Accessibility > Spoken Content
-  - Uses platform-appropriate URL schemes and APIs
+- **VoiceSettingsWidget** - UIKit-based system voice settings access
+  - Opens Settings app for Accessibility > Spoken Content
+  - Uses UIApplication.shared.open() for iOS 26+ and Catalyst
+  - Platform-appropriate URL schemes
 
-- **Color API Migration** - Updated all UI components to use cross-platform colors
+- **Color API Migration** - Updated all UI components to use UIKit-compatible colors
   - `Color(nsColor: .controlBackgroundColor)` → `Color(.systemBackground)`
   - `Color(nsColor: .systemGray)` → `Color(.systemGray)`
-  - Ensures consistent appearance across macOS, iOS, and Catalyst
+  - Ensures consistent appearance across iOS 26+ and Catalyst platforms
 
-- **Files Updated for Catalyst**:
-  - `VoiceSettingsWidget.swift` - Platform-aware settings
-  - `VoiceProviderWidget.swift` - Cross-platform colors
-  - `BackgroundTaskRow.swift` - Cross-platform colors
-  - `AudioPlayerWidget.swift` - Cross-platform colors
-  - `VoicePickerWidget.swift` - Cross-platform colors
-  - `AppleVoiceProvider.swift` - Removed unused AppKit import
+- **Files Updated for iOS/Catalyst Compatibility**:
+  - `VoiceSettingsWidget.swift` - UIKit settings integration
+  - `VoiceProviderWidget.swift` - UIKit-compatible colors
+  - `BackgroundTaskRow.swift` - UIKit-compatible colors
+  - `AudioPlayerWidget.swift` - UIKit-compatible colors
+  - `VoicePickerWidget.swift` - UIKit-compatible colors
+  - `AppleVoiceProvider.swift` - AVFoundation only, no AppKit dependencies
 
 #### Documentation
 - **New Documentation Files**:

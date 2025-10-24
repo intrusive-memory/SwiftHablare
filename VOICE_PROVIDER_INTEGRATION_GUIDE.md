@@ -174,7 +174,7 @@ import PackageDescription
 
 let package = Package(
     name: "MyCustomVoiceProvider",
-    platforms: [.macOS(.v14)],
+    platforms: [.iOS(.v26), .macCatalyst(.v15)],
     products: [
         .library(
             name: "MyCustomVoiceProvider",
@@ -1194,7 +1194,7 @@ import PackageDescription
 
 let package = Package(
     name: "MyCustomVoiceProvider",
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.iOS(.v26), .macCatalyst(.v15)],
     products: [
         .library(
             name: "MyCustomVoiceProvider",

@@ -10,7 +10,7 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 - **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
 - **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
-- **Cross-platform**: macOS, iOS, and Mac Catalyst support
+- **Cross-platform**: iOS 26+ and Mac Catalyst 15.0+ (UIKit-based, no macOS)
 - **No UI components**: Pure generation logic - UI lives in consuming apps
 - **No character mapping**: Voice selection is handled by consuming applications
 
@@ -50,10 +50,10 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
   │ • Built-in TTS      │         │ • Neural voices     │
   │ • No API key needed │         │ • API key required  │
   │ • AIFF output       │         │ • MP3 output        │
-  │ • Native macOS:     │         │ • Production quality│
-  │   NSSpeechSynth     │         │ • 11+ voices        │
-  │ • Catalyst/iOS:     │         │ • Emotional range   │
-  │   AVSpeechSynth     │         │                     │
+  │ • iOS 26+ & Catalyst│         │ • Production quality│
+  │ • AVSpeechSynth     │         │ • 11+ voices        │
+  │ • UIKit-only        │         │ • Emotional range   │
+  │                     │         │                     │
   └──────────┬──────────┘         └──────────┬──────────┘
              │                               │
              │ Audio Data (AIFF)             │ Audio Data (MP3)
@@ -139,9 +139,12 @@ dependencies: [
 
 ## Requirements
 
-- Swift 6.2+
-- macOS 26.0+ / iOS 26.0+ / Mac Catalyst 26.0+
+- Swift 6.0+
+- iOS 26.0+ / Mac Catalyst 15.0+
 - SwiftCompartido 2.1.0+
+- UIKit-based (no macOS support)
+
+**Platform Support**: SwiftHablare is a UIKit-based library supporting iOS 26+ and Mac Catalyst 15+. Native macOS is not supported.
 
 ## Quick Start
 
@@ -232,7 +235,7 @@ SwiftHablare/
 
 ### Apple Voice Provider
 
-Built-in macOS/iOS text-to-speech. No API key required.
+Built-in text-to-speech for iOS 26+ and Mac Catalyst. No API key required.
 
 ```swift
 let provider = AppleVoiceProvider()
@@ -256,9 +259,12 @@ if provider.isConfigured() {
 - Quality detection (standard/enhanced/premium)
 - Gender detection based on voice name
 
-**Platform-Specific Implementations:**
-- **Native macOS**: Uses NSSpeechSynthesizer (AIFF format, production-ready with real speech)
-- **Mac Catalyst & iOS**: Uses AVSpeechSynthesizer.write() (AIFF format, placeholder audio)
+**Implementation:**
+- iOS 26+ & Catalyst: Uses AVSpeechSynthesizer.write()
+- Consistent AIFF format output across all platforms
+- UIKit-based, no macOS support
+
+**All platforms generate AIFF format audio** for consistency across iOS 26+ and Catalyst applications.
 
 ### ElevenLabs Voice Provider
 
