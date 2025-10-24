@@ -196,6 +196,144 @@ public actor GenerationService {
     public func isVoiceAvailable(_ voiceId: String) async -> Bool {
         return await voiceProvider.isVoiceAvailable(voiceId: voiceId)
     }
+
+    /// Generate audio for all items in a SpeakableItemList
+    ///
+    /// This method processes a list of speakable items sequentially:
+    /// 1. Generates audio on background thread (actor-isolated)
+    /// 2. Creates TypedDataStorage records on main thread
+    /// 3. Saves to SwiftData after each item
+    /// 4. Updates progress in real-time
+    /// 5. Handles cancellation gracefully
+    /// 6. Preserves partial results on error/cancellation
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// @MainActor
+    /// func generateList() async throws {
+    ///     let provider = AppleVoiceProvider()
+    ///     let service = GenerationService(voiceProvider: provider)
+    ///
+    ///     let items: [any SpeakableItem] = [
+    ///         SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
+    ///         SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+    ///     ]
+    ///
+    ///     let list = SpeakableItemList(name: "Greetings", items: items)
+    ///     let records = try await service.generateList(list, to: modelContext)
+    ///
+    ///     print("Generated \(records.count) audio files")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - list: SpeakableItemList to process
+    ///   - context: SwiftData ModelContext for persistence
+    ///   - saveInterval: How often to save (default: after each item)
+    /// - Returns: Array of TypedDataStorage records that were created
+    /// - Throws: VoiceProviderError if generation fails (after saving partial results)
+    @MainActor
+    public func generateList(
+        _ list: SpeakableItemList,
+        to context: ModelContext,
+        saveInterval: Int = 1
+    ) async throws -> [TypedDataStorage] {
+        // Ensure provider is configured
+        guard voiceProvider.isConfigured() else {
+            throw VoiceProviderError.notConfigured
+        }
+
+        // Mark list as processing
+        list.startProcessing()
+
+        var savedRecords: [TypedDataStorage] = []
+
+        // Process each item sequentially
+        for index in 0..<list.totalCount {
+            // Check for cancellation
+            if list.isCancelled {
+                list.completeProcessing()
+                break
+            }
+
+            // Get the item
+            guard let item = list.item(at: index) else {
+                continue
+            }
+
+            do {
+                // Extract data we need (all Sendable)
+                let text = item.textToSpeak
+                let voiceId = item.voiceId
+                let providerId = item.voiceProvider.providerId
+
+                // Generate audio (calls into actor, but we're passing Sendable types)
+                let audioData = try await voiceProvider.generateAudio(
+                    text: text,
+                    voiceId: voiceId
+                )
+
+                // Estimate duration
+                let duration = await voiceProvider.estimateDuration(
+                    text: text,
+                    voiceId: voiceId
+                )
+
+                // Determine MIME type
+                let mimeType: String
+                switch providerId {
+                case "apple":
+                    mimeType = "audio/x-aiff"
+                case "elevenlabs":
+                    mimeType = "audio/mpeg"
+                default:
+                    mimeType = defaultMimeType
+                }
+
+                // Create TypedDataStorage record (already on main thread)
+                let storage = TypedDataStorage(
+                    id: UUID(),
+                    providerId: providerId,
+                    requestorID: "\(providerId).audio.tts",
+                    mimeType: mimeType,
+                    textValue: nil,
+                    binaryValue: audioData,
+                    prompt: text,
+                    durationSeconds: duration,
+                    voiceID: voiceId,
+                    voiceName: nil
+                )
+
+                // Insert into SwiftData
+                context.insert(storage)
+
+                // Save at interval
+                if (index + 1) % saveInterval == 0 || (index + 1) == list.totalCount {
+                    try? context.save()
+                }
+
+                savedRecords.append(storage)
+
+                // Update progress
+                list.advanceProgress(
+                    message: "Generated \(index + 1) of \(list.totalCount)"
+                )
+
+            } catch {
+                // Save partial results before failing
+                try? context.save()
+                list.failProcessing(with: error)
+                throw error
+            }
+        }
+
+        // Mark as complete
+        try? context.save()
+        list.completeProcessing()
+
+        return savedRecords
+    }
 }
 
 // MARK: - GenerationResult Extensions

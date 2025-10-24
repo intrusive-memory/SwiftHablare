@@ -43,18 +43,20 @@ SwiftHablare/
 ├── Protocols/
 │   └── SpeakableItem.swift          # Protocol for speakable objects
 ├── Models/
-│   └── Voice.swift                  # Voice model (id, name, language, etc.)
+│   ├── Voice.swift                  # Voice model (id, name, language, etc.)
+│   └── SpeakableItemList.swift      # ✨ Batch generation with progress
 ├── Providers/
 │   ├── AppleVoiceProvider.swift     # Apple TTS implementation
 │   └── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
 ├── Generation/
-│   └── GenerationService.swift      # Actor-based generation service
+│   └── GenerationService.swift      # ✨ Actor-based service with list support
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
 ├── SwiftDataModels/
 │   └── VoiceCacheModel.swift        # Voice caching with SwiftData
 └── Examples/
-    └── SpeakableItemExamples.swift  # Example implementations
+    ├── SpeakableItemExamples.swift  # Example implementations
+    └── SpeakableItemListExample.swift # ✨ Complete batch generation example
 ```
 
 ### No UI Components
@@ -472,6 +474,171 @@ await withTaskGroup(of: Data.self) { group in
     }
 }
 ```
+
+## SpeakableItemList - Batch Generation with Progress
+
+### Overview
+
+`SpeakableItemList` provides structured batch audio generation with progress tracking and automatic SwiftData persistence. It's designed for processing multiple speakable items sequentially with real-time UI updates.
+
+### Features
+
+- **Sequential Processing**: Items processed one by one in order
+- **Progress Tracking**: Real-time observable progress (current index, percentage)
+- **Actor-Based**: Background audio generation with main-thread persistence
+- **Cancellation**: Graceful cancellation with partial result preservation
+- **Error Handling**: Captures errors while saving completed items
+- **SwiftData Integration**: Automatic persistence via TypedDataStorage
+- **Observable**: SwiftUI-compatible with `@Observable` macro
+
+### Basic Usage
+
+```swift
+@MainActor
+func generateSpeechList() async throws {
+    // 1. Create items
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+    let voiceId = voices.first!.id
+
+    let items: [any SpeakableItem] = [
+        SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
+        SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+    ]
+
+    // 2. Create list
+    let list = SpeakableItemList(name: "Greetings", items: items)
+
+    // 3. Generate with progress tracking
+    let service = GenerationService(voiceProvider: provider)
+    let records = try await service.generateList(list, to: modelContext)
+
+    // 4. Check results
+    print("Generated \(records.count) audio files")
+    print("Progress: \(list.progress * 100)%")
+    print("Status: \(list.statusMessage)")
+}
+```
+
+### Complete Flow Diagram
+
+```
+Application (@MainActor)
+    ↓
+Create SpeakableItemList
+    ↓
+GenerationService.generateList()
+    ↓
+┌─────────────────────────────────────┐
+│ For each item:                      │
+│   1. Check cancellation             │
+│   2. Generate audio (background)    │
+│   3. Create TypedDataStorage (main) │
+│   4. Save to SwiftData (main)       │
+│   5. Update progress (main)         │
+└─────────────────────────────────────┘
+    ↓
+Return [TypedDataStorage]
+```
+
+See `Docs/SPEAKABLE_ITEM_LIST_FLOW.md` for detailed architecture diagrams.
+
+### Progress Tracking
+
+The list provides real-time observable properties:
+
+```swift
+let list = SpeakableItemList(name: "My List", items: items)
+
+// Progress properties (Observable)
+list.currentIndex          // 0, 1, 2, ... totalCount
+list.totalCount            // Total number of items
+list.progress              // 0.0 to 1.0
+list.isProcessing          // true during generation
+list.isComplete            // true when finished
+list.isCancelled           // true if cancelled
+list.hasFailed             // true if error occurred
+list.statusMessage         // "Processing...", "Complete", etc.
+```
+
+### SwiftUI Integration
+
+```swift
+import SwiftUI
+
+struct ProgressView: View {
+    @Bindable var list: SpeakableItemList
+
+    var body: some View {
+        VStack {
+            Text(list.name)
+                .font(.headline)
+
+            ProgressView(value: list.progress)
+
+            Text("\(list.currentIndex) of \(list.totalCount)")
+                .font(.caption)
+
+            Text(list.statusMessage)
+                .foregroundStyle(.secondary)
+
+            if list.isProcessing {
+                Button("Cancel", action: list.cancel)
+            }
+        }
+    }
+}
+```
+
+### Cancellation Support
+
+```swift
+// Start generation
+Task {
+    let records = try await service.generateList(list, to: modelContext)
+    print("Generated \(records.count) items")
+}
+
+// Cancel from another task/button
+list.cancel()
+
+// Partial results are preserved in SwiftData
+```
+
+### Error Handling with Partial Results
+
+```swift
+do {
+    let records = try await service.generateList(list, to: modelContext)
+    print("✅ Success: \(records.count) items")
+} catch {
+    print("❌ Error: \(error)")
+    print("Saved \(list.currentIndex) items before error")
+    // Partial results are already in SwiftData
+}
+```
+
+### Save Intervals
+
+For large lists, adjust save frequency:
+
+```swift
+// Save every 10 items instead of every item
+let records = try await service.generateList(
+    list,
+    to: modelContext,
+    saveInterval: 10  // Default: 1
+)
+```
+
+### Complete Example
+
+See `Sources/SwiftHablare/Examples/SpeakableItemListExample.swift` for a complete SwiftUI example with:
+- Observable ViewModel
+- Progress UI
+- Cancellation buttons
+- Record display
+- Error handling
 
 ## Key Patterns
 
