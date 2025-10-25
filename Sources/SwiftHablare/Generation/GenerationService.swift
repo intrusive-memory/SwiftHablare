@@ -94,6 +94,9 @@ public actor GenerationService {
     /// Default MIME type for generated audio
     private let defaultMimeType: String
 
+    /// Registry of available voice providers
+    private var providerRegistry: [String: VoiceProvider]
+
     // MARK: - Initialization
 
     /// Create a generation service
@@ -104,6 +107,15 @@ public actor GenerationService {
     public init(voiceProvider: VoiceProvider, defaultMimeType: String = "audio/mpeg") {
         self.voiceProvider = voiceProvider
         self.defaultMimeType = defaultMimeType
+
+        // Initialize registry with default providers
+        let appleProvider = AppleVoiceProvider()
+        let elevenLabsProvider = ElevenLabsVoiceProvider()
+
+        self.providerRegistry = [
+            appleProvider.providerId: appleProvider,
+            elevenLabsProvider.providerId: elevenLabsProvider
+        ]
     }
 
     // MARK: - Generation
@@ -195,6 +207,114 @@ public actor GenerationService {
     /// - Returns: True if voice is available
     public func isVoiceAvailable(_ voiceId: String) async -> Bool {
         return await voiceProvider.isVoiceAvailable(voiceId: voiceId)
+    }
+
+    // MARK: - Provider Registry
+
+    /// Get all registered voice providers
+    ///
+    /// Returns a list of all voice providers in the registry.
+    /// The default providers (Apple and ElevenLabs) are always included.
+    ///
+    /// - Returns: Array of registered voice providers
+    public func registeredProviders() -> [VoiceProvider] {
+        return Array(providerRegistry.values)
+    }
+
+    /// Register a custom voice provider
+    ///
+    /// Adds a voice provider to the registry. If a provider with the same
+    /// providerId already exists, it will be replaced.
+    ///
+    /// - Parameter provider: Voice provider to register
+    public func registerProvider(_ provider: VoiceProvider) {
+        providerRegistry[provider.providerId] = provider
+    }
+
+    /// Get a voice provider by its ID
+    ///
+    /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    /// - Returns: Voice provider if found, nil otherwise
+    public func provider(withId providerId: String) -> VoiceProvider? {
+        return providerRegistry[providerId]
+    }
+
+    /// Check if a provider is registered
+    ///
+    /// - Parameter providerId: Provider identifier to check
+    /// - Returns: True if provider is registered
+    public func isProviderRegistered(_ providerId: String) -> Bool {
+        return providerRegistry[providerId] != nil
+    }
+
+    /// Fetch voices from a specific provider by ID
+    ///
+    /// This is a convenience method to fetch voices from a registered provider
+    /// without needing to retrieve the provider instance first.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    ///
+    /// // Fetch voices from Apple provider
+    /// let appleVoices = try await service.fetchVoices(from: "apple")
+    ///
+    /// // Fetch voices from ElevenLabs provider
+    /// let elevenLabsVoices = try await service.fetchVoices(from: "elevenlabs")
+    /// ```
+    ///
+    /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    /// - Returns: Array of available voices from that provider
+    /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
+    public func fetchVoices(from providerId: String) async throws -> [Voice] {
+        guard let provider = providerRegistry[providerId] else {
+            throw VoiceProviderError.notConfigured
+        }
+
+        guard provider.isConfigured() else {
+            throw VoiceProviderError.notConfigured
+        }
+
+        return try await provider.fetchVoices()
+    }
+
+    /// Fetch voices from all registered and configured providers
+    ///
+    /// Returns a dictionary mapping provider IDs to their available voices.
+    /// Only includes providers that are properly configured.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    /// let allVoices = try await service.fetchAllVoices()
+    ///
+    /// // Access voices by provider
+    /// if let appleVoices = allVoices["apple"] {
+    ///     print("Apple has \(appleVoices.count) voices")
+    /// }
+    /// ```
+    ///
+    /// - Returns: Dictionary mapping provider IDs to voice arrays
+    public func fetchAllVoices() async throws -> [String: [Voice]] {
+        var voicesByProvider: [String: [Voice]] = [:]
+
+        for (providerId, provider) in providerRegistry {
+            guard provider.isConfigured() else {
+                continue // Skip unconfigured providers
+            }
+
+            do {
+                let voices = try await provider.fetchVoices()
+                voicesByProvider[providerId] = voices
+            } catch {
+                // Skip providers that fail to fetch voices
+                continue
+            }
+        }
+
+        return voicesByProvider
     }
 
     /// Generate audio for all items in a SpeakableItemList

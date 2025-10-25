@@ -10,11 +10,11 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 2.2.2
+- **Current Version**: 2.3.0
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macCatalyst 15.0
 - **macOS Support**: Build/test compatibility only (placeholder audio for TTS)
-- **Total Tests**: 95 passing (73 core + 22 SpeakableItem)
+- **Total Tests**: 109 passing (87 core + 22 SpeakableItem)
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
 
@@ -49,7 +49,7 @@ SwiftHablare/
 │   ├── AppleVoiceProvider.swift     # Apple TTS implementation
 │   └── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
 ├── Generation/
-│   └── GenerationService.swift      # ✨ Actor-based service with list support
+│   └── GenerationService.swift      # ✨ Actor-based service with provider registry
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
 ├── SwiftDataModels/
@@ -682,7 +682,166 @@ let audioData = try await service.generate(
 - ✅ Automatic thread management
 - ✅ Clean separation of concerns
 
-### 3. API Key Management
+### 3. Voice Provider Registry
+
+**Overview:**
+
+The `GenerationService` maintains a registry of voice providers, making it easy to work with multiple providers in a single application. The registry automatically includes Apple and ElevenLabs providers and supports custom providers.
+
+**Default Providers:**
+
+```swift
+// Create service - Apple and ElevenLabs are automatically registered
+let service = GenerationService(voiceProvider: AppleVoiceProvider())
+
+// Get all registered providers
+let providers = await service.registeredProviders()
+// Returns: [AppleVoiceProvider, ElevenLabsVoiceProvider]
+```
+
+**Working with Registry:**
+
+```swift
+// Get a specific provider by ID
+if let appleProvider = await service.provider(withId: "apple") {
+    let voices = try await appleProvider.fetchVoices()
+}
+
+// Check if provider is registered
+let hasElevenLabs = await service.isProviderRegistered("elevenlabs")
+
+// Register a custom provider
+let customProvider = MyCustomVoiceProvider()
+await service.registerProvider(customProvider)
+```
+
+**Fetching Voices from Providers:**
+
+```swift
+// Fetch voices from a specific provider by ID
+let appleVoices = try await service.fetchVoices(from: "apple")
+let elevenLabsVoices = try await service.fetchVoices(from: "elevenlabs")
+
+// Fetch voices from all configured providers
+let allVoices = try await service.fetchAllVoices()
+// Returns: ["apple": [Voice], "elevenlabs": [Voice]]
+
+// Iterate through all voices
+for (providerId, voices) in allVoices {
+    print("\(providerId): \(voices.count) voices available")
+    for voice in voices {
+        print("  - \(voice.name)")
+    }
+}
+```
+
+**Benefits:**
+- ✅ Centralized provider management
+- ✅ Easy switching between providers
+- ✅ Automatic filtering of unconfigured providers
+- ✅ Graceful error handling (skips failing providers)
+- ✅ Support for custom voice providers
+
+**Building UI with the Registry:**
+
+Since SwiftHablaré is a generation library without UI components, consuming applications should build their own UI. Here's an example provider picker:
+
+```swift
+// In your app (NOT in SwiftHablaré library)
+import SwiftUI
+import SwiftHablare
+
+struct ProviderPickerView: View {
+    let service: GenerationService
+    @State private var providers: [VoiceProvider] = []
+    @State private var selectedProvider: VoiceProvider?
+
+    var body: some View {
+        List(providers, id: \.providerId) { provider in
+            Button {
+                selectedProvider = provider
+            } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(provider.displayName)
+                            .font(.headline)
+                        Text(provider.providerId)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if provider.providerId == selectedProvider?.providerId {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+
+                    if !provider.isConfigured() {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .help("Provider not configured")
+                    }
+                }
+            }
+        }
+        .task {
+            providers = await service.registeredProviders()
+        }
+        .navigationTitle("Voice Providers")
+    }
+}
+
+struct VoicePickerView: View {
+    let service: GenerationService
+    let providerId: String
+    @State private var voices: [Voice] = []
+    @State private var selectedVoice: Voice?
+
+    var body: some View {
+        List(voices, id: \.id) { voice in
+            Button {
+                selectedVoice = voice
+            } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(voice.name)
+                            .font(.headline)
+                        HStack {
+                            if let language = voice.language {
+                                Text(language)
+                                    .font(.caption)
+                            }
+                            if let gender = voice.gender {
+                                Text("• \(gender)")
+                                    .font(.caption)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if voice.id == selectedVoice?.id {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+        }
+        .task {
+            do {
+                voices = try await service.fetchVoices(from: providerId)
+            } catch {
+                print("Error fetching voices: \(error)")
+            }
+        }
+        .navigationTitle("Select Voice")
+    }
+}
+```
+
+### 4. API Key Management
 
 **Storing API Keys:**
 ```swift
@@ -706,7 +865,7 @@ try keychain.delete(key: "elevenlabs-api-key")
 - ✅ Thread-safe operations
 - ✅ Automatic cleanup on delete
 
-### 4. Voice Caching
+### 5. Voice Caching
 
 **SwiftData Model:**
 ```swift
@@ -925,6 +1084,29 @@ let audioData = try await provider.generateAudio(
 // Use audioData in your app
 ```
 
+### Work with Provider Registry
+
+```swift
+// Create service with provider registry
+let service = GenerationService(voiceProvider: AppleVoiceProvider())
+
+// Get all available providers
+let providers = await service.registeredProviders()
+
+// Fetch voices from a specific provider
+let appleVoices = try await service.fetchVoices(from: "apple")
+
+// Fetch voices from all providers
+let allVoices = try await service.fetchAllVoices()
+for (providerId, voices) in allVoices {
+    print("\(providerId): \(voices.count) voices")
+}
+
+// Register a custom provider
+let customProvider = MyCustomVoiceProvider()
+await service.registerProvider(customProvider)
+```
+
 ### Cache Voices in SwiftData
 
 ```swift
@@ -983,6 +1165,7 @@ func cacheVoices() async throws {
 
 **In Scope**:
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice provider registry and management
 - ✅ Voice fetching and caching
 - ✅ Thread-safe audio generation
 - ✅ API key management

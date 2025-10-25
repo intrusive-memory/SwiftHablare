@@ -284,6 +284,260 @@ final class GenerationServiceTests: XCTestCase {
         }
     }
 
+    // MARK: - Provider Registry Tests
+
+    func testDefaultProvidersAreRegistered() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        let providers = await service.registeredProviders()
+
+        XCTAssertEqual(providers.count, 2, "Should have 2 default providers")
+
+        let providerIds = Set(providers.map { $0.providerId })
+        XCTAssertTrue(providerIds.contains("apple"), "Should include Apple provider")
+        XCTAssertTrue(providerIds.contains("elevenlabs"), "Should include ElevenLabs provider")
+    }
+
+    func testGetProviderById() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        let appleProvider = await service.provider(withId: "apple")
+        XCTAssertNotNil(appleProvider, "Should find Apple provider")
+        XCTAssertEqual(appleProvider?.providerId, "apple")
+
+        let elevenLabsProvider = await service.provider(withId: "elevenlabs")
+        XCTAssertNotNil(elevenLabsProvider, "Should find ElevenLabs provider")
+        XCTAssertEqual(elevenLabsProvider?.providerId, "elevenlabs")
+    }
+
+    func testGetProviderByIdReturnsNilForUnknown() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        let unknownProvider = await service.provider(withId: "unknown")
+        XCTAssertNil(unknownProvider, "Should return nil for unknown provider")
+    }
+
+    func testIsProviderRegistered() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        let isAppleRegistered = await service.isProviderRegistered("apple")
+        XCTAssertTrue(isAppleRegistered, "Apple provider should be registered")
+
+        let isElevenLabsRegistered = await service.isProviderRegistered("elevenlabs")
+        XCTAssertTrue(isElevenLabsRegistered, "ElevenLabs provider should be registered")
+
+        let isUnknownRegistered = await service.isProviderRegistered("unknown")
+        XCTAssertFalse(isUnknownRegistered, "Unknown provider should not be registered")
+    }
+
+    func testRegisterCustomProvider() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Create and register a custom provider
+        let customProvider = MockUnconfiguredProvider()
+        await service.registerProvider(customProvider)
+
+        // Verify it's registered
+        let isRegistered = await service.isProviderRegistered("mock-unconfigured")
+        XCTAssertTrue(isRegistered, "Custom provider should be registered")
+
+        // Verify it can be retrieved
+        let retrievedProvider = await service.provider(withId: "mock-unconfigured")
+        XCTAssertNotNil(retrievedProvider)
+        XCTAssertEqual(retrievedProvider?.providerId, "mock-unconfigured")
+
+        // Verify total count includes custom provider
+        let allProviders = await service.registeredProviders()
+        XCTAssertEqual(allProviders.count, 3, "Should have 3 providers (2 default + 1 custom)")
+    }
+
+    func testRegisterProviderReplacesExisting() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Get original Apple provider
+        let originalApple = await service.provider(withId: "apple")
+        XCTAssertNotNil(originalApple)
+
+        // Create a new Apple provider and register it
+        let newAppleProvider = AppleVoiceProvider()
+        await service.registerProvider(newAppleProvider)
+
+        // Verify it's still registered (replaced, not duplicated)
+        let allProviders = await service.registeredProviders()
+        XCTAssertEqual(allProviders.count, 2, "Should still have 2 providers")
+
+        let appleProviders = allProviders.filter { $0.providerId == "apple" }
+        XCTAssertEqual(appleProviders.count, 1, "Should have exactly one Apple provider")
+    }
+
+    func testRegisteredProvidersIncludesAllProviders() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register additional providers
+        let customProvider1 = MockConfiguredProvider(id: "custom1")
+        let customProvider2 = MockConfiguredProvider(id: "custom2")
+
+        await service.registerProvider(customProvider1)
+        await service.registerProvider(customProvider2)
+
+        let allProviders = await service.registeredProviders()
+        XCTAssertEqual(allProviders.count, 4, "Should have 4 providers (2 default + 2 custom)")
+
+        let providerIds = Set(allProviders.map { $0.providerId })
+        XCTAssertTrue(providerIds.contains("apple"))
+        XCTAssertTrue(providerIds.contains("elevenlabs"))
+        XCTAssertTrue(providerIds.contains("custom1"))
+        XCTAssertTrue(providerIds.contains("custom2"))
+    }
+
+    // MARK: - Voice Fetching from Registry Tests
+
+    func testFetchVoicesFromSpecificProvider() async throws {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Fetch voices from Apple provider by ID
+        let appleVoices = try await service.fetchVoices(from: "apple")
+
+        XCTAssertFalse(appleVoices.isEmpty, "Should fetch voices from Apple provider")
+        XCTAssertTrue(appleVoices.allSatisfy { $0.providerId == "apple" })
+    }
+
+    func testFetchVoicesFromUnknownProviderThrows() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        do {
+            _ = try await service.fetchVoices(from: "unknown-provider")
+            XCTFail("Should throw error for unknown provider")
+        } catch let error as VoiceProviderError {
+            if case .notConfigured = error {
+                // Expected error
+            } else {
+                XCTFail("Expected notConfigured error, got \(error)")
+            }
+        } catch {
+            XCTFail("Expected VoiceProviderError.notConfigured, got \(error)")
+        }
+    }
+
+    func testFetchVoicesFromUnconfiguredProviderThrows() async {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register unconfigured provider
+        let unconfiguredProvider = MockUnconfiguredProvider()
+        await service.registerProvider(unconfiguredProvider)
+
+        do {
+            _ = try await service.fetchVoices(from: "mock-unconfigured")
+            XCTFail("Should throw error for unconfigured provider")
+        } catch let error as VoiceProviderError {
+            if case .notConfigured = error {
+                // Expected error
+            } else {
+                XCTFail("Expected notConfigured error, got \(error)")
+            }
+        } catch {
+            XCTFail("Expected VoiceProviderError.notConfigured, got \(error)")
+        }
+    }
+
+    func testFetchAllVoices() async throws {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register a custom configured provider
+        let customProvider = MockConfiguredProvider(id: "custom1")
+        await service.registerProvider(customProvider)
+
+        // Fetch all voices
+        let allVoices = try await service.fetchAllVoices()
+
+        // Should have voices from Apple (always configured) and custom provider
+        XCTAssertGreaterThanOrEqual(allVoices.count, 1, "Should have at least Apple voices")
+
+        // Apple voices should be present
+        if let appleVoices = allVoices["apple"] {
+            XCTAssertFalse(appleVoices.isEmpty, "Apple provider should return voices")
+            XCTAssertTrue(appleVoices.allSatisfy { $0.providerId == "apple" })
+        }
+
+        // Custom provider voices should be present
+        if let customVoices = allVoices["custom1"] {
+            XCTAssertFalse(customVoices.isEmpty, "Custom provider should return voices")
+            XCTAssertTrue(customVoices.allSatisfy { $0.providerId == "custom1" })
+        }
+    }
+
+    func testFetchAllVoicesSkipsUnconfiguredProviders() async throws {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register unconfigured provider
+        let unconfiguredProvider = MockUnconfiguredProvider()
+        await service.registerProvider(unconfiguredProvider)
+
+        // Fetch all voices
+        let allVoices = try await service.fetchAllVoices()
+
+        // Should not include unconfigured provider
+        XCTAssertNil(allVoices["mock-unconfigured"], "Should skip unconfigured providers")
+
+        // Should still have Apple voices
+        XCTAssertNotNil(allVoices["apple"], "Should include configured providers")
+    }
+
+    func testFetchAllVoicesSkipsProvidersWithErrors() async throws {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register provider that throws errors
+        let errorProvider = MockErrorProvider()
+        await service.registerProvider(errorProvider)
+
+        // Fetch all voices
+        let allVoices = try await service.fetchAllVoices()
+
+        // Should not include error provider
+        XCTAssertNil(allVoices["mock-error"], "Should skip providers that throw errors")
+
+        // Should still have Apple voices
+        XCTAssertNotNil(allVoices["apple"], "Should include working providers")
+    }
+
+    func testFetchVoicesFromMultipleProviders() async throws {
+        let provider = AppleVoiceProvider()
+        let service = GenerationService(voiceProvider: provider)
+
+        // Register custom providers
+        let custom1 = MockConfiguredProvider(id: "custom1")
+        let custom2 = MockConfiguredProvider(id: "custom2")
+
+        await service.registerProvider(custom1)
+        await service.registerProvider(custom2)
+
+        // Fetch voices from each provider
+        let appleVoices = try await service.fetchVoices(from: "apple")
+        let custom1Voices = try await service.fetchVoices(from: "custom1")
+        let custom2Voices = try await service.fetchVoices(from: "custom2")
+
+        XCTAssertFalse(appleVoices.isEmpty)
+        XCTAssertFalse(custom1Voices.isEmpty)
+        XCTAssertFalse(custom2Voices.isEmpty)
+
+        XCTAssertTrue(appleVoices.allSatisfy { $0.providerId == "apple" })
+        XCTAssertTrue(custom1Voices.allSatisfy { $0.providerId == "custom1" })
+        XCTAssertTrue(custom2Voices.allSatisfy { $0.providerId == "custom2" })
+    }
+
     // MARK: - Concurrency Tests
 
     func testConcurrentAudioGeneration() async throws {
@@ -439,6 +693,74 @@ final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable {
 
     func generateAudio(text: String, voiceId: String) async throws -> Data {
         throw VoiceProviderError.notConfigured
+    }
+
+    func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
+        return 1.0
+    }
+
+    func isVoiceAvailable(voiceId: String) async -> Bool {
+        return false
+    }
+}
+
+/// Mock provider that is configured (for testing registry)
+final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
+    let providerId: String
+    let displayName: String
+    let requiresAPIKey = false
+
+    init(id: String) {
+        self.providerId = id
+        self.displayName = "Mock Provider \(id)"
+    }
+
+    func isConfigured() -> Bool {
+        return true
+    }
+
+    func fetchVoices() async throws -> [Voice] {
+        return [
+            Voice(
+                id: "\(providerId)-voice1",
+                name: "Voice 1",
+                providerId: providerId,
+                language: "en",
+                locality: "US",
+                gender: "neutral"
+            )
+        ]
+    }
+
+    func generateAudio(text: String, voiceId: String) async throws -> Data {
+        return Data("mock-audio-data".utf8)
+    }
+
+    func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
+        return 1.0
+    }
+
+    func isVoiceAvailable(voiceId: String) async -> Bool {
+        return voiceId.hasPrefix(providerId)
+    }
+}
+
+/// Mock provider that throws errors (for testing error handling)
+final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
+    let providerId = "mock-error"
+    let displayName = "Mock Error Provider"
+    let requiresAPIKey = false
+
+    func isConfigured() -> Bool {
+        return true
+    }
+
+    func fetchVoices() async throws -> [Voice] {
+        throw VoiceProviderError.invalidResponse
+    }
+
+    func generateAudio(text: String, voiceId: String) async throws -> Data {
+        throw VoiceProviderError.invalidResponse
     }
 
     func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
