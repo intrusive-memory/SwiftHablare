@@ -189,8 +189,8 @@ final class SpeakableItemListTests: XCTestCase {
 
     @MainActor
     func testCancellationDuringGeneration() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -279,8 +279,8 @@ final class SpeakableItemListTests: XCTestCase {
 
     @MainActor
     func testGenerateListBasic() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -301,8 +301,8 @@ final class SpeakableItemListTests: XCTestCase {
 
     @MainActor
     func testGenerateListPersistence() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -332,8 +332,8 @@ final class SpeakableItemListTests: XCTestCase {
 
     @MainActor
     func testGenerateListWithDifferentTypes() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -377,8 +377,8 @@ final class SpeakableItemListTests: XCTestCase {
 
     @MainActor
     func testGenerateListWithSaveInterval() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [

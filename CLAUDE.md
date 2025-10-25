@@ -22,16 +22,20 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ### iOS and Catalyst Only
 
-SwiftHablaré targets UIKit-based platforms:
+**SwiftHablaré is exclusively for iOS and Mac Catalyst platforms.**
+
+Supported platforms:
 - **iOS 26.0+** ✅ Full TTS support with real audio generation
 - **macCatalyst 15.0+** ✅ Full TTS support with real audio generation
-- **macOS 26.0+** ⚠️ Build/test compatibility only (placeholder audio)
 
-### Why No macOS Support?
+**IMPORTANT:** This library does NOT support macOS. All platform-specific code should ONLY use `#if targetEnvironment(simulator)` to detect iOS simulators. Never use `#if os(macOS)` guards in this codebase.
 
-- `AVSpeechSynthesizer.write()` does not properly invoke buffer callbacks on macOS
-- The library uses platform-specific code (`#if os(macOS)`) to return placeholder audio for tests
-- Real text-to-speech synthesis only works on iOS and Mac Catalyst
+### Simulator Behavior
+
+- **Physical iOS/Catalyst devices**: Real TTS with `AVSpeechSynthesizer.write()`
+- **iOS Simulator**: Placeholder audio for testing (AVSpeechSynthesizer.write() doesn't generate buffers on simulators)
+
+Integration tests that require real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
 
 ## Architecture
 
@@ -981,15 +985,21 @@ actor MyService {
 
 ### Platform-Specific Code
 
+**IMPORTANT: Never use `#if os(macOS)` guards in this codebase.**
+
+This library is iOS and Catalyst ONLY. The only platform-specific guard allowed is for simulators:
+
 ```swift
-#if os(macOS)
-// macOS-specific implementation
-// Usually placeholder/mock for testing
+#if targetEnvironment(simulator)
+// iOS Simulator - placeholder/mock for testing
+// Real TTS doesn't work on simulators
 #else
-// iOS/Catalyst implementation
-// Real functionality
+// Physical iOS/Catalyst devices
+// Real TTS functionality
 #endif
 ```
+
+**DO NOT** add macOS support or macOS-specific code paths. SwiftHablaré does not support macOS.
 
 ## Testing Strategy
 

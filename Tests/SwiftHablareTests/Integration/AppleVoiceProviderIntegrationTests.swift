@@ -41,8 +41,8 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     // MARK: - End-to-End Integration Tests
 
     func testEndToEndSpeechGeneration() async throws {
-        #if os(macOS) || targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on macOS/simulator - real speech synthesis only works on physical iOS/Catalyst devices")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Starting end-to-end Apple TTS speech generation test...")
@@ -140,8 +140,8 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithMultipleVoices() async throws {
-        #if os(macOS) || targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on macOS/simulator - real speech synthesis only works on physical iOS/Catalyst devices")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Testing with multiple Apple voices...")
@@ -174,8 +174,8 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithLongText() async throws {
-        #if os(macOS) || targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on macOS/simulator - real speech synthesis only works on physical iOS/Catalyst devices")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Testing with longer text...")
@@ -215,8 +215,8 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
     @MainActor
     func testEndToEndWithSwiftDataPersistence() async throws {
-        #if os(macOS) || targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on macOS/simulator - real speech synthesis only works on physical iOS/Catalyst devices")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
