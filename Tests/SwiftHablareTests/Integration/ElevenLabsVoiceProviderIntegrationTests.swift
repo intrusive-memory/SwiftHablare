@@ -17,12 +17,21 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
     var service: GenerationService!
     var artifactsDirectory: URL!
     var apiKey: String?
+    var modelContainer: ModelContainer!
+    var modelContext: ModelContext!
 
+    @MainActor
     override func setUp() async throws {
         try await super.setUp()
 
         // Check for API key in environment
         apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"]
+
+        // Create in-memory SwiftData container
+        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        modelContext = ModelContext(modelContainer)
 
         // Skip all tests in this class if no API key
         guard let key = apiKey, !key.isEmpty else {
@@ -31,7 +40,9 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         // Use ephemeral API key directly (bypasses keychain)
         provider = ElevenLabsVoiceProvider(apiKey: key)
-        service = GenerationService(voiceProvider: provider)
+        service = GenerationService(modelContext: modelContext)
+        // Register the ElevenLabs provider with the service (since it uses ephemeral API key)
+        await service.registerProvider(provider)
 
         // Create artifacts directory
         let testBundle = Bundle(for: type(of: self))
@@ -42,10 +53,13 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         try? FileManager.default.createDirectory(at: artifactsDirectory, withIntermediateDirectories: true)
     }
 
+    @MainActor
     override func tearDown() async throws {
         provider = nil
         service = nil
         apiKey = nil
+        modelContext = nil
+        modelContainer = nil
         try await super.tearDown()
     }
 
@@ -75,6 +89,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "elevenlabs",
             voiceId: voice.id,
             voiceName: voice.name
         )
@@ -138,6 +153,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
             let testText = "Testing voice number \(index + 1)."
             let result = try await service.generate(
                 text: testText,
+                providerId: "elevenlabs",
                 voiceId: voice.id,
                 voiceName: voice.name
             )
@@ -178,6 +194,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: longText,
+            providerId: "elevenlabs",
             voiceId: voice.id,
             voiceName: voice.name
         )
@@ -236,6 +253,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "elevenlabs",
             voiceId: voice.id,
             voiceName: voice.name
         )

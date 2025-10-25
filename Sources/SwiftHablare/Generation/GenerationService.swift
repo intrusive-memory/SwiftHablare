@@ -88,25 +88,44 @@ public actor GenerationService {
 
     // MARK: - Properties
 
-    /// Voice provider for generating audio
-    private let voiceProvider: VoiceProvider
-
-    /// Default MIME type for generated audio
-    private let defaultMimeType: String
-
     /// Registry of available voice providers
     private var providerRegistry: [String: VoiceProvider]
+
+    /// SwiftData model context for voice caching
+    ///
+    /// Note: ModelContext is not Sendable, but all operations are wrapped in MainActor.run
+    /// to ensure thread-safe access. The nonisolated(unsafe) annotation tells the compiler
+    /// that we're manually handling the synchronization.
+    nonisolated(unsafe) private let modelContext: ModelContext
+
+    /// Cache lifetime (default: 24 hours)
+    private let cacheLifetime: TimeInterval
 
     // MARK: - Initialization
 
     /// Create a generation service
     ///
+    /// **Required Models:**
+    /// The ModelContext must be configured with a schema that includes:
+    /// - `VoiceCacheModel` - For caching fetched voices
+    /// - `TypedDataStorage` (from SwiftCompartido) - For persisting generated audio
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// @MainActor
+    /// let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+    /// let container = try ModelContainer(for: schema)
+    /// let context = ModelContext(container)
+    /// let service = GenerationService(modelContext: context)
+    /// ```
+    ///
     /// - Parameters:
-    ///   - voiceProvider: Voice provider (Apple TTS or ElevenLabs)
-    ///   - defaultMimeType: Default MIME type (default: "audio/mpeg")
-    public init(voiceProvider: VoiceProvider, defaultMimeType: String = "audio/mpeg") {
-        self.voiceProvider = voiceProvider
-        self.defaultMimeType = defaultMimeType
+    ///   - modelContext: SwiftData ModelContext for voice caching and persistence
+    ///   - cacheLifetime: How long to cache voices before refetching (default: 24 hours)
+    public init(modelContext: ModelContext, cacheLifetime: TimeInterval = 24 * 60 * 60) {
+        self.modelContext = modelContext
+        self.cacheLifetime = cacheLifetime
 
         // Initialize registry with default providers
         let appleProvider = AppleVoiceProvider()
@@ -120,34 +139,56 @@ public actor GenerationService {
 
     // MARK: - Generation
 
-    /// Generate audio from text
+    /// Generate audio from text using a specific provider
     ///
     /// This method runs on a background thread (actor-isolated) and is non-blocking.
     /// The result is Sendable and can be safely transferred to the main thread.
     ///
     /// - Parameters:
     ///   - text: Text to convert to speech
+    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - voiceId: Voice identifier from provider
     ///   - voiceName: Voice name for metadata (optional)
-    ///   - mimeType: MIME type for audio (optional, uses default if not specified)
+    ///   - mimeType: MIME type for audio (optional, derived from provider if not specified)
     /// - Returns: GenerationResult with audio data and metadata
-    /// - Throws: VoiceProviderError if generation fails
+    /// - Throws: VoiceProviderError if generation fails or provider not found
     public func generate(
         text: String,
+        providerId: String,
         voiceId: String,
         voiceName: String? = nil,
         mimeType: String? = nil
     ) async throws -> GenerationResult {
+        // Get provider from registry
+        guard let provider = providerRegistry[providerId] else {
+            throw VoiceProviderError.notConfigured
+        }
+
         // Ensure provider is configured
-        guard voiceProvider.isConfigured() else {
+        guard provider.isConfigured() else {
             throw VoiceProviderError.notConfigured
         }
 
         // Estimate duration before generation
-        let estimatedDuration = await voiceProvider.estimateDuration(text: text, voiceId: voiceId)
+        let estimatedDuration = await provider.estimateDuration(text: text, voiceId: voiceId)
 
         // Generate audio (this happens on background thread via actor isolation)
-        let audioData = try await voiceProvider.generateAudio(text: text, voiceId: voiceId)
+        let audioData = try await provider.generateAudio(text: text, voiceId: voiceId)
+
+        // Determine MIME type from provider if not specified
+        let finalMimeType: String
+        if let mimeType {
+            finalMimeType = mimeType
+        } else {
+            switch providerId {
+            case "apple":
+                finalMimeType = "audio/x-aiff"
+            case "elevenlabs":
+                finalMimeType = "audio/mpeg"
+            default:
+                finalMimeType = "audio/mpeg"
+            }
+        }
 
         // Create result (Sendable, can be transferred to main thread)
         return GenerationResult(
@@ -155,8 +196,8 @@ public actor GenerationService {
             originalText: text,
             voiceId: voiceId,
             voiceName: voiceName,
-            providerId: voiceProvider.providerId,
-            mimeType: mimeType ?? defaultMimeType,
+            providerId: providerId,
+            mimeType: finalMimeType,
             estimatedDuration: estimatedDuration
         )
     }
@@ -168,6 +209,7 @@ public actor GenerationService {
     ///
     /// - Parameters:
     ///   - element: GuionElementModel to generate audio for
+    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - voiceId: Voice identifier from provider
     ///   - voiceName: Voice name for metadata (optional)
     ///   - mimeType: MIME type for audio (optional)
@@ -175,38 +217,31 @@ public actor GenerationService {
     /// - Throws: VoiceProviderError if generation fails
     public func generate(
         forElement element: GuionElementModel,
+        providerId: String,
         voiceId: String,
         voiceName: String? = nil,
         mimeType: String? = nil
     ) async throws -> GenerationResult {
         return try await generate(
             text: element.elementText,
+            providerId: providerId,
             voiceId: voiceId,
             voiceName: voiceName,
             mimeType: mimeType
         )
     }
 
-    /// Fetch available voices from the provider
+    /// Check if a voice is available from a specific provider
     ///
-    /// This method can be called to refresh the voice list and update the cache.
-    ///
-    /// - Returns: Array of available voices
-    /// - Throws: VoiceProviderError if fetch fails
-    public func fetchVoices() async throws -> [Voice] {
-        guard voiceProvider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        return try await voiceProvider.fetchVoices()
-    }
-
-    /// Check if a voice is available
-    ///
-    /// - Parameter voiceId: Voice identifier to check
+    /// - Parameters:
+    ///   - voiceId: Voice identifier to check
+    ///   - providerId: Provider identifier
     /// - Returns: True if voice is available
-    public func isVoiceAvailable(_ voiceId: String) async -> Bool {
-        return await voiceProvider.isVoiceAvailable(voiceId: voiceId)
+    public func isVoiceAvailable(_ voiceId: String, from providerId: String) async -> Bool {
+        guard let provider = providerRegistry[providerId] else {
+            return false
+        }
+        return await provider.isVoiceAvailable(voiceId: voiceId)
     }
 
     // MARK: - Provider Registry
@@ -249,19 +284,33 @@ public actor GenerationService {
 
     /// Fetch voices from a specific provider by ID
     ///
-    /// This is a convenience method to fetch voices from a registered provider
-    /// without needing to retrieve the provider instance first.
+    /// This method uses SwiftData caching to avoid repeatedly polling the voice provider.
+    /// The cache expires after 24 hours (or the configured cacheLifetime).
+    ///
+    /// **Cache Behavior:**
+    /// - First call: Fetches from provider and caches to SwiftData
+    /// - Subsequent calls: Returns cached voices from SwiftData if valid
+    /// - After expiration: Fetches fresh voices and updates SwiftData cache
+    /// - Manual refresh: Use `refreshVoices(from:)` to force a refresh
+    /// - No ModelContext: Always fetches fresh voices (no caching)
     ///
     /// ## Example
     ///
     /// ```swift
-    /// let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    /// @MainActor
+    /// let service = GenerationService(
+    ///     voiceProvider: AppleVoiceProvider(),
+    ///     modelContext: modelContext
+    /// )
     ///
-    /// // Fetch voices from Apple provider
+    /// // First call - fetches from provider and caches
     /// let appleVoices = try await service.fetchVoices(from: "apple")
     ///
-    /// // Fetch voices from ElevenLabs provider
-    /// let elevenLabsVoices = try await service.fetchVoices(from: "elevenlabs")
+    /// // Second call - returns cached voices (fast)
+    /// let cachedVoices = try await service.fetchVoices(from: "apple")
+    ///
+    /// // Force refresh
+    /// let freshVoices = try await service.refreshVoices(from: "apple")
     /// ```
     ///
     /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
@@ -276,7 +325,54 @@ public actor GenerationService {
             throw VoiceProviderError.notConfigured
         }
 
-        return try await provider.fetchVoices()
+        // Check SwiftData cache first
+        let cachedVoices = try await fetchCachedVoices(for: providerId)
+        if !cachedVoices.isEmpty {
+            return cachedVoices
+        }
+
+        // Cache miss - fetch fresh voices
+        let voices = try await provider.fetchVoices()
+
+        // Save to cache
+        try await saveCachedVoices(voices, for: providerId)
+
+        return voices
+    }
+
+    /// Fetch cached voices from SwiftData
+    private func fetchCachedVoices(for providerId: String) async throws -> [Voice] {
+        return try await MainActor.run {
+            let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId)
+            let cachedModels = try modelContext.fetch(descriptor)
+
+            // Filter out stale entries
+            let validModels = cachedModels.filter { !$0.isStale(after: cacheLifetime) }
+
+            // Convert to Voice objects
+            return validModels.map { $0.toVoice() }
+        }
+    }
+
+    /// Save voices to SwiftData cache
+    private func saveCachedVoices(_ voices: [Voice], for providerId: String) async throws {
+        try await MainActor.run {
+            // First, remove old cached voices for this provider
+            let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId)
+            let oldCached = try modelContext.fetch(descriptor)
+            for old in oldCached {
+                modelContext.delete(old)
+            }
+
+            // Insert new cached voices
+            for voice in voices {
+                let cacheModel = VoiceCacheModel(from: voice)
+                modelContext.insert(cacheModel)
+            }
+
+            // Save changes
+            try modelContext.save()
+        }
     }
 
     /// Fetch voices from all registered and configured providers
@@ -315,6 +411,91 @@ public actor GenerationService {
         }
 
         return voicesByProvider
+    }
+
+    // MARK: - Cache Management
+
+    /// Manually refresh voices for a specific provider
+    ///
+    /// This method bypasses the cache and fetches fresh voices from the provider,
+    /// then updates the SwiftData cache with the new results.
+    ///
+    /// Use this when you need to force a refresh before the cache expires,
+    /// such as after installing new voices or when you know the voice list has changed.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// // User installed new voices
+    /// let freshVoices = try await service.refreshVoices(from: "apple")
+    /// ```
+    ///
+    /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    /// - Returns: Freshly fetched array of voices
+    /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
+    public func refreshVoices(from providerId: String) async throws -> [Voice] {
+        guard let provider = providerRegistry[providerId] else {
+            throw VoiceProviderError.notConfigured
+        }
+
+        guard provider.isConfigured() else {
+            throw VoiceProviderError.notConfigured
+        }
+
+        // Fetch fresh voices
+        let voices = try await provider.fetchVoices()
+
+        // Update SwiftData cache
+        try await saveCachedVoices(voices, for: providerId)
+
+        return voices
+    }
+
+    /// Clear the voice cache for a specific provider
+    ///
+    /// Removes all cached voices for the specified provider from SwiftData.
+    /// The next call to `fetchVoices(from:)` will fetch fresh voices from the provider.
+    ///
+    /// - Parameter providerId: Provider identifier to clear cache for
+    public func clearVoiceCache(for providerId: String) async throws {
+        try await MainActor.run {
+            let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId)
+            let cachedModels = try modelContext.fetch(descriptor)
+            for model in cachedModels {
+                modelContext.delete(model)
+            }
+            try modelContext.save()
+        }
+    }
+
+    /// Clear all voice caches
+    ///
+    /// Removes all cached voices from SwiftData.
+    /// The next call to `fetchVoices(from:)` for any provider will fetch fresh voices.
+    public func clearAllVoiceCaches() async throws {
+        try await MainActor.run {
+            let descriptor = FetchDescriptor<VoiceCacheModel>()
+            let allCached = try modelContext.fetch(descriptor)
+            for model in allCached {
+                modelContext.delete(model)
+            }
+            try modelContext.save()
+        }
+    }
+
+    /// Check if a provider's voice cache is valid
+    ///
+    /// Returns true if the provider has cached voices in SwiftData that haven't expired.
+    ///
+    /// - Parameter providerId: Provider identifier to check
+    /// - Returns: True if cache exists and is still valid
+    public func hasValidCache(for providerId: String) async -> Bool {
+        do {
+            let cachedVoices = try await fetchCachedVoices(for: providerId)
+            return !cachedVoices.isEmpty
+        } catch {
+            return false
+        }
     }
 
     /// Generate audio for all items in a SpeakableItemList
@@ -359,11 +540,6 @@ public actor GenerationService {
         to context: ModelContext,
         saveInterval: Int = 1
     ) async throws -> [TypedDataStorage] {
-        // Ensure provider is configured
-        guard voiceProvider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
-
         // Mark list as processing
         list.startProcessing()
 
@@ -388,14 +564,24 @@ public actor GenerationService {
                 let voiceId = item.voiceId
                 let providerId = item.voiceProvider.providerId
 
+                // Get provider from registry
+                guard let provider = await providerRegistry[providerId] else {
+                    throw VoiceProviderError.notConfigured
+                }
+
+                // Ensure provider is configured
+                guard await provider.isConfigured() else {
+                    throw VoiceProviderError.notConfigured
+                }
+
                 // Generate audio (calls into actor, but we're passing Sendable types)
-                let audioData = try await voiceProvider.generateAudio(
+                let audioData = try await provider.generateAudio(
                     text: text,
                     voiceId: voiceId
                 )
 
                 // Estimate duration
-                let duration = await voiceProvider.estimateDuration(
+                let duration = await provider.estimateDuration(
                     text: text,
                     voiceId: voiceId
                 )
@@ -408,7 +594,7 @@ public actor GenerationService {
                 case "elevenlabs":
                     mimeType = "audio/mpeg"
                 default:
-                    mimeType = defaultMimeType
+                    mimeType = "audio/mpeg"
                 }
 
                 // Create TypedDataStorage record (already on main thread)

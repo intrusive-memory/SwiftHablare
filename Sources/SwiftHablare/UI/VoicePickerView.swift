@@ -134,6 +134,7 @@ public struct VoicePickerView: View {
 
 #if DEBUG
 import Foundation
+import SwiftData
 
 struct VoicePickerView_Previews: PreviewProvider {
     @State static var selectedVoiceId: String?
@@ -141,14 +142,27 @@ struct VoicePickerView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
             Form {
-                VoicePickerView(
-                    service: GenerationService(voiceProvider: AppleVoiceProvider()),
-                    providerId: "apple",
-                    selection: $selectedVoiceId
-                )
+                if let service = try? makePreviewService() {
+                    VoicePickerView(
+                        service: service,
+                        providerId: "apple",
+                        selection: $selectedVoiceId
+                    )
+                } else {
+                    Text("Unable to create preview")
+                }
             }
             .navigationTitle("Voice Selection")
         }
+    }
+
+    @MainActor
+    static func makePreviewService() throws -> GenerationService {
+        let schema = Schema([VoiceCacheModel.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+        return GenerationService(modelContext: context)
     }
 }
 #endif

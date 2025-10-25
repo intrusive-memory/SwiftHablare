@@ -50,7 +50,7 @@ public final class SpeakableItemListExampleViewModel {
 
     public init(provider: VoiceProvider, modelContext: ModelContext) {
         self.provider = provider
-        self.service = GenerationService(voiceProvider: provider)
+        self.service = GenerationService(modelContext: modelContext)
         self.modelContext = modelContext
     }
 

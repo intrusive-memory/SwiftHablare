@@ -27,15 +27,18 @@ import Foundation
 /// import SwiftCompartido
 /// import SwiftData
 ///
-/// // 1. Create a voice provider
-/// let provider = ElevenLabsVoiceProvider()
+/// // 1. Create SwiftData model context
+/// let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+/// let container = try ModelContainer(for: schema)
+/// let modelContext = ModelContext(container)
 ///
 /// // 2. Create generation service
-/// let service = GenerationService(voiceProvider: provider)
+/// let service = GenerationService(modelContext: modelContext)
 ///
 /// // 3. Generate audio for an element
 /// let result = try await service.generate(
 ///     forElement: element,
+///     providerId: "elevenlabs",
 ///     voiceId: "voice123",
 ///     voiceName: "Rachel"
 /// )

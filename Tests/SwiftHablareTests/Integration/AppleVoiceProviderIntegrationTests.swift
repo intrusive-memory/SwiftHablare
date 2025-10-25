@@ -16,12 +16,21 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     var provider: AppleVoiceProvider!
     var service: GenerationService!
     var artifactsDirectory: URL!
+    var modelContainer: ModelContainer!
+    var modelContext: ModelContext!
 
+    @MainActor
     override func setUp() async throws {
         try await super.setUp()
 
+        // Create in-memory SwiftData container
+        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        modelContext = ModelContext(modelContainer)
+
         provider = AppleVoiceProvider()
-        service = GenerationService(voiceProvider: provider)
+        service = GenerationService(modelContext: modelContext)
 
         // Create artifacts directory
         let testBundle = Bundle(for: type(of: self))
@@ -32,9 +41,12 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         try? FileManager.default.createDirectory(at: artifactsDirectory, withIntermediateDirectories: true)
     }
 
+    @MainActor
     override func tearDown() async throws {
         provider = nil
         service = nil
+        modelContext = nil
+        modelContainer = nil
         try await super.tearDown()
     }
 
@@ -64,6 +76,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "apple",
             voiceId: voice.id,
             voiceName: voice.name
         )
@@ -157,6 +170,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
             let testText = "Testing voice number \(index + 1)."
             let result = try await service.generate(
                 text: testText,
+                providerId: "apple",
                 voiceId: voice.id,
                 voiceName: voice.name
             )
@@ -248,6 +262,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "apple",
             voiceId: voice.id,
             voiceName: voice.name
         )

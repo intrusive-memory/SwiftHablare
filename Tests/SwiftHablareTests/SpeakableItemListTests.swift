@@ -21,19 +21,19 @@ final class SpeakableItemListTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
 
+        // Create in-memory SwiftData container
+        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        modelContext = ModelContext(modelContainer)
+
         // Create provider and service
         provider = AppleVoiceProvider()
-        service = GenerationService(voiceProvider: provider)
+        service = GenerationService(modelContext: modelContext)
 
         // Get a voice
         let voices = try await provider.fetchVoices()
         voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-
-        // Create in-memory SwiftData container
-        let schema = Schema([TypedDataStorage.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        modelContext = ModelContext(modelContainer)
     }
 
     @MainActor

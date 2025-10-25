@@ -44,7 +44,7 @@ import Observation
 ///     let list = SpeakableItemList(name: "Greetings", items: items)
 ///
 ///     // Generate with progress tracking
-///     let service = GenerationService(voiceProvider: provider)
+///     let service = GenerationService(modelContext: modelContext)
 ///     try await service.generateList(list, to: modelContext)
 ///
 ///     print("Progress: \(list.progress * 100)%")

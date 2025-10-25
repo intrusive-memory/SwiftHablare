@@ -530,7 +530,7 @@ func generateSpeechList() async throws {
     let list = SpeakableItemList(name: "Greetings", items: items)
 
     // 3. Generate with progress tracking
-    let service = GenerationService(voiceProvider: provider)
+    let service = GenerationService(modelContext: modelContext)
     let records = try await service.generateList(list, to: modelContext)
 
     // 4. Check results
@@ -686,7 +686,7 @@ let audioData = try await provider.generateAudio(
 **Recommended Pattern:**
 ```swift
 // Create service (actor for thread safety)
-let service = GenerationService(voiceProvider: provider)
+let service = GenerationService(modelContext: modelContext)
 
 // Generate audio (thread-safe)
 let audioData = try await service.generate(
@@ -712,7 +712,7 @@ The `GenerationService` maintains a registry of voice providers, making it easy 
 
 ```swift
 // Create service - Apple and ElevenLabs are automatically registered
-let service = GenerationService(voiceProvider: AppleVoiceProvider())
+let service = GenerationService(modelContext: modelContext)
 
 // Get all registered providers
 let providers = await service.registeredProviders()
@@ -777,7 +777,7 @@ import SwiftUI
 import SwiftHablare
 
 struct MyView: View {
-    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    let service = GenerationService(modelContext: modelContext)
     @State private var selectedProviderId: String?
 
     var body: some View {
@@ -800,7 +800,7 @@ import SwiftUI
 import SwiftHablare
 
 struct MyView: View {
-    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    let service = GenerationService(modelContext: modelContext)
     @State private var selectedVoiceId: String?
 
     var body: some View {
@@ -824,7 +824,7 @@ import SwiftUI
 import SwiftHablare
 
 struct VoiceSelectionView: View {
-    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    let service = GenerationService(modelContext: modelContext)
 
     @State private var selectedProviderId: String?
     @State private var selectedVoiceId: String?
@@ -1136,7 +1136,7 @@ let audioData = try await provider.generateAudio(
 
 ```swift
 // Create service with provider registry
-let service = GenerationService(voiceProvider: AppleVoiceProvider())
+let service = GenerationService(modelContext: modelContext)
 
 // Get all available providers
 let providers = await service.registeredProviders()
