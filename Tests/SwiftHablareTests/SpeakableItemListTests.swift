@@ -190,7 +190,7 @@ final class SpeakableItemListTests: XCTestCase {
     @MainActor
     func testCancellationDuringGeneration() async throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on simulator")
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -280,7 +280,7 @@ final class SpeakableItemListTests: XCTestCase {
     @MainActor
     func testGenerateListBasic() async throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on simulator")
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -302,7 +302,7 @@ final class SpeakableItemListTests: XCTestCase {
     @MainActor
     func testGenerateListPersistence() async throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on simulator")
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -333,7 +333,7 @@ final class SpeakableItemListTests: XCTestCase {
     @MainActor
     func testGenerateListWithDifferentTypes() async throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on simulator")
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [
@@ -378,7 +378,7 @@ final class SpeakableItemListTests: XCTestCase {
     @MainActor
     func testGenerateListWithSaveInterval() async throws {
         #if targetEnvironment(simulator)
-        throw XCTSkip("Apple TTS integration test skipped on simulator")
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
         #endif
 
         let items: [any SpeakableItem] = [

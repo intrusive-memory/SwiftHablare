@@ -58,21 +58,37 @@ SwiftHablare/
 │   └── KeychainManager.swift        # Secure API key storage
 ├── SwiftDataModels/
 │   └── VoiceCacheModel.swift        # Voice caching with SwiftData
+├── UI/
+│   ├── ProviderPickerView.swift     # SwiftUI provider picker
+│   └── VoicePickerView.swift        # SwiftUI voice picker
 └── Examples/
     ├── SpeakableItemExamples.swift  # Example implementations
     └── SpeakableItemListExample.swift # ✨ Complete batch generation example
 ```
 
-### No UI Components
+### UI Components
 
-SwiftHablaré is a **generation library only**. There are NO UI components:
-- ❌ No widgets
-- ❌ No views
-- ❌ No SwiftUI components
-- ❌ No audio players
-- ❌ No voice pickers
+SwiftHablaré provides simple SwiftUI pickers for voice provider and voice selection:
 
-Consuming applications are responsible for building their own UI using SwiftHablaré's generation APIs.
+**ProviderPickerView**:
+- Displays all registered providers from GenerationService
+- Shows provider display name and configuration status
+- Binds to selected provider ID (String?)
+
+**VoicePickerView**:
+- Displays voices from a specific provider
+- Shows voice name, language, gender, and locality
+- Handles loading states and errors
+- Binds to selected voice ID (String?)
+
+These are simple, focused UI servants that fetch data directly from GenerationService. Applications can use these as-is or build their own custom UI.
+
+**Not Included**:
+- ❌ Audio players
+- ❌ Recording interfaces
+- ❌ Complex voice management UIs
+
+Applications are responsible for audio playback and more complex UI workflows.
 
 ### No Data Persistence (Beyond Voice Caching)
 
@@ -746,106 +762,128 @@ for (providerId, voices) in allVoices {
 - ✅ Graceful error handling (skips failing providers)
 - ✅ Support for custom voice providers
 
-**Building UI with the Registry:**
+**Using the Built-in UI Components:**
 
-Since SwiftHablaré is a generation library without UI components, consuming applications should build their own UI. Here's an example provider picker:
+SwiftHablaré now includes simple SwiftUI pickers for provider and voice selection. See section "4. UI Components" below for usage examples and documentation.
+
+### 4. UI Components
+
+**ProviderPickerView**
+
+Simple SwiftUI picker for selecting a voice provider:
 
 ```swift
-// In your app (NOT in SwiftHablaré library)
 import SwiftUI
 import SwiftHablare
 
-struct ProviderPickerView: View {
-    let service: GenerationService
-    @State private var providers: [VoiceProvider] = []
-    @State private var selectedProvider: VoiceProvider?
+struct MyView: View {
+    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    @State private var selectedProviderId: String?
 
     var body: some View {
-        List(providers, id: \.providerId) { provider in
-            Button {
-                selectedProvider = provider
-            } label: {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(provider.displayName)
-                            .font(.headline)
-                        Text(provider.providerId)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if provider.providerId == selectedProvider?.providerId {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.blue)
-                    }
-
-                    if !provider.isConfigured() {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                            .help("Provider not configured")
-                    }
-                }
-            }
+        Form {
+            ProviderPickerView(
+                service: service,
+                selection: $selectedProviderId
+            )
         }
-        .task {
-            providers = await service.registeredProviders()
-        }
-        .navigationTitle("Voice Providers")
-    }
-}
-
-struct VoicePickerView: View {
-    let service: GenerationService
-    let providerId: String
-    @State private var voices: [Voice] = []
-    @State private var selectedVoice: Voice?
-
-    var body: some View {
-        List(voices, id: \.id) { voice in
-            Button {
-                selectedVoice = voice
-            } label: {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(voice.name)
-                            .font(.headline)
-                        HStack {
-                            if let language = voice.language {
-                                Text(language)
-                                    .font(.caption)
-                            }
-                            if let gender = voice.gender {
-                                Text("• \(gender)")
-                                    .font(.caption)
-                            }
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if voice.id == selectedVoice?.id {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-        }
-        .task {
-            do {
-                voices = try await service.fetchVoices(from: providerId)
-            } catch {
-                print("Error fetching voices: \(error)")
-            }
-        }
-        .navigationTitle("Select Voice")
     }
 }
 ```
 
-### 4. API Key Management
+**VoicePickerView**
+
+Simple SwiftUI picker for selecting a voice from a provider:
+
+```swift
+import SwiftUI
+import SwiftHablare
+
+struct MyView: View {
+    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    @State private var selectedVoiceId: String?
+
+    var body: some View {
+        Form {
+            VoicePickerView(
+                service: service,
+                providerId: "apple",
+                selection: $selectedVoiceId
+            )
+        }
+    }
+}
+```
+
+**Combined Example**
+
+Using both pickers together:
+
+```swift
+import SwiftUI
+import SwiftHablare
+
+struct VoiceSelectionView: View {
+    let service = GenerationService(voiceProvider: AppleVoiceProvider())
+
+    @State private var selectedProviderId: String?
+    @State private var selectedVoiceId: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Provider") {
+                    ProviderPickerView(
+                        service: service,
+                        selection: $selectedProviderId
+                    )
+                }
+
+                if let providerId = selectedProviderId {
+                    Section("Voice") {
+                        VoicePickerView(
+                            service: service,
+                            providerId: providerId,
+                            selection: $selectedVoiceId
+                        )
+                    }
+                }
+
+                if selectedVoiceId != nil, selectedProviderId != nil {
+                    Section("Generate") {
+                        Button("Generate Speech") {
+                            Task {
+                                try await generateSpeech()
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Voice Selection")
+        }
+    }
+
+    func generateSpeech() async throws {
+        guard let voiceId = selectedVoiceId else { return }
+
+        let result = try await service.generate(
+            text: "Hello, world!",
+            voiceId: voiceId,
+            voiceName: "Selected Voice"
+        )
+        // Handle result...
+    }
+}
+```
+
+**Benefits:**
+- ✅ Simple, focused UI components
+- ✅ Fetch data directly from GenerationService
+- ✅ Handle loading and error states
+- ✅ SwiftUI bindings for easy integration
+- ✅ Show provider configuration status
+
+### 5. API Key Management
 
 **Storing API Keys:**
 ```swift
@@ -1166,12 +1204,12 @@ func cacheVoices() async throws {
 - Returns audio data for the consuming application to use
 
 **Out of Scope**:
-- ❌ UI components (apps build their own)
-- ❌ Data persistence (beyond voice caching)
 - ❌ Audio playback (apps handle playback)
+- ❌ Data persistence (beyond voice caching)
 - ❌ Screenplay processing
 - ❌ Background task management
 - ❌ Character-to-voice mapping
+- ❌ Complex UI workflows
 
 **In Scope**:
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
@@ -1180,6 +1218,7 @@ func cacheVoices() async throws {
 - ✅ Thread-safe audio generation
 - ✅ API key management
 - ✅ Platform compatibility (iOS, Catalyst)
+- ✅ Simple UI pickers (provider & voice selection)
 
 ---
 
