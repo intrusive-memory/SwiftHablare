@@ -113,11 +113,11 @@ public final class AppleVoiceProvider: VoiceProvider {
             throw VoiceProviderError.invalidRequest("Text cannot be empty")
         }
 
-        #if os(macOS)
-        // On macOS, AVSpeechSynthesizer.write() doesn't properly call the buffer callback
-        // This is a known limitation - the API is designed for iOS/Catalyst
-        // For testing purposes on macOS, we return a minimal valid AIFF file
-        // Real audio generation only works on iOS/Catalyst platforms
+        #if os(macOS) || targetEnvironment(simulator)
+        // On macOS and iOS Simulator, AVSpeechSynthesizer.write() doesn't properly call the buffer callback
+        // This is a known limitation - the API is designed for real iOS/Catalyst devices
+        // For testing purposes, we return a minimal valid AIFF file
+        // Real audio generation only works on physical iOS/Catalyst devices
         return try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
@@ -151,7 +151,11 @@ public final class AppleVoiceProvider: VoiceProvider {
                     let data = try Data(contentsOf: tempURL)
                     try? FileManager.default.removeItem(at: tempURL)
 
+                    #if targetEnvironment(simulator)
+                    print("⚠️  Simulator: Generated placeholder audio (\(data.count) bytes). Real TTS only works on physical devices.")
+                    #else
                     print("⚠️  macOS: Generated placeholder audio (\(data.count) bytes). Real TTS only works on iOS/Catalyst.")
+                    #endif
                     continuation.resume(returning: data)
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
