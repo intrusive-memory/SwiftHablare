@@ -10,11 +10,11 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 2.0.1
+- **Current Version**: 2.3.0
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macCatalyst 15.0
 - **macOS Support**: Build/test compatibility only (placeholder audio for TTS)
-- **Total Tests**: 73 passing
+- **Total Tests**: 109 passing (87 core + 22 SpeakableItem)
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
 
@@ -22,16 +22,20 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ### iOS and Catalyst Only
 
-SwiftHablaré targets UIKit-based platforms:
+**SwiftHablaré is exclusively for iOS and Mac Catalyst platforms.**
+
+Supported platforms:
 - **iOS 26.0+** ✅ Full TTS support with real audio generation
 - **macCatalyst 15.0+** ✅ Full TTS support with real audio generation
-- **macOS 26.0+** ⚠️ Build/test compatibility only (placeholder audio)
 
-### Why No macOS Support?
+**IMPORTANT:** This library does NOT support macOS. All platform-specific code should ONLY use `#if targetEnvironment(simulator)` to detect iOS simulators. Never use `#if os(macOS)` guards in this codebase.
 
-- `AVSpeechSynthesizer.write()` does not properly invoke buffer callbacks on macOS
-- The library uses platform-specific code (`#if os(macOS)`) to return placeholder audio for tests
-- Real text-to-speech synthesis only works on iOS and Mac Catalyst
+### Simulator Behavior
+
+- **Physical iOS/Catalyst devices**: Real TTS with `AVSpeechSynthesizer.write()`
+- **iOS Simulator**: Placeholder audio for testing (AVSpeechSynthesizer.write() doesn't generate buffers on simulators)
+
+Integration tests that require real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
 
 ## Architecture
 
@@ -40,17 +44,23 @@ SwiftHablaré targets UIKit-based platforms:
 ```
 SwiftHablare/
 ├── VoiceProvider.swift              # Protocol for voice providers
+├── Protocols/
+│   └── SpeakableItem.swift          # Protocol for speakable objects
 ├── Models/
-│   └── Voice.swift                  # Voice model (id, name, language, etc.)
+│   ├── Voice.swift                  # Voice model (id, name, language, etc.)
+│   └── SpeakableItemList.swift      # ✨ Batch generation with progress
 ├── Providers/
 │   ├── AppleVoiceProvider.swift     # Apple TTS implementation
 │   └── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
 ├── Generation/
-│   └── GenerationService.swift      # Actor-based generation service
+│   └── GenerationService.swift      # ✨ Actor-based service with provider registry
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
-└── SwiftDataModels/
-    └── VoiceCacheModel.swift        # Voice caching with SwiftData
+├── SwiftDataModels/
+│   └── VoiceCacheModel.swift        # Voice caching with SwiftData
+└── Examples/
+    ├── SpeakableItemExamples.swift  # Example implementations
+    └── SpeakableItemListExample.swift # ✨ Complete batch generation example
 ```
 
 ### No UI Components
@@ -122,6 +132,518 @@ These were removed in version 2.0. SwiftHablaré is a focused voice generation l
 - 30 unit tests (95%+ coverage)
 - 5 integration tests (conditional - require API key)
 
+## SpeakableItem Protocol
+
+### Overview
+
+The `SpeakableItem` protocol enables **protocol-oriented text-to-speech generation** where any type can become speakable by conforming to a simple 3-property protocol:
+
+```swift
+public protocol SpeakableItem {
+    var voiceProvider: VoiceProvider { get }
+    var voiceId: String { get }
+    var textToSpeak: String { get }
+}
+```
+
+### Design Philosophy
+
+**Protocol-Oriented Design:**
+- ✅ Any struct, class, or enum can become speakable
+- ✅ Voice configuration travels with the object
+- ✅ Composable with other protocols
+- ✅ Easy to test with mock implementations
+- ✅ Type-safe audio generation
+
+**Key Benefits:**
+1. **Flexibility**: Your domain models become speakable without inheritance
+2. **Reusability**: Voice settings are encapsulated with content
+3. **Testability**: Easy to create test fixtures
+4. **Composability**: Works with Swift's Collection protocols
+
+### Basic Usage
+
+```swift
+// Create a speakable type
+struct Message: SpeakableItem {
+    let voiceProvider: VoiceProvider
+    let voiceId: String
+    let sender: String
+    let content: String
+
+    var textToSpeak: String {
+        "\(sender) says: \(content)"
+    }
+}
+
+// Use it
+let provider = AppleVoiceProvider()
+let voices = try await provider.fetchVoices()
+
+let message = Message(
+    voiceProvider: provider,
+    voiceId: voices.first!.id,
+    sender: "Alice",
+    content: "Hello, world!"
+)
+
+// Generate audio (convenience method from protocol extension)
+let audioData = try await message.speak()
+```
+
+### Convenience Methods
+
+The protocol provides default implementations for common operations:
+
+```swift
+extension SpeakableItem {
+    // Generate audio for this item
+    public func speak() async throws -> Data
+
+    // Estimate duration in seconds
+    public func estimateDuration() async -> TimeInterval
+
+    // Check if voice is available
+    public func isVoiceAvailable() async -> Bool
+}
+```
+
+### Batch Operations
+
+Collections of `SpeakableItem` get automatic batch processing:
+
+```swift
+extension Collection where Element: SpeakableItem {
+    // Generate audio for all items sequentially
+    public func speakAll() async throws -> [Data]
+
+    // Estimate total duration for all items
+    public func estimateTotalDuration() async -> TimeInterval
+}
+```
+
+**Example:**
+```swift
+let messages: [Message] = [
+    Message(voiceProvider: provider, voiceId: voiceId, sender: "Alice", content: "Hello"),
+    Message(voiceProvider: provider, voiceId: voiceId, sender: "Bob", content: "Hi there"),
+    Message(voiceProvider: provider, voiceId: voiceId, sender: "Charlie", content: "Good morning")
+]
+
+// Generate all at once
+let audioFiles = try await messages.speakAll()
+// Returns [Data, Data, Data]
+
+// Estimate total time
+let totalDuration = await messages.estimateTotalDuration()
+// Returns TimeInterval (e.g., 8.5 seconds)
+```
+
+### Integration with SwiftCompartido (TypedDataStorage)
+
+When using SwiftHablaré with SwiftCompartido for persistence, the typical flow is:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     SpeakableItem List                          │
+│  [Message, Article, Notification, CharacterDialogue, ...]      │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ for item in items {
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                  SpeakableItem Protocol                         │
+│                                                                 │
+│  • voiceProvider: VoiceProvider                                 │
+│  • voiceId: String                                              │
+│  • textToSpeak: String                                          │
+│                                                                 │
+│  Extension methods:                                             │
+│  • speak() -> Data                                              │
+│  • estimateDuration() -> TimeInterval                           │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ let audioData = try await item.speak()
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   Voice Provider                                │
+│  (AppleVoiceProvider or ElevenLabsVoiceProvider)                │
+│                                                                 │
+│  generateAudio(text: String, voiceId: String) -> Data           │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ Returns audio Data (AIFF/MP3)
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│               Application Layer (Your Code)                     │
+│                                                                 │
+│  • Receives audio Data from speak()                             │
+│  • Creates TypedDataStorage record                              │
+│  • Sets MIME type (audio/x-aiff or audio/mpeg)                  │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ modelContext.insert(record)
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│            SwiftCompartido - TypedDataStorage                   │
+│                                                                 │
+│  • id: UUID                                                     │
+│  • providerId: "apple" or "elevenlabs"                          │
+│  • requestorID: "your-app.audio.tts"                            │
+│  • mimeType: "audio/x-aiff" or "audio/mpeg"                     │
+│  • binaryValue: Data (the audio)                                │
+│  • prompt: String (original text)                               │
+│  • metadata: JSON (voiceId, duration, etc.)                     │
+│  • createdAt: Date                                              │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ modelContext.save()
+                         ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      SwiftData Store                            │
+│            (Persistent storage on device)                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Complete Example: SpeakableItem → TypedDataStorage
+
+```swift
+import SwiftHablare
+import SwiftCompartido
+import SwiftData
+
+@MainActor
+func generateAndPersistSpeech() async throws {
+    // 1. Create your speakable items
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+    let voiceId = voices.first!.id
+
+    let items: [any SpeakableItem] = [
+        SimpleMessage(content: "Hello, world!", voiceProvider: provider, voiceId: voiceId),
+        Article(
+            title: "Breaking News",
+            author: "Jane Doe",
+            content: "This is the article content.",
+            voiceProvider: provider,
+            voiceId: voiceId
+        ),
+        Notification(
+            title: "Alert",
+            message: "You have a new message",
+            voiceProvider: provider,
+            voiceId: voiceId
+        )
+    ]
+
+    // 2. Generate audio and persist each one
+    for item in items {
+        // Generate audio using SpeakableItem protocol
+        let audioData = try await item.speak()
+
+        // Create TypedDataStorage record
+        let record = TypedDataStorage(
+            providerId: item.voiceProvider.providerId,
+            requestorID: "my-app.audio.tts",
+            mimeType: "audio/x-aiff",  // Apple uses AIFF format
+            binaryValue: audioData,
+            prompt: item.textToSpeak,
+            metadata: try? JSONSerialization.data(withJSONObject: [
+                "voiceId": item.voiceId,
+                "estimatedDuration": await item.estimateDuration()
+            ])
+        )
+
+        // Insert into SwiftData
+        modelContext.insert(record)
+    }
+
+    // 3. Save all records
+    try modelContext.save()
+
+    print("Generated and persisted \(items.count) audio files")
+}
+```
+
+### Example Implementations
+
+SwiftHablaré includes 5 example implementations in `Sources/SwiftHablare/Examples/SpeakableItemExamples.swift`:
+
+#### 1. SimpleMessage
+```swift
+public struct SimpleMessage: SpeakableItem {
+    public let voiceProvider: VoiceProvider
+    public let voiceId: String
+    public let content: String
+
+    public var textToSpeak: String { content }
+}
+```
+
+#### 2. CharacterDialogue
+```swift
+public struct CharacterDialogue: SpeakableItem {
+    public let characterName: String
+    public let dialogue: String
+    public let voiceProvider: VoiceProvider
+    public let voiceId: String
+    public let includeCharacterName: Bool
+
+    public var textToSpeak: String {
+        includeCharacterName ? "\(characterName): \(dialogue)" : dialogue
+    }
+}
+```
+
+#### 3. Article
+```swift
+public struct Article: SpeakableItem {
+    public let title: String
+    public let author: String
+    public let content: String
+    public let voiceProvider: VoiceProvider
+    public let voiceId: String
+    public let includeMeta: Bool
+
+    public var textToSpeak: String {
+        includeMeta ? "\(title), by \(author). \(content)" : content
+    }
+}
+```
+
+#### 4. Notification
+```swift
+public struct Notification: SpeakableItem {
+    public let title: String
+    public let message: String
+    public let timestamp: Date
+    public let voiceProvider: VoiceProvider
+    public let voiceId: String
+    public let includeTimestamp: Bool
+
+    public var textToSpeak: String {
+        if includeTimestamp {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return "\(title) at \(formatter.string(from: timestamp)). \(message)"
+        }
+        return "\(title). \(message)"
+    }
+}
+```
+
+#### 5. ListItem
+```swift
+public struct ListItem: SpeakableItem {
+    public let number: Int
+    public let content: String
+    public let voiceProvider: VoiceProvider
+    public let voiceId: String
+
+    public var textToSpeak: String {
+        "Step \(number): \(content)"
+    }
+}
+```
+
+### Test Coverage
+
+The SpeakableItem protocol has comprehensive test coverage:
+
+- **22 tests** in `Tests/SwiftHablareTests/SpeakableItemTests.swift`
+- **100% test coverage** on protocol implementation
+- Tests cover:
+  - Protocol conformance
+  - Speech generation
+  - Duration estimation
+  - Voice availability checks
+  - Batch operations (speakAll, estimateTotalDuration)
+  - Error handling (empty text, invalid voice)
+  - Custom implementations
+
+### Thread Safety
+
+All `SpeakableItem` methods are async and thread-safe:
+- Uses underlying `VoiceProvider` concurrency model (actor-based)
+- Safe to call from any async context
+- Safe to use with structured concurrency (TaskGroup, async let)
+
+```swift
+// Safe concurrent generation
+await withTaskGroup(of: Data.self) { group in
+    for item in items {
+        group.addTask {
+            try await item.speak()
+        }
+    }
+}
+```
+
+## SpeakableItemList - Batch Generation with Progress
+
+### Overview
+
+`SpeakableItemList` provides structured batch audio generation with progress tracking and automatic SwiftData persistence. It's designed for processing multiple speakable items sequentially with real-time UI updates.
+
+### Features
+
+- **Sequential Processing**: Items processed one by one in order
+- **Progress Tracking**: Real-time observable progress (current index, percentage)
+- **Actor-Based**: Background audio generation with main-thread persistence
+- **Cancellation**: Graceful cancellation with partial result preservation
+- **Error Handling**: Captures errors while saving completed items
+- **SwiftData Integration**: Automatic persistence via TypedDataStorage
+- **Observable**: SwiftUI-compatible with `@Observable` macro
+
+### Basic Usage
+
+```swift
+@MainActor
+func generateSpeechList() async throws {
+    // 1. Create items
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+    let voiceId = voices.first!.id
+
+    let items: [any SpeakableItem] = [
+        SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
+        SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+    ]
+
+    // 2. Create list
+    let list = SpeakableItemList(name: "Greetings", items: items)
+
+    // 3. Generate with progress tracking
+    let service = GenerationService(voiceProvider: provider)
+    let records = try await service.generateList(list, to: modelContext)
+
+    // 4. Check results
+    print("Generated \(records.count) audio files")
+    print("Progress: \(list.progress * 100)%")
+    print("Status: \(list.statusMessage)")
+}
+```
+
+### Complete Flow Diagram
+
+```
+Application (@MainActor)
+    ↓
+Create SpeakableItemList
+    ↓
+GenerationService.generateList()
+    ↓
+┌─────────────────────────────────────┐
+│ For each item:                      │
+│   1. Check cancellation             │
+│   2. Generate audio (background)    │
+│   3. Create TypedDataStorage (main) │
+│   4. Save to SwiftData (main)       │
+│   5. Update progress (main)         │
+└─────────────────────────────────────┘
+    ↓
+Return [TypedDataStorage]
+```
+
+See `Docs/SPEAKABLE_ITEM_LIST_FLOW.md` for detailed architecture diagrams.
+
+### Progress Tracking
+
+The list provides real-time observable properties:
+
+```swift
+let list = SpeakableItemList(name: "My List", items: items)
+
+// Progress properties (Observable)
+list.currentIndex          // 0, 1, 2, ... totalCount
+list.totalCount            // Total number of items
+list.progress              // 0.0 to 1.0
+list.isProcessing          // true during generation
+list.isComplete            // true when finished
+list.isCancelled           // true if cancelled
+list.hasFailed             // true if error occurred
+list.statusMessage         // "Processing...", "Complete", etc.
+```
+
+### SwiftUI Integration
+
+```swift
+import SwiftUI
+
+struct ProgressView: View {
+    @Bindable var list: SpeakableItemList
+
+    var body: some View {
+        VStack {
+            Text(list.name)
+                .font(.headline)
+
+            ProgressView(value: list.progress)
+
+            Text("\(list.currentIndex) of \(list.totalCount)")
+                .font(.caption)
+
+            Text(list.statusMessage)
+                .foregroundStyle(.secondary)
+
+            if list.isProcessing {
+                Button("Cancel", action: list.cancel)
+            }
+        }
+    }
+}
+```
+
+### Cancellation Support
+
+```swift
+// Start generation
+Task {
+    let records = try await service.generateList(list, to: modelContext)
+    print("Generated \(records.count) items")
+}
+
+// Cancel from another task/button
+list.cancel()
+
+// Partial results are preserved in SwiftData
+```
+
+### Error Handling with Partial Results
+
+```swift
+do {
+    let records = try await service.generateList(list, to: modelContext)
+    print("✅ Success: \(records.count) items")
+} catch {
+    print("❌ Error: \(error)")
+    print("Saved \(list.currentIndex) items before error")
+    // Partial results are already in SwiftData
+}
+```
+
+### Save Intervals
+
+For large lists, adjust save frequency:
+
+```swift
+// Save every 10 items instead of every item
+let records = try await service.generateList(
+    list,
+    to: modelContext,
+    saveInterval: 10  // Default: 1
+)
+```
+
+### Complete Example
+
+See `Sources/SwiftHablare/Examples/SpeakableItemListExample.swift` for a complete SwiftUI example with:
+- Observable ViewModel
+- Progress UI
+- Cancellation buttons
+- Record display
+- Error handling
+
 ## Key Patterns
 
 ### 1. Voice Generation
@@ -164,7 +686,166 @@ let audioData = try await service.generate(
 - ✅ Automatic thread management
 - ✅ Clean separation of concerns
 
-### 3. API Key Management
+### 3. Voice Provider Registry
+
+**Overview:**
+
+The `GenerationService` maintains a registry of voice providers, making it easy to work with multiple providers in a single application. The registry automatically includes Apple and ElevenLabs providers and supports custom providers.
+
+**Default Providers:**
+
+```swift
+// Create service - Apple and ElevenLabs are automatically registered
+let service = GenerationService(voiceProvider: AppleVoiceProvider())
+
+// Get all registered providers
+let providers = await service.registeredProviders()
+// Returns: [AppleVoiceProvider, ElevenLabsVoiceProvider]
+```
+
+**Working with Registry:**
+
+```swift
+// Get a specific provider by ID
+if let appleProvider = await service.provider(withId: "apple") {
+    let voices = try await appleProvider.fetchVoices()
+}
+
+// Check if provider is registered
+let hasElevenLabs = await service.isProviderRegistered("elevenlabs")
+
+// Register a custom provider
+let customProvider = MyCustomVoiceProvider()
+await service.registerProvider(customProvider)
+```
+
+**Fetching Voices from Providers:**
+
+```swift
+// Fetch voices from a specific provider by ID
+let appleVoices = try await service.fetchVoices(from: "apple")
+let elevenLabsVoices = try await service.fetchVoices(from: "elevenlabs")
+
+// Fetch voices from all configured providers
+let allVoices = try await service.fetchAllVoices()
+// Returns: ["apple": [Voice], "elevenlabs": [Voice]]
+
+// Iterate through all voices
+for (providerId, voices) in allVoices {
+    print("\(providerId): \(voices.count) voices available")
+    for voice in voices {
+        print("  - \(voice.name)")
+    }
+}
+```
+
+**Benefits:**
+- ✅ Centralized provider management
+- ✅ Easy switching between providers
+- ✅ Automatic filtering of unconfigured providers
+- ✅ Graceful error handling (skips failing providers)
+- ✅ Support for custom voice providers
+
+**Building UI with the Registry:**
+
+Since SwiftHablaré is a generation library without UI components, consuming applications should build their own UI. Here's an example provider picker:
+
+```swift
+// In your app (NOT in SwiftHablaré library)
+import SwiftUI
+import SwiftHablare
+
+struct ProviderPickerView: View {
+    let service: GenerationService
+    @State private var providers: [VoiceProvider] = []
+    @State private var selectedProvider: VoiceProvider?
+
+    var body: some View {
+        List(providers, id: \.providerId) { provider in
+            Button {
+                selectedProvider = provider
+            } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(provider.displayName)
+                            .font(.headline)
+                        Text(provider.providerId)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if provider.providerId == selectedProvider?.providerId {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+
+                    if !provider.isConfigured() {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .help("Provider not configured")
+                    }
+                }
+            }
+        }
+        .task {
+            providers = await service.registeredProviders()
+        }
+        .navigationTitle("Voice Providers")
+    }
+}
+
+struct VoicePickerView: View {
+    let service: GenerationService
+    let providerId: String
+    @State private var voices: [Voice] = []
+    @State private var selectedVoice: Voice?
+
+    var body: some View {
+        List(voices, id: \.id) { voice in
+            Button {
+                selectedVoice = voice
+            } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(voice.name)
+                            .font(.headline)
+                        HStack {
+                            if let language = voice.language {
+                                Text(language)
+                                    .font(.caption)
+                            }
+                            if let gender = voice.gender {
+                                Text("• \(gender)")
+                                    .font(.caption)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if voice.id == selectedVoice?.id {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+        }
+        .task {
+            do {
+                voices = try await service.fetchVoices(from: providerId)
+            } catch {
+                print("Error fetching voices: \(error)")
+            }
+        }
+        .navigationTitle("Select Voice")
+    }
+}
+```
+
+### 4. API Key Management
 
 **Storing API Keys:**
 ```swift
@@ -188,7 +869,7 @@ try keychain.delete(key: "elevenlabs-api-key")
 - ✅ Thread-safe operations
 - ✅ Automatic cleanup on delete
 
-### 4. Voice Caching
+### 5. Voice Caching
 
 **SwiftData Model:**
 ```swift
@@ -304,15 +985,21 @@ actor MyService {
 
 ### Platform-Specific Code
 
+**IMPORTANT: Never use `#if os(macOS)` guards in this codebase.**
+
+This library is iOS and Catalyst ONLY. The only platform-specific guard allowed is for simulators:
+
 ```swift
-#if os(macOS)
-// macOS-specific implementation
-// Usually placeholder/mock for testing
+#if targetEnvironment(simulator)
+// iOS Simulator - placeholder/mock for testing
+// Real TTS doesn't work on simulators
 #else
-// iOS/Catalyst implementation
-// Real functionality
+// Physical iOS/Catalyst devices
+// Real TTS functionality
 #endif
 ```
+
+**DO NOT** add macOS support or macOS-specific code paths. SwiftHablaré does not support macOS.
 
 ## Testing Strategy
 
@@ -407,6 +1094,29 @@ let audioData = try await provider.generateAudio(
 // Use audioData in your app
 ```
 
+### Work with Provider Registry
+
+```swift
+// Create service with provider registry
+let service = GenerationService(voiceProvider: AppleVoiceProvider())
+
+// Get all available providers
+let providers = await service.registeredProviders()
+
+// Fetch voices from a specific provider
+let appleVoices = try await service.fetchVoices(from: "apple")
+
+// Fetch voices from all providers
+let allVoices = try await service.fetchAllVoices()
+for (providerId, voices) in allVoices {
+    print("\(providerId): \(voices.count) voices")
+}
+
+// Register a custom provider
+let customProvider = MyCustomVoiceProvider()
+await service.registerProvider(customProvider)
+```
+
 ### Cache Voices in SwiftData
 
 ```swift
@@ -465,6 +1175,7 @@ func cacheVoices() async throws {
 
 **In Scope**:
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice provider registry and management
 - ✅ Voice fetching and caching
 - ✅ Thread-safe audio generation
 - ✅ API key management
