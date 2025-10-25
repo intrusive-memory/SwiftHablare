@@ -724,6 +724,7 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
             Voice(
                 id: "\(providerId)-voice1",
                 name: "Voice 1",
+                description: "Mock voice for testing",
                 providerId: providerId,
                 language: "en",
                 locality: "US",
