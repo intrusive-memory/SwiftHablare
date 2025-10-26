@@ -211,9 +211,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: longText,
+            providerId: "apple",
             voiceId: voice.id,
-            voiceName: voice.name,
-            providerId: "apple"
+            voiceName: voice.name
         )
 
         XCTAssertFalse(result.audioData.isEmpty)

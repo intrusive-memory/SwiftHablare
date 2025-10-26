@@ -7,6 +7,7 @@
 
 import XCTest
 import SwiftData
+import SwiftCompartido
 @testable import SwiftHablare
 
 @MainActor
