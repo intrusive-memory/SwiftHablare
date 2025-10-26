@@ -16,12 +16,21 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     var provider: AppleVoiceProvider!
     var service: GenerationService!
     var artifactsDirectory: URL!
+    var modelContainer: ModelContainer!
+    var modelContext: ModelContext!
 
+    @MainActor
     override func setUp() async throws {
         try await super.setUp()
 
+        // Create in-memory SwiftData container
+        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        modelContext = ModelContext(modelContainer)
+
         provider = AppleVoiceProvider()
-        service = GenerationService(voiceProvider: provider)
+        service = GenerationService()
 
         // Create artifacts directory
         let testBundle = Bundle(for: type(of: self))
@@ -32,17 +41,21 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         try? FileManager.default.createDirectory(at: artifactsDirectory, withIntermediateDirectories: true)
     }
 
+    @MainActor
     override func tearDown() async throws {
         provider = nil
         service = nil
+        modelContext = nil
+        modelContainer = nil
         try await super.tearDown()
     }
 
     // MARK: - End-to-End Integration Tests
 
     func testEndToEndSpeechGeneration() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
+        #if targetEnvironment(simulator)
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Starting end-to-end Apple TTS speech generation test...")
@@ -63,6 +76,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "apple",
             voiceId: voice.id,
             voiceName: voice.name
         )
@@ -140,8 +154,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithMultipleVoices() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
+        #if targetEnvironment(simulator)
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Testing with multiple Apple voices...")
@@ -155,6 +170,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
             let testText = "Testing voice number \(index + 1)."
             let result = try await service.generate(
                 text: testText,
+                providerId: "apple",
                 voiceId: voice.id,
                 voiceName: voice.name
             )
@@ -174,8 +190,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
     }
 
     func testEndToEndWithLongText() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
+        #if targetEnvironment(simulator)
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Testing with longer text...")
@@ -194,6 +211,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: longText,
+            providerId: "apple",
             voiceId: voice.id,
             voiceName: voice.name
         )
@@ -215,8 +233,9 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
     @MainActor
     func testEndToEndWithSwiftDataPersistence() async throws {
-        #if os(macOS)
-        throw XCTSkip("Apple TTS integration test skipped on macOS - real speech synthesis only works on iOS/Catalyst")
+        // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
+        #if targetEnvironment(simulator)
+        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS/Catalyst devices")
         #endif
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
@@ -244,6 +263,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
         let result = try await service.generate(
             text: testText,
+            providerId: "apple",
             voiceId: voice.id,
             voiceName: voice.name
         )

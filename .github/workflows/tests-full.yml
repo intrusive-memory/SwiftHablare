@@ -1,14 +1,12 @@
-name: Tests
+name: Full Test Suite (Manual)
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+  # Only run manually - replaced by fast-tests.yml (PR) and integration-tests.yml (weekly)
+  workflow_dispatch:
 
 jobs:
   test:
-    name: Run Tests
+    name: Full Test Suite (All Tests)
     runs-on: macos-26
 
     steps:
@@ -21,8 +19,19 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Build
-        run: swift build
+      - name: Show available simulators
+        run: |
+          echo "Available iOS Simulators:"
+          xcrun simctl list devices available | grep "iPhone" | head -5
+
+      - name: Build for Mac Catalyst
+        run: |
+          echo "🔨 Building for Mac Catalyst (iOS/Catalyst only, not macOS)"
+          xcodebuild build \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -skipPackagePluginValidation \
+            | xcpretty || true
 
       - name: Clean test database
         run: |
@@ -30,10 +39,17 @@ jobs:
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
-      - name: Run tests
+      - name: Run all tests on Mac Catalyst (unit + integration)
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
+          echo "🧪 Running FULL test suite on Mac Catalyst (unit + integration)"
+          echo "⚠️  Tests run on Mac Catalyst - NOT native macOS"
+          echo "This is a manual workflow. Normally:"
+          echo "  - Fast tests run on PRs (fast-tests.yml)"
+          echo "  - Integration tests run weekly (integration-tests.yml)"
+          echo ""
+
           # Run all tests including integration tests (if ELEVENLABS_API_KEY is set)
           if [ -n "$ELEVENLABS_API_KEY" ]; then
             echo "✅ ElevenLabs API key found - integration tests will run"
@@ -41,8 +57,13 @@ jobs:
             echo "⚠️  ElevenLabs API key not found - integration tests will be skipped"
           fi
 
-          # Run all tests and capture output
-          swift test --parallel 2>&1 | tee test-output.log
+          # Run all tests on Mac Catalyst (iOS/Catalyst, not native macOS)
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -skipPackagePluginValidation \
+            | tee test-output.log \
+            | xcpretty --test --color
 
           # Capture exit code
           TEST_EXIT_CODE=${PIPESTATUS[0]}
@@ -50,12 +71,18 @@ jobs:
           # Exit with the test exit code
           exit $TEST_EXIT_CODE
 
-      - name: Run performance tests
+      - name: Run performance tests (Mac Catalyst)
         if: always()
         continue-on-error: true
         run: |
-          # Run performance tests separately if they exist
-          swift test --filter 'Performance' 2>&1 | tee performance-output.log || true
+          echo "📊 Running performance tests on Mac Catalyst"
+          # Run performance tests separately if they exist (on Mac Catalyst, not native macOS)
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -skipPackagePluginValidation \
+            -only-testing:SwiftHablareTests/PerformanceTests \
+            2>&1 | tee performance-output.log || true
 
           # Extract performance metrics from output
           grep "PERFORMANCE_METRIC:" performance-output.log | sed 's/PERFORMANCE_METRIC: //' > performance-metrics.json || true

@@ -27,7 +27,6 @@ let package = Package(
     name: "SwiftHablare",
     platforms: [
         .iOS(.v26),
-        .macOS(.v26),
         .macCatalyst(.v26)
     ],
     products: [
@@ -45,6 +44,9 @@ let package = Package(
             name: "SwiftHablare",
             dependencies: [
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
         .testTarget(
@@ -55,7 +57,7 @@ let package = Package(
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=minimal")
+                .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
     ]
