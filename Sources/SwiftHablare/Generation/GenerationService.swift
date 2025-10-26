@@ -562,25 +562,22 @@ public actor GenerationService {
                 // Extract data we need (all Sendable)
                 let text = item.textToSpeak
                 let voiceId = item.voiceId
-                let providerId = item.voiceProvider.providerId
-
-                // Get provider from registry
-                guard let provider = await providerRegistry[providerId] else {
-                    throw VoiceProviderError.notConfigured
-                }
+                let provider = item.voiceProvider
+                let providerId = provider.providerId
 
                 // Ensure provider is configured
-                guard await provider.isConfigured() else {
+                guard provider.isConfigured() else {
                     throw VoiceProviderError.notConfigured
                 }
 
-                // Generate audio (calls into actor, but we're passing Sendable types)
+                // Generate audio using the item's own voice provider
+                // (not a different instance from the registry)
                 let audioData = try await provider.generateAudio(
                     text: text,
                     voiceId: voiceId
                 )
 
-                // Estimate duration
+                // Estimate duration using the item's own voice provider
                 let duration = await provider.estimateDuration(
                     text: text,
                     voiceId: voiceId
