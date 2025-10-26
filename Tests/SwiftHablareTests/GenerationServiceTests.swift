@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@preconcurrency import SwiftData
+import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
@@ -35,14 +35,14 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Initialization Tests
 
     func testInitializationWithModelContext() {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Service should initialize successfully
         XCTAssertNotNil(service)
     }
 
     func testInitializationWithCustomCacheLifetime() {
-        let service = GenerationService(modelContext: modelContext, cacheLifetime: 10.0)
+        let service = GenerationService(cacheLifetime: 10.0)
 
         // Service should initialize with custom cache lifetime
         XCTAssertNotNil(service)
@@ -51,10 +51,10 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Audio Generation Tests with Apple Provider
 
     func testGenerateAudioWithAppleProvider() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Fetch available voices
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -79,9 +79,9 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testGenerateAudioWithoutVoiceName() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -99,9 +99,9 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testGenerateAudioWithCustomMimeType() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -119,9 +119,9 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testGenerateAudioUsesDefaultMimeType() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -140,9 +140,9 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - GenerationResult Conversion Tests
 
     func testConvertResultToTypedDataStorage() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -204,9 +204,9 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Voice Fetching Tests
 
     func testFetchVoicesFromService() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         XCTAssertFalse(voices.isEmpty, "Should return voices")
 
@@ -217,9 +217,9 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testIsVoiceAvailable() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -231,7 +231,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testIsVoiceAvailableWithInvalidVoice() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let isAvailable = await service.isVoiceAvailable("invalid-voice-id", from: "apple")
         XCTAssertFalse(isAvailable, "Invalid voice should not be available")
@@ -240,7 +240,7 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Error Handling Tests
 
     func testGenerateThrowsWhenProviderNotConfigured() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Create a mock provider that's not configured and register it
         let provider = MockUnconfiguredProvider()
@@ -265,13 +265,13 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchVoicesThrowsWhenProviderNotConfigured() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let provider = MockUnconfiguredProvider()
         await service.registerProvider(provider)
 
         do {
-            _ = try await service.fetchVoices(from: "mock-unconfigured")
+            _ = try await service.fetchVoices(from: "mock-unconfigured", using: modelContext)
             XCTFail("Should throw notConfigured error")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -287,7 +287,7 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Provider Registry Tests
 
     func testDefaultProvidersAreRegistered() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let providers = await service.registeredProviders()
 
@@ -299,7 +299,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testGetProviderById() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let appleProvider = await service.provider(withId: "apple")
         XCTAssertNotNil(appleProvider, "Should find Apple provider")
@@ -311,14 +311,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testGetProviderByIdReturnsNilForUnknown() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let unknownProvider = await service.provider(withId: "unknown")
         XCTAssertNil(unknownProvider, "Should return nil for unknown provider")
     }
 
     func testIsProviderRegistered() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         let isAppleRegistered = await service.isProviderRegistered("apple")
         XCTAssertTrue(isAppleRegistered, "Apple provider should be registered")
@@ -331,7 +331,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterCustomProvider() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Create and register a custom provider
         let customProvider = MockUnconfiguredProvider()
@@ -352,7 +352,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterProviderReplacesExisting() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Get original Apple provider
         let originalApple = await service.provider(withId: "apple")
@@ -371,7 +371,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisteredProvidersIncludesAllProviders() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register additional providers
         let customProvider1 = MockConfiguredProvider(id: "custom1")
@@ -393,20 +393,20 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Voice Fetching from Registry Tests
 
     func testFetchVoicesFromSpecificProvider() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Fetch voices from Apple provider by ID
-        let appleVoices = try await service.fetchVoices(from: "apple")
+        let appleVoices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         XCTAssertFalse(appleVoices.isEmpty, "Should fetch voices from Apple provider")
         XCTAssertTrue(appleVoices.allSatisfy { $0.providerId == "apple" })
     }
 
     func testFetchVoicesFromUnknownProviderThrows() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         do {
-            _ = try await service.fetchVoices(from: "unknown-provider")
+            _ = try await service.fetchVoices(from: "unknown-provider", using: modelContext)
             XCTFail("Should throw error for unknown provider")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -420,14 +420,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchVoicesFromUnconfiguredProviderThrows() async {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register unconfigured provider
         let unconfiguredProvider = MockUnconfiguredProvider()
         await service.registerProvider(unconfiguredProvider)
 
         do {
-            _ = try await service.fetchVoices(from: "mock-unconfigured")
+            _ = try await service.fetchVoices(from: "mock-unconfigured", using: modelContext)
             XCTFail("Should throw error for unconfigured provider")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -441,14 +441,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchAllVoices() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register a custom configured provider
         let customProvider = MockConfiguredProvider(id: "custom1")
         await service.registerProvider(customProvider)
 
         // Fetch all voices
-        let allVoices = try await service.fetchAllVoices()
+        let allVoices = try await service.fetchAllVoices(using: modelContext)
 
         // Should have voices from Apple (always configured) and custom provider
         XCTAssertGreaterThanOrEqual(allVoices.count, 1, "Should have at least Apple voices")
@@ -467,14 +467,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchAllVoicesSkipsUnconfiguredProviders() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register unconfigured provider
         let unconfiguredProvider = MockUnconfiguredProvider()
         await service.registerProvider(unconfiguredProvider)
 
         // Fetch all voices
-        let allVoices = try await service.fetchAllVoices()
+        let allVoices = try await service.fetchAllVoices(using: modelContext)
 
         // Should not include unconfigured provider
         XCTAssertNil(allVoices["mock-unconfigured"], "Should skip unconfigured providers")
@@ -484,14 +484,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchAllVoicesSkipsProvidersWithErrors() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register provider that throws errors
         let errorProvider = MockErrorProvider()
         await service.registerProvider(errorProvider)
 
         // Fetch all voices
-        let allVoices = try await service.fetchAllVoices()
+        let allVoices = try await service.fetchAllVoices(using: modelContext)
 
         // Should not include error provider
         XCTAssertNil(allVoices["mock-error"], "Should skip providers that throw errors")
@@ -501,7 +501,7 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testFetchVoicesFromMultipleProviders() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Register custom providers
         let custom1 = MockConfiguredProvider(id: "custom1")
@@ -511,9 +511,9 @@ final class GenerationServiceTests: XCTestCase {
         await service.registerProvider(custom2)
 
         // Fetch voices from each provider
-        let appleVoices = try await service.fetchVoices(from: "apple")
-        let custom1Voices = try await service.fetchVoices(from: "custom1")
-        let custom2Voices = try await service.fetchVoices(from: "custom2")
+        let appleVoices = try await service.fetchVoices(from: "apple", using: modelContext)
+        let custom1Voices = try await service.fetchVoices(from: "custom1", using: modelContext)
+        let custom2Voices = try await service.fetchVoices(from: "custom2", using: modelContext)
 
         XCTAssertFalse(appleVoices.isEmpty)
         XCTAssertFalse(custom1Voices.isEmpty)
@@ -528,24 +528,24 @@ final class GenerationServiceTests: XCTestCase {
 
     func testVoiceCachingBasic() async throws {
         // Use a short cache lifetime for testing
-        let service = GenerationService(modelContext: modelContext, cacheLifetime: 10.0)
+        let service = GenerationService(cacheLifetime: 10.0)
 
         // First call - should fetch from provider
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertFalse(hasCache1)
 
-        let voices1 = try await service.fetchVoices(from: "apple")
+        let voices1 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices1.isEmpty)
 
         // Second call - should return cached voices
-        let hasCache2 = await service.hasValidCache(for: "apple")
+        let hasCache2 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache2)
 
-        let voices2 = try await service.fetchVoices(from: "apple")
+        let voices2 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertEqual(voices1.count, voices2.count)
 
         // Cache should be valid
-        let hasCache3 = await service.hasValidCache(for: "apple")
+        let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache3)
 
         // Verify voices were persisted to SwiftData
@@ -556,60 +556,60 @@ final class GenerationServiceTests: XCTestCase {
 
     func testVoiceCacheExpiration() async throws {
         // Use very short cache lifetime for testing
-        let service = GenerationService(modelContext: modelContext, cacheLifetime: 0.1)  // 100ms
+        let service = GenerationService(cacheLifetime: 0.1)  // 100ms
 
         // Fetch voices
-        let voices1 = try await service.fetchVoices(from: "apple")
+        let voices1 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices1.isEmpty)
 
         // Cache should be valid immediately
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache1)
 
         // Wait for cache to expire
         try await Task.sleep(for: .milliseconds(150))
 
         // Cache should be expired
-        let hasCache2 = await service.hasValidCache(for: "apple")
+        let hasCache2 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertFalse(hasCache2)
 
         // Fetch again - should refresh cache
-        let voices2 = try await service.fetchVoices(from: "apple")
+        let voices2 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices2.isEmpty)
 
         // Cache should be valid again
-        let hasCache3 = await service.hasValidCache(for: "apple")
+        let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache3)
     }
 
     func testRefreshVoices() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Initial fetch
-        let voices1 = try await service.fetchVoices(from: "apple")
+        let voices1 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices1.isEmpty)
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache1)
 
         // Refresh voices
-        let refreshedVoices = try await service.refreshVoices(from: "apple")
+        let refreshedVoices = try await service.refreshVoices(from: "apple", using: modelContext)
         XCTAssertFalse(refreshedVoices.isEmpty)
 
         // Cache should still be valid
-        let hasCache2 = await service.hasValidCache(for: "apple")
+        let hasCache2 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache2)
 
         // Verify we can fetch from cache
-        let voices2 = try await service.fetchVoices(from: "apple")
+        let voices2 = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertEqual(voices2.count, refreshedVoices.count)
     }
 
     func testClearVoiceCache() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Fetch voices to populate cache
-        _ = try await service.fetchVoices(from: "apple")
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        _ = try await service.fetchVoices(from: "apple", using: modelContext)
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache1)
 
         // Verify SwiftData has cached voices
@@ -617,10 +617,10 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(beforeClear.isEmpty)
 
         // Clear cache
-        try await service.clearVoiceCache(for: "apple")
+        try await service.clearVoiceCache(for: "apple", using: modelContext)
 
         // Cache should be invalid
-        let hasCache2 = await service.hasValidCache(for: "apple")
+        let hasCache2 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertFalse(hasCache2)
 
         // Verify SwiftData cache was deleted
@@ -628,25 +628,25 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(afterClear.isEmpty)
 
         // Next fetch should work
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices.isEmpty)
-        let hasCache3 = await service.hasValidCache(for: "apple")
+        let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache3)
     }
 
     func testClearAllVoiceCaches() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Fetch voices from multiple providers
-        _ = try await service.fetchVoices(from: "apple")
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        _ = try await service.fetchVoices(from: "apple", using: modelContext)
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache1)
 
         // Register and fetch from custom provider
         let customProvider = MockConfiguredProvider(id: "custom")
         await service.registerProvider(customProvider)
-        _ = try await service.fetchVoices(from: "custom")
-        let hasCache2 = await service.hasValidCache(for: "custom")
+        _ = try await service.fetchVoices(from: "custom", using: modelContext)
+        let hasCache2 = await service.hasValidCache(for: "custom", using: modelContext)
         XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
@@ -654,12 +654,12 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertGreaterThan(allBefore.count, 0)
 
         // Clear all caches
-        try await service.clearAllVoiceCaches()
+        try await service.clearAllVoiceCaches(using: modelContext)
 
         // Both caches should be invalid
-        let hasCache3 = await service.hasValidCache(for: "apple")
+        let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertFalse(hasCache3)
-        let hasCache4 = await service.hasValidCache(for: "custom")
+        let hasCache4 = await service.hasValidCache(for: "custom", using: modelContext)
         XCTAssertFalse(hasCache4)
 
         // Verify all SwiftData cache was deleted
@@ -668,20 +668,20 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testCachePerProvider() async throws {
-        let service = GenerationService(modelContext: modelContext, cacheLifetime: 10.0)
+        let service = GenerationService(cacheLifetime: 10.0)
 
         // Register custom provider
         let customProvider = MockConfiguredProvider(id: "custom")
         await service.registerProvider(customProvider)
 
         // Fetch from both providers
-        let appleVoices = try await service.fetchVoices(from: "apple")
-        let customVoices = try await service.fetchVoices(from: "custom")
+        let appleVoices = try await service.fetchVoices(from: "apple", using: modelContext)
+        let customVoices = try await service.fetchVoices(from: "custom", using: modelContext)
 
         // Both should be cached separately
-        let hasCache1 = await service.hasValidCache(for: "apple")
+        let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache1)
-        let hasCache2 = await service.hasValidCache(for: "custom")
+        let hasCache2 = await service.hasValidCache(for: "custom", using: modelContext)
         XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
@@ -691,12 +691,12 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertEqual(customCached.count, customVoices.count)
 
         // Clear one cache
-        try await service.clearVoiceCache(for: "apple")
+        try await service.clearVoiceCache(for: "apple", using: modelContext)
 
         // Only Apple cache should be invalid
-        let hasCache3 = await service.hasValidCache(for: "apple")
+        let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertFalse(hasCache3)
-        let hasCache4 = await service.hasValidCache(for: "custom")
+        let hasCache4 = await service.hasValidCache(for: "custom", using: modelContext)
         XCTAssertTrue(hasCache4)
 
         // Verify only Apple cache was deleted from SwiftData
@@ -706,16 +706,16 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(customAfterClear.isEmpty)
 
         // Fetch from custom should still return cached data
-        let cachedCustomVoices = try await service.fetchVoices(from: "custom")
+        let cachedCustomVoices = try await service.fetchVoices(from: "custom", using: modelContext)
         XCTAssertEqual(cachedCustomVoices.count, customVoices.count)
     }
 
     func testRefreshUnconfiguredProvider() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Try to refresh non-existent provider
         do {
-            _ = try await service.refreshVoices(from: "nonexistent")
+            _ = try await service.refreshVoices(from: "nonexistent", using: modelContext)
             XCTFail("Should throw error for non-existent provider")
         } catch VoiceProviderError.notConfigured {
             // Expected
@@ -725,14 +725,14 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testCacheLifetimeDefault() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
         // Fetch voices
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
         XCTAssertFalse(voices.isEmpty)
 
         // Cache should be valid (24 hours is way more than test time)
-        let hasCache = await service.hasValidCache(for: "apple")
+        let hasCache = await service.hasValidCache(for: "apple", using: modelContext)
         XCTAssertTrue(hasCache)
     }
 
@@ -741,9 +741,9 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Concurrency Tests
 
     func testConcurrentAudioGeneration() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -780,9 +780,9 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testActorIsolationEnsuresThreadSafety() async throws {
-        let service = GenerationService(modelContext: modelContext)
+        let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple")
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
 
         guard let firstVoice = voices.first else {
             XCTFail("No voices available")
@@ -793,7 +793,7 @@ final class GenerationServiceTests: XCTestCase {
         // by performing multiple concurrent operations
         async let result1 = service.generate(text: "Test 1", providerId: "apple", voiceId: firstVoice.id)
         async let result2 = service.generate(text: "Test 2", providerId: "apple", voiceId: firstVoice.id)
-        async let voices1 = service.fetchVoices(from: "apple")
+        async let voices1 = service.fetchVoices(from: "apple")  // No caching for concurrent test
         async let available1 = service.isVoiceAvailable(firstVoice.id, from: "apple")
 
         let (r1, r2, v1, a1) = try await (result1, result2, voices1, available1)

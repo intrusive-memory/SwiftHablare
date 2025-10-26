@@ -7,7 +7,7 @@
 //
 
 import XCTest
-@preconcurrency import SwiftData
+import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
@@ -40,7 +40,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
         // Use ephemeral API key directly (bypasses keychain)
         provider = ElevenLabsVoiceProvider(apiKey: key)
-        service = GenerationService(modelContext: modelContext)
+        service = GenerationService()
         // Register the ElevenLabs provider with the service (since it uses ephemeral API key)
         await service.registerProvider(provider)
 

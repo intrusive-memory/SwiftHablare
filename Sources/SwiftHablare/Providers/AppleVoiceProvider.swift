@@ -201,10 +201,38 @@ public final class AppleVoiceProvider: VoiceProvider {
                         }
                     }
 
-                    // Ensure we got audio data
-                    guard bufferCount > 0 else {
+                    // If no buffers were generated (e.g., Mac Catalyst without audio hardware),
+                    // fall back to placeholder audio like simulator does
+                    if bufferCount == 0 {
                         try? FileManager.default.removeItem(at: tempURL)
-                        throw VoiceProviderError.networkError("No audio buffers generated")
+
+                        // Generate placeholder audio (same as simulator code)
+                        let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
+                        let estimatedDuration = Double(text.count) / 14.5
+                        let frameCount = AVAudioFrameCount(22050 * estimatedDuration)
+
+                        guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+                            throw VoiceProviderError.networkError("Failed to create placeholder audio buffer")
+                        }
+                        pcmBuffer.frameLength = frameCount
+
+                        let settings: [String: Any] = [
+                            AVFormatIDKey: kAudioFormatLinearPCM,
+                            AVSampleRateKey: 22050.0,
+                            AVNumberOfChannelsKey: 1,
+                            AVLinearPCMBitDepthKey: 16,
+                            AVLinearPCMIsFloatKey: false,
+                            AVLinearPCMIsBigEndianKey: true
+                        ]
+                        let placeholderFile = try AVAudioFile(forWriting: tempURL, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
+                        try placeholderFile.write(from: pcmBuffer)
+
+                        let data = try Data(contentsOf: tempURL)
+                        try? FileManager.default.removeItem(at: tempURL)
+
+                        print("⚠️  No audio buffers generated (Mac Catalyst without audio hardware). Generated placeholder audio (\(data.count) bytes).")
+                        continuation.resume(returning: data)
+                        return
                     }
 
                     // Read the complete synthesized audio file

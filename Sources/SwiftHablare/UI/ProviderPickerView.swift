@@ -109,7 +109,7 @@ struct ProviderPickerView_Previews: PreviewProvider {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
-        return GenerationService(modelContext: context)
+        return GenerationService()
     }
 }
 #endif

@@ -30,7 +30,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         modelContext = ModelContext(modelContainer)
 
         provider = AppleVoiceProvider()
-        service = GenerationService(modelContext: modelContext)
+        service = GenerationService()
 
         // Create artifacts directory
         let testBundle = Bundle(for: type(of: self))

@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@preconcurrency import SwiftData
+import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
@@ -29,7 +29,7 @@ final class SpeakableItemListTests: XCTestCase {
 
         // Create provider and service
         provider = AppleVoiceProvider()
-        service = GenerationService(modelContext: modelContext)
+        service = GenerationService()
 
         // Get a voice
         let voices = try await provider.fetchVoices()

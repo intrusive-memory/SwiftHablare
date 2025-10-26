@@ -44,6 +44,9 @@ let package = Package(
             name: "SwiftHablare",
             dependencies: [
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
         .testTarget(
@@ -54,7 +57,7 @@ let package = Package(
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=minimal")
+                .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
     ]
