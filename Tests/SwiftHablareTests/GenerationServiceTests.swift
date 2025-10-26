@@ -550,19 +550,12 @@ final class GenerationServiceTests: XCTestCase {
 
         // Verify voices were persisted to SwiftData
         let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: "apple")
-        let cachedModels = try context.fetch(descriptor)
+        let cachedModels = try modelContext.fetch(descriptor)
         XCTAssertEqual(cachedModels.count, voices1.count)
     }
 
     func testVoiceCacheExpiration() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
         // Use very short cache lifetime for testing
-        
         let service = GenerationService(modelContext: modelContext, cacheLifetime: 0.1)  // 100ms
 
         // Fetch voices
@@ -590,13 +583,6 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRefreshVoices() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext)
 
         // Initial fetch
@@ -619,13 +605,6 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testClearVoiceCache() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext)
 
         // Fetch voices to populate cache
@@ -634,7 +613,7 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(hasCache1)
 
         // Verify SwiftData has cached voices
-        let beforeClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
+        let beforeClear = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
         XCTAssertFalse(beforeClear.isEmpty)
 
         // Clear cache
@@ -645,7 +624,7 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(hasCache2)
 
         // Verify SwiftData cache was deleted
-        let afterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
+        let afterClear = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
         XCTAssertTrue(afterClear.isEmpty)
 
         // Next fetch should work
@@ -656,13 +635,6 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testClearAllVoiceCaches() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext)
 
         // Fetch voices from multiple providers
@@ -678,7 +650,7 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
-        let allBefore = try context.fetch(FetchDescriptor<VoiceCacheModel>())
+        let allBefore = try modelContext.fetch(FetchDescriptor<VoiceCacheModel>())
         XCTAssertGreaterThan(allBefore.count, 0)
 
         // Clear all caches
@@ -691,18 +663,11 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(hasCache4)
 
         // Verify all SwiftData cache was deleted
-        let allAfter = try context.fetch(FetchDescriptor<VoiceCacheModel>())
+        let allAfter = try modelContext.fetch(FetchDescriptor<VoiceCacheModel>())
         XCTAssertTrue(allAfter.isEmpty)
     }
 
     func testCachePerProvider() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext, cacheLifetime: 10.0)
 
         // Register custom provider
@@ -720,8 +685,8 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
-        let appleCached = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        let customCached = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
+        let appleCached = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
+        let customCached = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
         XCTAssertEqual(appleCached.count, appleVoices.count)
         XCTAssertEqual(customCached.count, customVoices.count)
 
@@ -735,8 +700,8 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(hasCache4)
 
         // Verify only Apple cache was deleted from SwiftData
-        let appleAfterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        let customAfterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
+        let appleAfterClear = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
+        let customAfterClear = try modelContext.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
         XCTAssertTrue(appleAfterClear.isEmpty)
         XCTAssertFalse(customAfterClear.isEmpty)
 
@@ -746,13 +711,6 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRefreshUnconfiguredProvider() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext)
 
         // Try to refresh non-existent provider
@@ -767,13 +725,6 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testCacheLifetimeDefault() async throws {
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let context = ModelContext(container)
-
-        
         let service = GenerationService(modelContext: modelContext)
 
         // Fetch voices
