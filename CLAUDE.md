@@ -10,11 +10,11 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 2.3.0
+- **Current Version**: 3.0.0-beta
 - **Swift Version**: 6.0+
-- **Minimum Deployments**: iOS 26.0, macCatalyst 15.0
-- **macOS Support**: Build/test compatibility only (placeholder audio for TTS)
-- **Total Tests**: 109 passing (87 core + 22 SpeakableItem)
+- **Minimum Deployments**: iOS 26.0, macCatalyst 26.0
+- **macOS Support**: ❌ **NOT SUPPORTED** - iOS and Catalyst only
+- **Total Tests**: 109+ passing
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
 
@@ -90,25 +90,38 @@ These are simple, focused UI servants that fetch data directly from GenerationSe
 
 Applications are responsible for audio playback and more complex UI workflows.
 
-### No Data Persistence (Beyond Voice Caching)
+### Data Persistence
+
+SwiftHablaré integrates with **TypedDataStorage** from SwiftCompartido for generated audio persistence:
+- ✅ Uses `TypedDataStorage` from SwiftCompartido for generated audio
+- ✅ `GenerationService.generateList()` automatically creates TypedDataStorage records
+- ✅ `GenerationResult.toTypedDataStorage()` converts generation results to SwiftData
+
+SwiftHablaré provides one SwiftData model:
+- `VoiceCacheModel` - For caching fetched voices to improve performance
 
 SwiftHablaré does NOT provide:
-- ❌ TypedDataStorage
-- ❌ SwiftData models for generated content
-- ❌ Audio file storage
+- ❌ Audio file storage (apps handle file I/O)
 - ❌ Persistence coordinators
+- ❌ Custom SwiftData models beyond VoiceCacheModel
 
-The only SwiftData model is `VoiceCacheModel` for caching fetched voices to improve performance.
+### What's Included vs Not Included
 
-### No Screenplay Processing
+**SwiftHablaré includes:**
+- ✅ `SpeakableItem` protocol for protocol-oriented TTS
+- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Provider registry and management
+- ✅ Thread-safe audio generation
+- ✅ Voice caching with SwiftData
+- ✅ TypedDataStorage integration for generated audio
+- ✅ Simple UI pickers (provider & voice selection)
 
-SwiftHablaré does NOT include:
-- ❌ ScreenplaySpeech system
-- ❌ BackgroundTask/BackgroundTaskManager
-- ❌ SpeakableItem models
-- ❌ Screenplay-to-speech processors
-
-These were removed in version 2.0. SwiftHablaré is a focused voice generation library.
+**SwiftHablaré does NOT include:**
+- ❌ Screenplay processing or screenplay-specific models
+- ❌ Background task management
+- ❌ Character-to-voice mapping
+- ❌ Audio playback functionality
+- ❌ Complex UI workflows
 
 ## Voice Providers
 
@@ -116,11 +129,11 @@ These were removed in version 2.0. SwiftHablaré is a focused voice generation l
 
 **Platform-Specific Behavior:**
 ```swift
-#if os(macOS)
-// Returns placeholder AIFF audio (silent) for test compatibility
-// Real TTS not available on macOS due to AVSpeechSynthesizer.write() limitation
+#if targetEnvironment(simulator)
+// iOS Simulator: Placeholder AIFF audio (silent) for test compatibility
+// Real TTS not available on simulator due to AVSpeechSynthesizer.write() limitation
 #else
-// iOS/Catalyst: Real speech synthesis using AVSpeechSynthesizer.write()
+// Physical iOS/Catalyst devices: Real speech synthesis using AVSpeechSynthesizer.write()
 // Captures audio buffers and writes to AIFF file
 #endif
 ```
@@ -134,7 +147,7 @@ These were removed in version 2.0. SwiftHablaré is a focused voice generation l
 
 **Test Coverage:**
 - 22 unit tests (100% coverage)
-- 4 integration tests (skipped on macOS)
+- 4 integration tests (skipped on iOS Simulator, run on physical devices)
 
 ### ElevenLabsVoiceProvider
 
@@ -689,11 +702,15 @@ let audioData = try await provider.generateAudio(
 let service = GenerationService(modelContext: modelContext)
 
 // Generate audio (thread-safe)
-let audioData = try await service.generate(
+let result = try await service.generate(
     text: "Hello, world!",
+    providerId: "apple",  // Required: "apple" or "elevenlabs"
     voiceId: "voice-id",
     voiceName: "Voice Name"
 )
+
+// Result contains audio data and metadata
+let audioData = result.audioData
 ```
 
 **Benefits:**
@@ -864,14 +881,20 @@ struct VoiceSelectionView: View {
     }
 
     func generateSpeech() async throws {
-        guard let voiceId = selectedVoiceId else { return }
+        guard let voiceId = selectedVoiceId,
+              let providerId = selectedProviderId else { return }
 
         let result = try await service.generate(
             text: "Hello, world!",
+            providerId: providerId,
             voiceId: voiceId,
             voiceName: "Selected Voice"
         )
-        // Handle result...
+
+        // Convert to TypedDataStorage and save
+        let storage = result.toTypedDataStorage()
+        modelContext.insert(storage)
+        try modelContext.save()
     }
 }
 ```
@@ -907,7 +930,7 @@ try keychain.delete(key: "elevenlabs-api-key")
 - ✅ Thread-safe operations
 - ✅ Automatic cleanup on delete
 
-### 5. Voice Caching
+### 6. Voice Caching
 
 **SwiftData Model:**
 ```swift
@@ -1251,14 +1274,15 @@ func cacheVoices() async throws {
 ## Library Scope and Philosophy
 
 **SwiftHablaré is a focused voice generation library**:
-- Takes text and voice ID as input
+- Takes text, provider ID, and voice ID as input
 - Generates audio using the specified voice provider
-- Returns audio data for the consuming application to use
+- Returns audio data and metadata for the consuming application
+- Integrates with TypedDataStorage for SwiftData persistence
 
 **Out of Scope**:
 - ❌ Audio playback (apps handle playback)
-- ❌ Data persistence (beyond voice caching)
-- ❌ Screenplay processing
+- ❌ Audio file I/O (apps handle file storage)
+- ❌ Screenplay processing or domain-specific models
 - ❌ Background task management
 - ❌ Character-to-voice mapping
 - ❌ Complex UI workflows
@@ -1266,10 +1290,13 @@ func cacheVoices() async throws {
 **In Scope**:
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
 - ✅ Voice provider registry and management
-- ✅ Voice fetching and caching
-- ✅ Thread-safe audio generation
-- ✅ API key management
-- ✅ Platform compatibility (iOS, Catalyst)
+- ✅ Voice fetching and caching (VoiceCacheModel)
+- ✅ Thread-safe audio generation (actor-based)
+- ✅ API key management (Keychain)
+- ✅ TypedDataStorage integration for generated audio
+- ✅ SpeakableItem protocol for protocol-oriented TTS
+- ✅ SpeakableItemList for batch generation with progress
+- ✅ Platform compatibility (iOS 26+, Catalyst 26+)
 - ✅ Simple UI pickers (provider & voice selection)
 
 ---
