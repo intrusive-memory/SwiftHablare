@@ -7,7 +7,7 @@
 //
 
 import XCTest
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
