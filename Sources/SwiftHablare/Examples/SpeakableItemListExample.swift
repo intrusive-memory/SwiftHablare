@@ -8,7 +8,7 @@
 
 #if DEBUG
 import SwiftUI
-import SwiftData
+@preconcurrency import SwiftData
 import SwiftCompartido
 
 /// ViewModel for managing SpeakableItemList generation
