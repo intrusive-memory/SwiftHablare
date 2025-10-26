@@ -41,7 +41,11 @@ public final class SpeakableItemListExampleViewModel {
     private let service: GenerationService
 
     /// SwiftData model context
-    private let modelContext: ModelContext
+    /// Marked nonisolated(unsafe) because:
+    /// - This ViewModel is @MainActor
+    /// - ModelContext is @MainActor-isolated in practice
+    /// - We explicitly manage actor boundaries when passing to GenerationService
+    private nonisolated(unsafe) let modelContext: ModelContext
 
     /// Voice provider
     private let provider: VoiceProvider
