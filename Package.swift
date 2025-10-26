@@ -3,25 +3,10 @@
 import PackageDescription
 import Foundation
 
-// MARK: - Local Development Support
+// MARK: - Package Dependencies
 //
-// Automatically uses local SwiftCompartido if available, otherwise fetches from GitHub.
+// Uses SwiftCompartido from GitHub to ensure compatibility when consumed as a remote package
 //
-// For local development:
-//   1. Clone SwiftCompartido alongside this repo: ../SwiftCompartido
-//   2. Build will automatically use your local version
-//   3. Changes to SwiftCompartido are reflected immediately
-//
-// For CI/production:
-//   - Automatically uses latest from GitHub main branch
-//
-
-let localCompartidoPath = "../SwiftCompartido"
-let useLocalCompartido = FileManager.default.fileExists(atPath: localCompartidoPath)
-
-let compartidoDependency: Package.Dependency = useLocalCompartido
-    ? .package(path: localCompartidoPath)
-    : .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main")
 
 let package = Package(
     name: "SwiftHablare",
@@ -37,7 +22,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", from: "1.0.0"),
-        compartidoDependency
+        .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main")
     ],
     targets: [
         .target(
