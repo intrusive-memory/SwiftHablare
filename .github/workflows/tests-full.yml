@@ -29,7 +29,7 @@ jobs:
           echo "🔨 Building for iOS Simulator (not macOS)"
           xcodebuild build \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
             -skipPackagePluginValidation \
             | xcpretty || true
 
@@ -60,7 +60,7 @@ jobs:
           # Run all tests on iOS Simulator (not macOS)
           xcodebuild test \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
             -skipPackagePluginValidation \
             | tee test-output.log \
             | xcpretty --test --color
@@ -79,7 +79,7 @@ jobs:
           # Run performance tests separately if they exist (on iOS Simulator, not macOS)
           xcodebuild test \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
             -skipPackagePluginValidation \
             -only-testing:SwiftHablareTests/PerformanceTests \
             2>&1 | tee performance-output.log || true
