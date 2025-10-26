@@ -1,0 +1,113 @@
+name: Fast Tests (PR)
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  fast-test:
+    name: Fast Tests (Unit Tests)
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Show available simulators
+        run: |
+          echo "Available iOS Simulators:"
+          xcrun simctl list devices available | grep "iPhone" | head -5
+
+      - name: Build for iOS Simulator
+        run: |
+          echo "🔨 Building for iOS Simulator (not macOS)"
+          xcodebuild build \
+            -scheme SwiftHablare \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            | xcpretty || true
+
+      - name: Clean test database
+        run: |
+          # Remove any existing test databases to prevent schema conflicts
+          rm -rf ~/Library/Application\ Support/default.store*
+          rm -rf ~/Library/Application\ Support/*.store
+
+      - name: Run fast tests (iOS Simulator - unit tests only)
+        run: |
+          echo "🏃 Running fast tests on iOS Simulator (unit tests only)"
+          echo "⚠️  Tests will NOT run on macOS - iOS Simulator and Catalyst only"
+          echo "Integration tests will run on the weekly schedule"
+          echo ""
+
+          # Run tests on iOS Simulator ONLY (not macOS)
+          # Skip integration tests (tests with "Integration" in the name)
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
+            | tee test-output.log \
+            | xcpretty --test --color
+
+          # Capture exit code
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Exit with the test exit code
+          exit $TEST_EXIT_CODE
+
+      - name: Extract test summary
+        if: always()
+        run: |
+          echo "## Fast Test Results (Unit Tests Only)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  **Note:** Integration tests are skipped in PR checks and run weekly on schedule." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f test-output.log ]; then
+            # Extract test results from swift test output
+            # Get the last "Executed X tests" line which has the total
+            LAST_EXECUTION_LINE=$(grep "Executed.*test" test-output.log | tail -n 1)
+
+            if [ -n "$LAST_EXECUTION_LINE" ]; then
+              # Extract numbers from the line
+              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*")
+              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*")
+
+              if [ -z "$FAILURES" ]; then
+                FAILURES=0
+              fi
+
+              PASSED=$((TOTAL_TESTS - FAILURES))
+
+              # Display results
+              if [ "$FAILURES" -eq 0 ]; then
+                echo "✅ **All unit tests passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No test output found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-results
+          path: |
+            test-output.log
+          retention-days: 7

@@ -1041,6 +1041,29 @@ This library is iOS and Catalyst ONLY. The only platform-specific guard allowed 
 
 ## Testing Strategy
 
+### Test Organization
+
+Tests are split into **fast** (unit) and **slow** (integration) categories:
+
+**Fast Tests (Unit):**
+- Run on every PR
+- Complete in ~30 seconds
+- Skip integration tests
+- Run on iOS Simulator (iPhone 16 Pro)
+- Test class names WITHOUT "Integration"
+
+**Integration Tests (Long-Running):**
+- Run weekly on Saturdays at 3 AM UTC
+- Complete in ~2-5 minutes
+- Include real API calls
+- Run on iOS Simulator (iPhone 16 Pro)
+- Test class names WITH "Integration"
+
+**Platform Requirements:**
+- ✅ Tests run on iOS Simulator ONLY
+- ❌ Tests do NOT run on macOS (not supported)
+- ✅ Mac Catalyst support (built for Catalyst, tested on simulator)
+
 ### Unit Tests
 
 **Coverage Targets:**
@@ -1050,21 +1073,23 @@ This library is iOS and Catalyst ONLY. The only platform-specific guard allowed 
 - Models: 100%
 
 **Current Status:**
-- 73 total tests passing
+- 109 total tests passing
 - 96%+ average coverage
 - 0 test failures
 - Swift 6 strict concurrency compliance
 
 ### Integration Tests
 
+**IMPORTANT:** Integration tests run on iOS Simulator. Use `#if targetEnvironment(simulator)` to skip tests that require real audio on simulator.
+
 **Apple Voice Provider:**
 ```swift
 func testEndToEndSpeechGeneration() async throws {
-    #if os(macOS)
-    throw XCTSkip("Apple TTS integration test skipped on macOS")
+    #if targetEnvironment(simulator)
+    throw XCTSkip("Apple TTS integration test skipped on simulator")
     #endif
 
-    // Test on iOS/Catalyst only
+    // Test on iOS/Catalyst devices only
     let provider = AppleVoiceProvider()
     let voices = try await provider.fetchVoices()
     let audioData = try await provider.generateAudio(text: "Test", voiceId: voices.first!.id)
@@ -1085,6 +1110,33 @@ func testEndToEndWithElevenLabs() async throws {
     let provider = ElevenLabsVoiceProvider()
     // ... test implementation
 }
+```
+
+### Running Tests
+
+**Run all tests on iOS Simulator:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+```
+
+**Run only unit tests (fast):**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+  -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
+```
+
+**Run only integration tests:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+  -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
 
 ### Performance Tests
@@ -1225,3 +1277,4 @@ func cacheVoices() async throws {
 **For Questions or Contributions**:
 - GitHub Issues: https://github.com/intrusive-memory/SwiftHablare/issues
 - GitHub Discussions: https://github.com/intrusive-memory/SwiftHablare/discussions
+- add to memory: This project is an iOS and MacCatalyst project only. Any and all programming for macOS added now or in the path has no place in this project.

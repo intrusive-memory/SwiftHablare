@@ -1,0 +1,201 @@
+name: Integration Tests (Weekly)
+
+on:
+  # Run every Saturday at 3 AM UTC (middle of the night for US timezones)
+  schedule:
+    - cron: '0 3 * * 6'  # 3 AM UTC on Saturdays
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    name: Integration Tests (Full Suite)
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Show available simulators
+        run: |
+          echo "Available iOS Simulators:"
+          xcrun simctl list devices available | grep "iPhone" | head -5
+
+      - name: Build for iOS Simulator
+        run: |
+          echo "🔨 Building for iOS Simulator (not macOS)"
+          xcodebuild build \
+            -scheme SwiftHablare \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            | xcpretty || true
+
+      - name: Clean test database
+        run: |
+          # Remove any existing test databases to prevent schema conflicts
+          rm -rf ~/Library/Application\ Support/default.store*
+          rm -rf ~/Library/Application\ Support/*.store
+
+      - name: Run integration tests (iOS Simulator)
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          echo "🧪 Running integration tests on iOS Simulator (long-running tests)"
+          echo "⚠️  Tests will NOT run on macOS - iOS Simulator only"
+          echo "This includes all provider integration tests with real API calls"
+          echo ""
+
+          # Check for API keys
+          if [ -n "$ELEVENLABS_API_KEY" ]; then
+            echo "✅ ElevenLabs API key found - ElevenLabs integration tests will run"
+          else
+            echo "⚠️  ElevenLabs API key not found - ElevenLabs integration tests will be skipped"
+          fi
+          echo ""
+
+          # Run ONLY integration tests on iOS Simulator (not macOS)
+          # Only run tests with "Integration" in the name
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+            -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
+            | tee test-output.log \
+            | xcpretty --test --color
+
+          # Capture exit code
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Exit with the test exit code
+          exit $TEST_EXIT_CODE
+
+      - name: Run performance tests (iOS Simulator)
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "📊 Running performance tests on iOS Simulator"
+          # Run performance tests separately if they exist (on iOS Simulator, not macOS)
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            -only-testing:SwiftHablareTests/PerformanceTests \
+            2>&1 | tee performance-output.log || true
+
+          # Extract performance metrics from output
+          grep "PERFORMANCE_METRIC:" performance-output.log | sed 's/PERFORMANCE_METRIC: //' > performance-metrics.json || true
+
+      - name: Extract test summary
+        if: always()
+        run: |
+          echo "## Integration Test Results (Weekly Run)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🗓️  **Schedule:** Weekly on Saturday at 3 AM UTC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f test-output.log ]; then
+            # Extract test results from swift test output
+            # Get the last "Executed X tests" line which has the total
+            LAST_EXECUTION_LINE=$(grep "Executed.*test" test-output.log | tail -n 1)
+
+            if [ -n "$LAST_EXECUTION_LINE" ]; then
+              # Extract numbers from the line
+              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*")
+              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*")
+
+              if [ -z "$FAILURES" ]; then
+                FAILURES=0
+              fi
+
+              PASSED=$((TOTAL_TESTS - FAILURES))
+
+              # Display results
+              if [ "$FAILURES" -eq 0 ]; then
+                echo "✅ **All integration tests passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check for integration test execution
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Integration Tests Details" >> $GITHUB_STEP_SUMMARY
+
+            # Check if Apple integration tests ran
+            if grep -q "AppleVoiceProviderIntegrationTests" test-output.log; then
+              APPLE_TESTS=$(grep -c "✅.*apple-tts-.*\.aiff" test-output.log || echo "0")
+              echo "- ✅ Apple Voice Provider: $APPLE_TESTS audio artifacts generated" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- ⚠️  Apple Voice Provider: No integration tests found" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check if ElevenLabs integration tests ran
+            if grep -q "ElevenLabsVoiceProviderIntegrationTests" test-output.log; then
+              if grep -q "ELEVENLABS_API_KEY.*not set.*skipping" test-output.log; then
+                echo "- ⏭️  ElevenLabs: Tests skipped (no API key)" >> $GITHUB_STEP_SUMMARY
+              else
+                ELEVENLABS_TESTS=$(grep -c "✅.*elevenlabs-tts-.*\.mp3" test-output.log || echo "0")
+                echo "- ✅ ElevenLabs: $ELEVENLABS_TESTS audio artifacts generated" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "- ⚠️  ElevenLabs: No integration tests found" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No test output found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Add performance metrics section
+          if [ -f performance-metrics.json ] && [ -s performance-metrics.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Performance Metrics" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value | Unit |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|------|" >> $GITHUB_STEP_SUMMARY
+
+            # Parse each line of JSON metrics
+            while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                NAME=$(echo "$line" | grep -o '"name":"[^"]*"' | sed 's/"name":"//' | sed 's/"//')
+                VALUE=$(echo "$line" | grep -o '"value":[0-9.]*' | sed 's/"value"://')
+                UNIT=$(echo "$line" | grep -o '"unit":"[^"]*"' | sed 's/"unit":"//' | sed 's/"//')
+
+                if [ -n "$NAME" ] && [ -n "$VALUE" ] && [ -n "$UNIT" ]; then
+                  # Format value to 2 decimal places
+                  VALUE_FORMATTED=$(printf "%.2f" "$VALUE")
+                  echo "| $NAME | $VALUE_FORMATTED | $UNIT |" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            done < performance-metrics.json
+          fi
+
+      - name: Upload test results and artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            test-output.log
+            performance-output.log
+            performance-metrics.json
+            .build/*/TestArtifacts/**/*.aiff
+            .build/*/TestArtifacts/**/*.mp3
+          retention-days: 30
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ Integration tests failed! Check the logs for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow runs weekly on Saturdays at 3 AM UTC." >> $GITHUB_STEP_SUMMARY
+          echo "Integration test failures do not block PRs, but should be investigated." >> $GITHUB_STEP_SUMMARY

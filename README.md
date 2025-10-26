@@ -518,26 +518,148 @@ do {
 
 ## Testing
 
-SwiftHablare includes support for testing generation workflows:
+SwiftHablare has a comprehensive test suite with over 109 passing tests and 96%+ coverage.
+
+### Test Organization
+
+Tests are organized into two categories for optimal CI performance:
+
+**Fast Tests (Unit Tests):**
+- ✅ Run on every pull request
+- ✅ Run on push to main/master
+- ⚡ Complete in ~30 seconds
+- 📱 Run on **iOS Simulator** (iPhone 16 Pro)
+- ❌ **Not run on macOS** (iOS and Catalyst only)
+- 📁 All test files except those with "Integration" in the name
+- Examples:
+  - `AppleVoiceProviderTests.swift`
+  - `GenerationServiceTests.swift`
+  - `SpeakableItemTests.swift`
+  - `VoiceModelTests.swift`
+
+**Integration Tests (Long-Running):**
+- 🗓️ Run weekly on Saturdays at 3 AM UTC
+- 🧪 Real API calls to voice providers
+- ⏱️ Complete in ~2-5 minutes
+- 📱 Run on **iOS Simulator** (iPhone 16 Pro)
+- ❌ **Not run on macOS** (iOS and Catalyst only)
+- 📁 Tests with "Integration" in the class name
+- Examples:
+  - `AppleVoiceProviderIntegrationTests.swift`
+  - `ElevenLabsVoiceProviderIntegrationTests.swift`
+
+**Platform Support:**
+- ✅ iOS 26+ (tested on iOS Simulator)
+- ✅ Mac Catalyst 26+ (built for Catalyst, tested on simulator)
+- ❌ macOS (not supported - tests will NOT run on macOS)
+
+### Running Tests Locally
+
+**Important:** Tests must be run on iOS Simulator, not macOS. Use `xcodebuild` with proper destinations.
+
+**Run all tests on iOS Simulator:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+```
+
+**Run only fast tests (skip integration) on iOS Simulator:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+  -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
+```
+
+**Run only integration tests on iOS Simulator:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+  -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
+```
+
+**With code coverage:**
+```bash
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -enableCodeCoverage YES
+```
+
+**Quick test with swift test (may default to macOS):**
+> ⚠️ **Warning:** `swift test` without destinations may run tests for macOS, which is not supported. Use `xcodebuild` with explicit destinations for reliable testing.
+
+```bash
+# This may run on macOS - not recommended
+swift test
+```
+
+### CI/CD Workflows
+
+SwiftHablare uses GitHub Actions with three workflows. **All tests run on iOS Simulator (iPhone 16 Pro), not macOS.**
+
+1. **`fast-tests.yml`** - Runs on every PR
+   - ✅ Executes unit tests only on iOS Simulator
+   - ⚡ Provides fast feedback for pull requests (~30s)
+   - ⏭️ Skips integration tests to keep PRs responsive
+   - ❌ Does not run on macOS (iOS/Catalyst only)
+
+2. **`integration-tests.yml`** - Runs weekly
+   - 🗓️ Saturday at 3 AM UTC (middle of the night for US timezones)
+   - 🧪 Executes integration tests with real API calls on iOS Simulator
+   - ⏱️ Long-running tests (~2-5 minutes)
+   - 🎮 Can be triggered manually via workflow_dispatch
+   - ❌ Does not run on macOS (iOS/Catalyst only)
+
+3. **`tests-full.yml`** - Manual only
+   - 📋 Full test suite (unit + integration) on iOS Simulator
+   - 🔧 Useful for comprehensive testing before releases
+   - 🎮 Triggered manually when needed
+   - ❌ Does not run on macOS (iOS/Catalyst only)
+
+### Writing Tests
+
+Example unit test:
 
 ```swift
-import SwiftHablare
-import Testing
+import XCTest
+@testable import SwiftHablare
 
-@Test("Voice provider generates audio")
-func testVoiceGeneration() async throws {
-    let provider = AppleVoiceProvider()
-    let service = GenerationService(voiceProvider: provider)
+final class MyTests: XCTestCase {
+    func testVoiceGeneration() async throws {
+        let provider = AppleVoiceProvider()
+        let voices = try await provider.fetchVoices()
 
-    let element = GuionElementModel(/* ... */)
-    let result = try await service.generate(
-        forElement: element,
-        voiceId: "test-voice",
-        voiceName: "Test Voice"
-    )
+        let audioData = try await provider.generateAudio(
+            text: "Hello, world!",
+            voiceId: voices.first!.id
+        )
 
-    #expect(result.audioData.count > 0)
-    #expect(result.voiceId == "test-voice")
+        XCTAssertGreaterThan(audioData.count, 1024)
+    }
+}
+```
+
+Example integration test (long-running):
+
+```swift
+import XCTest
+@testable import SwiftHablare
+
+// Note: "Integration" in the class name marks this as a long-running test
+final class MyProviderIntegrationTests: XCTestCase {
+    func testRealAPICall() async throws {
+        // This test will be skipped in PR checks
+        // and only run on the weekly schedule
+        let provider = ElevenLabsVoiceProvider()
+        let voices = try await provider.fetchVoices()
+
+        // Real API calls...
+    }
 }
 ```
 
