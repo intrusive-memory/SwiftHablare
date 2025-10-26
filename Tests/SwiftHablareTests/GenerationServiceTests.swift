@@ -530,19 +530,22 @@ final class GenerationServiceTests: XCTestCase {
         let service = GenerationService(modelContext: modelContext, cacheLifetime: 10.0)
 
         // First call - should fetch from provider
-        XCTAssertFalse(await service.hasValidCache(for: "apple"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertFalse(hasCache1)
 
         let voices1 = try await service.fetchVoices(from: "apple")
         XCTAssertFalse(voices1.isEmpty)
 
         // Second call - should return cached voices
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache2 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache2)
 
         let voices2 = try await service.fetchVoices(from: "apple")
         XCTAssertEqual(voices1.count, voices2.count)
 
         // Cache should be valid
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache3 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache3)
 
         // Verify voices were persisted to SwiftData
         let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: "apple")
@@ -566,20 +569,23 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(voices1.isEmpty)
 
         // Cache should be valid immediately
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache1)
 
         // Wait for cache to expire
         try await Task.sleep(for: .milliseconds(150))
 
         // Cache should be expired
-        XCTAssertFalse(await service.hasValidCache(for: "apple"))
+        let hasCache2 = await service.hasValidCache(for: "apple")
+        XCTAssertFalse(hasCache2)
 
         // Fetch again - should refresh cache
         let voices2 = try await service.fetchVoices(from: "apple")
         XCTAssertFalse(voices2.isEmpty)
 
         // Cache should be valid again
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache3 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache3)
     }
 
     func testRefreshVoices() async throws {
@@ -595,14 +601,16 @@ final class GenerationServiceTests: XCTestCase {
         // Initial fetch
         let voices1 = try await service.fetchVoices(from: "apple")
         XCTAssertFalse(voices1.isEmpty)
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache1)
 
         // Refresh voices
         let refreshedVoices = try await service.refreshVoices(from: "apple")
         XCTAssertFalse(refreshedVoices.isEmpty)
 
         // Cache should still be valid
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache2 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache2)
 
         // Verify we can fetch from cache
         let voices2 = try await service.fetchVoices(from: "apple")
@@ -621,7 +629,8 @@ final class GenerationServiceTests: XCTestCase {
 
         // Fetch voices to populate cache
         _ = try await service.fetchVoices(from: "apple")
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache1)
 
         // Verify SwiftData has cached voices
         let beforeClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
@@ -631,7 +640,8 @@ final class GenerationServiceTests: XCTestCase {
         try await service.clearVoiceCache(for: "apple")
 
         // Cache should be invalid
-        XCTAssertFalse(await service.hasValidCache(for: "apple"))
+        let hasCache2 = await service.hasValidCache(for: "apple")
+        XCTAssertFalse(hasCache2)
 
         // Verify SwiftData cache was deleted
         let afterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
@@ -640,7 +650,8 @@ final class GenerationServiceTests: XCTestCase {
         // Next fetch should work
         let voices = try await service.fetchVoices(from: "apple")
         XCTAssertFalse(voices.isEmpty)
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache3 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache3)
     }
 
     func testClearAllVoiceCaches() async throws {
@@ -655,13 +666,15 @@ final class GenerationServiceTests: XCTestCase {
 
         // Fetch voices from multiple providers
         _ = try await service.fetchVoices(from: "apple")
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache1)
 
         // Register and fetch from custom provider
         let customProvider = MockConfiguredProvider(id: "custom")
         await service.registerProvider(customProvider)
         _ = try await service.fetchVoices(from: "custom")
-        XCTAssertTrue(await service.hasValidCache(for: "custom"))
+        let hasCache2 = await service.hasValidCache(for: "custom")
+        XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
         let allBefore = try context.fetch(FetchDescriptor<VoiceCacheModel>())
@@ -671,8 +684,10 @@ final class GenerationServiceTests: XCTestCase {
         try await service.clearAllVoiceCaches()
 
         // Both caches should be invalid
-        XCTAssertFalse(await service.hasValidCache(for: "apple"))
-        XCTAssertFalse(await service.hasValidCache(for: "custom"))
+        let hasCache3 = await service.hasValidCache(for: "apple")
+        XCTAssertFalse(hasCache3)
+        let hasCache4 = await service.hasValidCache(for: "custom")
+        XCTAssertFalse(hasCache4)
 
         // Verify all SwiftData cache was deleted
         let allAfter = try context.fetch(FetchDescriptor<VoiceCacheModel>())
@@ -698,8 +713,10 @@ final class GenerationServiceTests: XCTestCase {
         let customVoices = try await service.fetchVoices(from: "custom")
 
         // Both should be cached separately
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
-        XCTAssertTrue(await service.hasValidCache(for: "custom"))
+        let hasCache1 = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache1)
+        let hasCache2 = await service.hasValidCache(for: "custom")
+        XCTAssertTrue(hasCache2)
 
         // Verify both are in SwiftData
         let appleCached = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
@@ -711,8 +728,10 @@ final class GenerationServiceTests: XCTestCase {
         try await service.clearVoiceCache(for: "apple")
 
         // Only Apple cache should be invalid
-        XCTAssertFalse(await service.hasValidCache(for: "apple"))
-        XCTAssertTrue(await service.hasValidCache(for: "custom"))
+        let hasCache3 = await service.hasValidCache(for: "apple")
+        XCTAssertFalse(hasCache3)
+        let hasCache4 = await service.hasValidCache(for: "custom")
+        XCTAssertTrue(hasCache4)
 
         // Verify only Apple cache was deleted from SwiftData
         let appleAfterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
@@ -761,7 +780,8 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertFalse(voices.isEmpty)
 
         // Cache should be valid (24 hours is way more than test time)
-        XCTAssertTrue(await service.hasValidCache(for: "apple"))
+        let hasCache = await service.hasValidCache(for: "apple")
+        XCTAssertTrue(hasCache)
     }
 
     // NOTE: testCachingWithoutModelContext removed as ModelContext is now required
