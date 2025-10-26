@@ -28,12 +28,12 @@ jobs:
           echo "Available iOS Simulators:"
           xcrun simctl list devices available | grep "iPhone" | head -5
 
-      - name: Build for iOS Simulator
+      - name: Build for Mac Catalyst
         run: |
-          echo "🔨 Building for iOS Simulator (not macOS)"
+          echo "🔨 Building for Mac Catalyst (iOS/Catalyst only, not macOS)"
           xcodebuild build \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
             -skipPackagePluginValidation \
             | xcpretty || true
 
@@ -43,12 +43,12 @@ jobs:
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
-      - name: Run integration tests (iOS Simulator)
+      - name: Run integration tests (Mac Catalyst)
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
-          echo "🧪 Running integration tests on iOS Simulator (long-running tests)"
-          echo "⚠️  Tests will NOT run on macOS - iOS Simulator only"
+          echo "🧪 Running integration tests on Mac Catalyst (long-running tests)"
+          echo "⚠️  Tests run on Mac Catalyst - NOT native macOS"
           echo "This includes all provider integration tests with real API calls"
           echo ""
 
@@ -60,11 +60,11 @@ jobs:
           fi
           echo ""
 
-          # Run ONLY integration tests on iOS Simulator (not macOS)
+          # Run ONLY integration tests on Mac Catalyst (iOS/Catalyst, not native macOS)
           # Only run tests with "Integration" in the name
           xcodebuild test \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
             -skipPackagePluginValidation \
             -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
             -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
@@ -77,15 +77,15 @@ jobs:
           # Exit with the test exit code
           exit $TEST_EXIT_CODE
 
-      - name: Run performance tests (iOS Simulator)
+      - name: Run performance tests (Mac Catalyst)
         if: always()
         continue-on-error: true
         run: |
-          echo "📊 Running performance tests on iOS Simulator"
-          # Run performance tests separately if they exist (on iOS Simulator, not macOS)
+          echo "📊 Running performance tests on Mac Catalyst"
+          # Run performance tests separately if they exist (on Mac Catalyst, not native macOS)
           xcodebuild test \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
             -skipPackagePluginValidation \
             -only-testing:SwiftHablareTests/PerformanceTests \
             2>&1 | tee performance-output.log || true

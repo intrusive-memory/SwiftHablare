@@ -1305,3 +1305,5 @@ func cacheVoices() async throws {
 - GitHub Issues: https://github.com/intrusive-memory/SwiftHablare/issues
 - GitHub Discussions: https://github.com/intrusive-memory/SwiftHablare/discussions
 - add to memory: This project is an iOS and MacCatalyst project only. Any and all programming for macOS added now or in the path has no place in this project.
+- add to memory: this library is iOS and MacCatalyst only. Do not compile or program for MacOS.
+- add to memory: This library should be run on iOS 26 and MacCatalyst 26 only.

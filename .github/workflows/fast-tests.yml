@@ -26,12 +26,12 @@ jobs:
           echo "Available iOS Simulators:"
           xcrun simctl list devices available | grep "iPhone" | head -5
 
-      - name: Build for iOS Simulator
+      - name: Build for Mac Catalyst
         run: |
-          echo "🔨 Building for iOS Simulator (not macOS)"
+          echo "🔨 Building for Mac Catalyst (iOS/Catalyst only, not macOS)"
           xcodebuild build \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
             -skipPackagePluginValidation \
             | xcpretty || true
 
@@ -41,18 +41,18 @@ jobs:
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
-      - name: Run fast tests (iOS Simulator - unit tests only)
+      - name: Run fast tests (Mac Catalyst - unit tests only)
         run: |
-          echo "🏃 Running fast tests on iOS Simulator (unit tests only)"
-          echo "⚠️  Tests will NOT run on macOS - iOS Simulator and Catalyst only"
+          echo "🏃 Running fast tests on Mac Catalyst (unit tests only)"
+          echo "⚠️  Tests run on Mac Catalyst - NOT native macOS"
           echo "Integration tests will run on the weekly schedule"
           echo ""
 
-          # Run tests on iOS Simulator ONLY (not macOS)
+          # Run tests on Mac Catalyst (iOS/Catalyst platform, not native macOS)
           # Skip integration tests (tests with "Integration" in the name)
           xcodebuild test \
             -scheme SwiftHablare \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
             -skipPackagePluginValidation \
             -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
             -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
