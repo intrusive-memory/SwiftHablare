@@ -109,7 +109,7 @@ struct GenerateAudioButtonTests {
         let _ = makeTestAudioRecord(for: item, in: context)
 
         // Create button (should detect existing audio)
-        let button = GenerateAudioButton(
+        let _ = GenerateAudioButton(
             item: item,
             service: service,
             modelContext: context,
@@ -181,7 +181,6 @@ struct GenerateAudioButtonTests {
 
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let service = GenerationService()
         let item = makeTestItem()
 
         // Verify no audio exists initially
@@ -629,20 +628,14 @@ struct GenerateAudioButtonTests {
 
         context.insert(record)
 
-        // Attempt to save
-        do {
-            try context.save()
-            // Success - record was saved
-            #expect(true)
-        } catch {
-            // If save fails, error should be thrown (not silently ignored)
-            #expect(false, "Save should not fail in this test scenario")
-        }
+        // Attempt to save - if it fails, test will throw
+        try context.save()
 
         // Verify record was persisted
+        let recordId = record.id
         let descriptor = FetchDescriptor<TypedDataStorage>(
             predicate: #Predicate { storage in
-                storage.id == record.id
+                storage.id == recordId
             }
         )
         let results = try context.fetch(descriptor)
