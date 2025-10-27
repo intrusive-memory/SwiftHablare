@@ -4,17 +4,17 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Project Overview
 
-**SwiftHablaré** is a Swift voice generation library for iOS and Mac Catalyst applications. It provides a simple, unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching and secure API key management.
+**SwiftHablaré** is a Swift voice generation library for iOS and Mac Catalyst applications. It provides a simple, unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching, secure API key management, and optional SwiftUI components for audio generation.
 
-**Key Focus**: Voice generation only - no UI components, no data persistence beyond voice caching, no screenplay processing. SwiftHablaré is a **generation library**, not an application framework.
+**Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, voice caching, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 
 ## Version Information
 
-- **Current Version**: 3.0.0-beta
+- **Current Version**: 2.3.0
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macCatalyst 26.0
 - **macOS Support**: ❌ **NOT SUPPORTED** - iOS and Catalyst only
-- **Total Tests**: 109+ passing
+- **Total Tests**: 164+ passing
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
 
@@ -45,7 +45,8 @@ Integration tests that require real audio are skipped on simulators using `#if t
 SwiftHablare/
 ├── VoiceProvider.swift              # Protocol for voice providers
 ├── Protocols/
-│   └── SpeakableItem.swift          # Protocol for speakable objects
+│   ├── SpeakableItem.swift          # Protocol for speakable objects
+│   └── SpeakableGroup.swift         # ✨ Protocol for grouped speakable items
 ├── Models/
 │   ├── Voice.swift                  # Voice model (id, name, language, etc.)
 │   └── SpeakableItemList.swift      # ✨ Batch generation with progress
@@ -60,15 +61,18 @@ SwiftHablare/
 │   └── VoiceCacheModel.swift        # Voice caching with SwiftData
 ├── UI/
 │   ├── ProviderPickerView.swift     # SwiftUI provider picker
-│   └── VoicePickerView.swift        # SwiftUI voice picker
+│   ├── VoicePickerView.swift        # SwiftUI voice picker
+│   ├── GenerateAudioButton.swift    # ✨ Individual element audio generation button
+│   └── GenerateGroupButton.swift    # ✨ Batch generation button for groups
 └── Examples/
     ├── SpeakableItemExamples.swift  # Example implementations
+    ├── SpeakableGroupExamples.swift # ✨ Example group implementations
     └── SpeakableItemListExample.swift # ✨ Complete batch generation example
 ```
 
 ### UI Components
 
-SwiftHablaré provides simple SwiftUI pickers for voice provider and voice selection:
+SwiftHablaré provides simple SwiftUI components for voice selection and audio generation:
 
 **ProviderPickerView**:
 - Displays all registered providers from GenerationService
@@ -81,12 +85,28 @@ SwiftHablaré provides simple SwiftUI pickers for voice provider and voice selec
 - Handles loading states and errors
 - Binds to selected voice ID (String?)
 
-These are simple, focused UI servants that fetch data directly from GenerationService. Applications can use these as-is or build their own custom UI.
+**GenerateAudioButton** (v2.3.0):
+- Individual element audio generation with progress tracking
+- Automatically checks for existing audio in SwiftData
+- Shows "Generate" or "Play" based on audio availability
+- Displays progress bar and cancellation support
+- Race condition fix: Prevents duplicate generation during async checks
+
+**GenerateGroupButton** (v2.3.0):
+- Batch generation for grouped speakable items
+- Smart audio detection: Shows "Generate All (N items)" or "Regenerate All (N items)"
+- Skips items with existing audio by default (efficient)
+- Progress tracking as "X/Y items (Z%)"
+- Cancellation support with partial result preservation
+- Uses SpeakableItemList internally for sequential processing
+
+These are simple, focused UI components that integrate directly with GenerationService and SwiftData. Applications can use these as-is or build their own custom UI.
 
 **Not Included**:
-- ❌ Audio players
+- ❌ Audio players (apps handle playback)
 - ❌ Recording interfaces
 - ❌ Complex voice management UIs
+- ❌ Per-item progress in group generation (items track their own progress)
 
 Applications are responsible for audio playback and more complex UI workflows.
 
@@ -109,19 +129,21 @@ SwiftHablaré does NOT provide:
 
 **SwiftHablaré includes:**
 - ✅ `SpeakableItem` protocol for protocol-oriented TTS
+- ✅ `SpeakableGroup` protocol for batch audio generation (v2.3.0)
 - ✅ Voice provider integration (Apple TTS, ElevenLabs)
 - ✅ Provider registry and management
 - ✅ Thread-safe audio generation
 - ✅ Voice caching with SwiftData
 - ✅ TypedDataStorage integration for generated audio
 - ✅ Simple UI pickers (provider & voice selection)
+- ✅ Audio generation buttons (individual & batch) (v2.3.0)
 
 **SwiftHablaré does NOT include:**
 - ❌ Screenplay processing or screenplay-specific models
 - ❌ Background task management
 - ❌ Character-to-voice mapping
 - ❌ Audio playback functionality
-- ❌ Complex UI workflows
+- ❌ Complex UI workflows beyond generation
 
 ## Voice Providers
 
@@ -672,6 +694,269 @@ See `Sources/SwiftHablare/Examples/SpeakableItemListExample.swift` for a complet
 - Cancellation buttons
 - Record display
 - Error handling
+
+## SpeakableGroup Protocol - Batch Audio Generation (v2.3.0)
+
+### Overview
+
+The `SpeakableGroup` protocol enables **grouped audio generation** where collections of `SpeakableItem` objects can be processed together with a single "Generate All" action. This is perfect for generating audio for chapters, scenes, playlists, or any logical grouping of speakable content.
+
+### Protocol Definition
+
+```swift
+public protocol SpeakableGroup {
+    var groupName: String { get }
+    func getGroupedElements() -> [any SpeakableItem]
+    var groupDescription: String? { get }
+}
+
+extension SpeakableGroup {
+    public var groupDescription: String? { nil }
+    public var itemCount: Int {
+        getGroupedElements().count
+    }
+}
+```
+
+### Design Philosophy
+
+**Protocol-Oriented Design:**
+- ✅ Any type can become a speakable group
+- ✅ Flexible grouping logic in `getGroupedElements()`
+- ✅ Supports recursive expansion (groups within groups)
+- ✅ Easy to test and mock
+- ✅ Composable with SpeakableItem
+
+**Key Benefits:**
+1. **One-Tap Generation**: Generate audio for entire collections
+2. **Smart Detection**: Automatically detects which items need generation
+3. **Progress Tracking**: Shows "X/Y items (Z%)" during generation
+4. **Efficient**: Skips items with existing audio by default
+5. **Recursive**: Groups can contain other groups
+
+### Basic Usage
+
+```swift
+// Create a group type
+struct Chapter: SpeakableGroup {
+    let number: Int
+    let title: String
+    let dialogueLines: [DialogueLine]
+    let provider: VoiceProvider
+
+    var groupName: String {
+        "Chapter \(number): \(title)"
+    }
+
+    var groupDescription: String? {
+        "\(dialogueLines.count) dialogue lines"
+    }
+
+    func getGroupedElements() -> [any SpeakableItem] {
+        return dialogueLines.map { line in
+            CharacterDialogue(
+                characterName: line.characterName,
+                dialogue: line.text,
+                voiceProvider: provider,
+                voiceId: line.voiceId,
+                includeCharacterName: true
+            )
+        }
+    }
+}
+
+// Use with GenerateGroupButton
+GenerateGroupButton(
+    group: chapter,
+    service: generationService,
+    modelContext: modelContext
+)
+```
+
+### Recursive Group Expansion
+
+Groups can contain other groups, which are automatically expanded:
+
+```swift
+struct Screenplay: SpeakableGroup {
+    let acts: [Act]
+
+    func getGroupedElements() -> [any SpeakableItem] {
+        var items: [any SpeakableItem] = []
+
+        for act in acts {
+            // Acts are groups themselves - recursively expand
+            items.append(contentsOf: act.getGroupedElements())
+        }
+
+        return items
+    }
+}
+
+struct Act: SpeakableGroup {
+    let scenes: [Scene]
+
+    func getGroupedElements() -> [any SpeakableItem] {
+        var items: [any SpeakableItem] = []
+
+        for scene in scenes {
+            // Scenes are groups - recursively expand
+            items.append(contentsOf: scene.getGroupedElements())
+        }
+
+        return items
+    }
+}
+```
+
+### Example Implementations
+
+SwiftHablaré includes 5 example implementations in `Sources/SwiftHablare/Examples/SpeakableGroupExamples.swift`:
+
+#### 1. Chapter (Books with dialogue)
+```swift
+public struct Chapter: SpeakableGroup {
+    public let number: Int
+    public let title: String
+    public let dialogueLines: [DialogueLine]
+    public let provider: VoiceProvider
+
+    public var groupName: String {
+        "Chapter \(number): \(title)"
+    }
+
+    public var groupDescription: String? {
+        "\(dialogueLines.count) dialogue lines"
+    }
+}
+```
+
+#### 2. Scene (Theatrical scripts)
+```swift
+public struct Scene: SpeakableGroup {
+    public let number: Int
+    public let location: String
+    public let interactions: [Interaction]
+    public let provider: VoiceProvider
+    public let includeSceneHeading: Bool
+
+    public var groupName: String {
+        "Scene \(number) - \(location)"
+    }
+
+    public var groupDescription: String? {
+        "\(interactions.count) interactions at \(location)"
+    }
+}
+```
+
+#### 3. MessagePlaylist (Notifications with priority)
+```swift
+public struct MessagePlaylist: SpeakableGroup {
+    public let name: String
+    public let messages: [PlaylistMessage]
+    public let provider: VoiceProvider
+    public let defaultVoiceId: String
+
+    public var groupDescription: String? {
+        let highPriority = messages.filter { $0.priority == .high }.count
+        return "\(messages.count) messages (\(highPriority) high priority)"
+    }
+}
+```
+
+#### 4. ArticleSections (Long-form content)
+```swift
+public struct ArticleSections: SpeakableGroup {
+    public let title: String
+    public let author: String
+    public let sections: [ArticleSection]
+    public let provider: VoiceProvider
+
+    public var groupName: String {
+        "\(title) by \(author)"
+    }
+
+    public var groupDescription: String? {
+        "\(sections.count) sections"
+    }
+}
+```
+
+#### 5. ShoppingList (Enumerated tasks)
+```swift
+public struct ShoppingList: SpeakableGroup {
+    public let name: String
+    public let items: [String]
+    public let provider: VoiceProvider
+    public let voiceId: String
+    public let includeNumbers: Bool
+
+    public var groupDescription: String? {
+        "\(items.count) items"
+    }
+}
+```
+
+### GenerateGroupButton UI Component
+
+The `GenerateGroupButton` provides a complete UI for group generation:
+
+**Features:**
+- Automatically detects existing audio for all items
+- Shows "Generate All (N items)" when some items need audio
+- Shows "Regenerate All (N items)" when all items have audio
+- Displays progress as "X/Y items (Z%)"
+- Cancellation support
+- Skips items with existing audio by default
+
+**Usage:**
+```swift
+import SwiftUI
+import SwiftHablare
+
+struct MyView: View {
+    let group: any SpeakableGroup
+    let service: GenerationService
+    @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        GenerateGroupButton(
+            group: group,
+            service: service,
+            modelContext: modelContext,
+            onComplete: { records in
+                print("Generated \(records.count) audio files")
+            }
+        )
+    }
+}
+```
+
+### Test Coverage
+
+The SpeakableGroup protocol has comprehensive test coverage:
+
+- **18 tests** in `Tests/SwiftHablareTests/SpeakableGroupTests.swift`
+- **100% test coverage** on protocol implementation
+- Tests cover:
+  - Protocol conformance
+  - Group name and description
+  - Element retrieval
+  - All 5 example implementations
+  - GenerateGroupButton functionality
+  - Existing audio detection
+  - Empty groups
+  - Multiple audio records
+  - Integration with GenerationService
+
+### Thread Safety
+
+All `SpeakableGroup` operations are thread-safe:
+- `getGroupedElements()` is synchronous but safe to call from any context
+- `GenerateGroupButton` uses `GenerationService` actor for background generation
+- SwiftData saves happen on `@MainActor`
+- Progress updates happen on main thread
 
 ## Key Patterns
 
@@ -1295,9 +1580,11 @@ func cacheVoices() async throws {
 - ✅ API key management (Keychain)
 - ✅ TypedDataStorage integration for generated audio
 - ✅ SpeakableItem protocol for protocol-oriented TTS
+- ✅ SpeakableGroup protocol for batch audio generation (v2.3.0)
 - ✅ SpeakableItemList for batch generation with progress
 - ✅ Platform compatibility (iOS 26+, Catalyst 26+)
 - ✅ Simple UI pickers (provider & voice selection)
+- ✅ Audio generation buttons (individual & batch) (v2.3.0)
 
 ---
 
