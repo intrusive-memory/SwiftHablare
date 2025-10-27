@@ -105,10 +105,6 @@ struct ProviderPickerView_Previews: PreviewProvider {
 
     @MainActor
     static func makePreviewService() throws -> GenerationService {
-        let schema = Schema([VoiceCacheModel.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [config])
-        let context = ModelContext(container)
         return GenerationService()
     }
 }

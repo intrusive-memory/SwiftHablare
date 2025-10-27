@@ -298,6 +298,41 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(providerIds.contains("elevenlabs"), "Should include ElevenLabs provider")
     }
 
+    func testAppleProviderIsAlwaysConfigured() async {
+        let service = GenerationService()
+
+        guard let appleProvider = await service.provider(withId: "apple") else {
+            XCTFail("Apple provider should be registered")
+            return
+        }
+
+        XCTAssertTrue(appleProvider.isConfigured(), "Apple provider should always be configured")
+        XCTAssertEqual(appleProvider.displayName, "Apple Text-to-Speech")
+        XCTAssertFalse(appleProvider.requiresAPIKey, "Apple provider should not require API key")
+    }
+
+    func testElevenLabsProviderRequiresConfiguration() async {
+        let service = GenerationService()
+
+        guard let elevenLabsProvider = await service.provider(withId: "elevenlabs") else {
+            XCTFail("ElevenLabs provider should be registered")
+            return
+        }
+
+        XCTAssertTrue(elevenLabsProvider.requiresAPIKey, "ElevenLabs provider should require API key")
+        // Note: We don't check isConfigured() here since it depends on Keychain state
+    }
+
+    func testAppleProviderIsUsableByDefault() async throws {
+        let service = GenerationService()
+
+        // Verify Apple provider is configured and can fetch voices
+        let voices = try await service.fetchVoices(from: "apple", using: modelContext)
+
+        XCTAssertFalse(voices.isEmpty, "Apple provider should return voices without configuration")
+        XCTAssertTrue(voices.allSatisfy { $0.providerId == "apple" })
+    }
+
     func testGetProviderById() async {
         let service = GenerationService()
 
