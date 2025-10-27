@@ -267,7 +267,7 @@ struct ElementGenerationButtonTests {
 
     @Test("Scene heading creates scene group")
     func testSceneHeadingCreatesSceneGroup() {
-        let (doc, elements) = makeTestDocument()
+        let (_, elements) = makeTestDocument()
         let sceneHeading = elements.first { $0.type == .sceneHeading }!
 
         let groupType = determineGroupType(for: sceneHeading)
@@ -276,7 +276,7 @@ struct ElementGenerationButtonTests {
 
     @Test("Section heading creates section group")
     func testSectionHeadingCreatesSectionGroup() {
-        let (doc, elements) = makeTestDocument()
+        let (_, elements) = makeTestDocument()
         let sectionHeading = elements.first {
             if case .sectionHeading = $0.type { return true }
             return false
@@ -288,7 +288,7 @@ struct ElementGenerationButtonTests {
 
     @Test("Regular element has single group type")
     func testRegularElementHasSingleType() {
-        let (doc, elements) = makeTestDocument()
+        let (_, elements) = makeTestDocument()
         let action = elements.first { $0.type == .action }!
 
         let groupType = determineGroupType(for: action)

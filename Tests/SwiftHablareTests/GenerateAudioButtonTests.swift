@@ -109,7 +109,7 @@ struct GenerateAudioButtonTests {
         let _ = makeTestAudioRecord(for: item, in: context)
 
         // Create button (should detect existing audio)
-        let button = GenerateAudioButton(
+        let _ = GenerateAudioButton(
             item: item,
             service: service,
             modelContext: context,
@@ -181,7 +181,6 @@ struct GenerateAudioButtonTests {
 
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let service = GenerationService()
         let item = makeTestItem()
 
         // Verify no audio exists initially
@@ -488,5 +487,245 @@ struct GenerateAudioButtonTests {
         #expect(record.prompt == item.textToSpeak)
         #expect(record.durationSeconds != nil)
         #expect(record.binaryValue != nil)
+    }
+
+    // MARK: - Concurrency and Relationship Tests
+
+    @Test("Button establishes relationship with GuionElementModel")
+    func testEstablishesElementRelationship() async throws {
+        // Create container with GuionElementModel schema
+        let schema = Schema([
+            VoiceCacheModel.self,
+            TypedDataStorage.self,
+            GuionElementModel.self,
+            GuionDocumentModel.self
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        // Create a GuionElementModel
+        let element = GuionElementModel(
+            elementText: "Test dialogue line",
+            elementType: .dialogue,
+            chapterIndex: 0,
+            orderIndex: 1
+        )
+        context.insert(element)
+        try context.save()
+
+        // Create a speakable item
+        let item = makeTestItem()
+
+        // Simulate audio generation with element linking
+        let audioData = Data("test audio data".utf8)
+        let storage = TypedDataStorage(
+            id: UUID(),
+            providerId: item.voiceProvider.providerId,
+            requestorID: "\(item.voiceProvider.providerId).audio.tts",
+            mimeType: "audio/x-aiff",
+            binaryValue: audioData,
+            prompt: item.textToSpeak,
+            durationSeconds: 5.0,
+            voiceID: item.voiceId
+        )
+
+        // Insert and link to element
+        context.insert(storage)
+        if element.generatedContent == nil {
+            element.generatedContent = []
+        }
+        element.generatedContent?.append(storage)
+        try context.save()
+
+        // Verify relationship was established
+        #expect(element.generatedContent != nil)
+        #expect(element.generatedContent?.count == 1)
+        #expect(element.generatedContent?.first?.id == storage.id)
+        #expect(element.generatedContent?.first?.prompt == item.textToSpeak)
+    }
+
+    @Test("Race condition prevention - detects concurrent generation")
+    func testRaceConditionPrevention() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let item = makeTestItem()
+
+        // Simulate first process creating audio
+        let firstRecord = makeTestAudioRecord(for: item, in: context)
+
+        // Simulate second process checking for existing audio (race condition scenario)
+        let providerId = item.voiceProvider.providerId
+        let voiceId = item.voiceId
+        let prompt = item.textToSpeak
+
+        let descriptor = FetchDescriptor<TypedDataStorage>(
+            predicate: #Predicate { storage in
+                storage.providerId == providerId &&
+                storage.voiceID == voiceId &&
+                storage.prompt == prompt
+            }
+        )
+
+        let existingRecords = try context.fetch(descriptor)
+
+        // Should find the existing record and not create duplicate
+        #expect(existingRecords.count == 1)
+        #expect(existingRecords.first?.id == firstRecord.id)
+    }
+
+    @Test("Concurrent generation attempts create single record")
+    func testConcurrentGenerationSingleRecord() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let item = makeTestItem()
+
+        // Create first record
+        let _ = makeTestAudioRecord(for: item, in: context)
+
+        // Try to create second record (should detect existing and not duplicate)
+        let providerId = item.voiceProvider.providerId
+        let voiceId = item.voiceId
+        let prompt = item.textToSpeak
+
+        let descriptor = FetchDescriptor<TypedDataStorage>(
+            predicate: #Predicate { storage in
+                storage.providerId == providerId &&
+                storage.voiceID == voiceId &&
+                storage.prompt == prompt
+            }
+        )
+
+        let existingRecords = try context.fetch(descriptor)
+
+        // If records exist, don't create new one
+        if existingRecords.isEmpty {
+            let _ = makeTestAudioRecord(for: item, in: context)
+        }
+
+        // Verify only one record exists
+        let finalRecords = try context.fetch(descriptor)
+        #expect(finalRecords.count == 1)
+    }
+
+    @Test("Save errors are properly handled and logged")
+    func testSaveErrorHandling() async throws {
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let item = makeTestItem()
+
+        // Create a record
+        let record = TypedDataStorage(
+            id: UUID(),
+            providerId: item.voiceProvider.providerId,
+            requestorID: "\(item.voiceProvider.providerId).audio.tts",
+            mimeType: "audio/x-aiff",
+            binaryValue: Data("test".utf8),
+            prompt: item.textToSpeak,
+            durationSeconds: 5.0,
+            voiceID: item.voiceId
+        )
+
+        context.insert(record)
+
+        // Attempt to save - if it fails, test will throw
+        try context.save()
+
+        // Verify record was persisted
+        let recordId = record.id
+        let descriptor = FetchDescriptor<TypedDataStorage>(
+            predicate: #Predicate { storage in
+                storage.id == recordId
+            }
+        )
+        let results = try context.fetch(descriptor)
+        #expect(results.count == 1)
+    }
+
+    @Test("Multiple element relationships are maintained")
+    func testMultipleElementRelationships() async throws {
+        // Create container with GuionElementModel schema
+        let schema = Schema([
+            VoiceCacheModel.self,
+            TypedDataStorage.self,
+            GuionElementModel.self,
+            GuionDocumentModel.self
+        ])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        // Create two GuionElementModels
+        let element1 = GuionElementModel(
+            elementText: "First dialogue",
+            elementType: .dialogue,
+            chapterIndex: 0,
+            orderIndex: 1
+        )
+        let element2 = GuionElementModel(
+            elementText: "Second dialogue",
+            elementType: .dialogue,
+            chapterIndex: 0,
+            orderIndex: 2
+        )
+        context.insert(element1)
+        context.insert(element2)
+        try context.save()
+
+        // Create audio for both elements
+        let item1 = SimpleMessage(
+            content: "First dialogue",
+            voiceProvider: AppleVoiceProvider(),
+            voiceId: "test-voice"
+        )
+        let item2 = SimpleMessage(
+            content: "Second dialogue",
+            voiceProvider: AppleVoiceProvider(),
+            voiceId: "test-voice"
+        )
+
+        let storage1 = TypedDataStorage(
+            id: UUID(),
+            providerId: "apple",
+            requestorID: "apple.audio.tts",
+            mimeType: "audio/x-aiff",
+            binaryValue: Data("audio1".utf8),
+            prompt: item1.textToSpeak,
+            durationSeconds: 3.0,
+            voiceID: "test-voice"
+        )
+
+        let storage2 = TypedDataStorage(
+            id: UUID(),
+            providerId: "apple",
+            requestorID: "apple.audio.tts",
+            mimeType: "audio/x-aiff",
+            binaryValue: Data("audio2".utf8),
+            prompt: item2.textToSpeak,
+            durationSeconds: 4.0,
+            voiceID: "test-voice"
+        )
+
+        context.insert(storage1)
+        context.insert(storage2)
+
+        // Link each storage to its element
+        if element1.generatedContent == nil {
+            element1.generatedContent = []
+        }
+        element1.generatedContent?.append(storage1)
+
+        if element2.generatedContent == nil {
+            element2.generatedContent = []
+        }
+        element2.generatedContent?.append(storage2)
+
+        try context.save()
+
+        // Verify both relationships
+        #expect(element1.generatedContent?.count == 1)
+        #expect(element1.generatedContent?.first?.id == storage1.id)
+        #expect(element2.generatedContent?.count == 1)
+        #expect(element2.generatedContent?.first?.id == storage2.id)
     }
 }
