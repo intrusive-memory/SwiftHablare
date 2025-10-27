@@ -80,6 +80,9 @@ public struct GenerateAudioButton: View {
     /// Current generation task (for cancellation)
     @State private var generationTask: Task<Void, Never>?
 
+    /// Current check task (for cancellation)
+    @State private var checkTask: Task<Void, Never>?
+
     /// Error message for display
     @State private var errorMessage: String?
 
@@ -142,7 +145,9 @@ public struct GenerateAudioButton: View {
             }
         }
         .task {
-            await checkForExistingAudio()
+            checkTask = Task {
+                await checkForExistingAudio()
+            }
         }
     }
 
@@ -246,12 +251,19 @@ public struct GenerateAudioButton: View {
 
         do {
             let results = try modelContext.fetch(descriptor)
+
+            // Only update state if we're still checking (not generating/cancelled)
+            guard case .checking = audioState else { return }
+
             if let existingRecord = results.first {
                 audioState = .completed(existingRecord)
             } else {
                 audioState = .idle
             }
         } catch {
+            // Only update state if we're still checking (not generating/cancelled)
+            guard case .checking = audioState else { return }
+
             // If query fails, assume no audio exists
             audioState = .idle
         }
@@ -259,7 +271,9 @@ public struct GenerateAudioButton: View {
 
     /// Start audio generation
     private func startGeneration() {
-        // Cancel any existing task
+        // Cancel any existing tasks
+        checkTask?.cancel()
+        checkTask = nil
         generationTask?.cancel()
 
         // Reset state
