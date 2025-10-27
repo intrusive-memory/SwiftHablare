@@ -423,8 +423,8 @@ public struct GenerateGroupButton: View {
         errorMessage = nil
         generatedRecords = []
 
-        // Create generation task
-        generateTask = Task {
+        // Create generation task with explicit MainActor context
+        generateTask = Task { @MainActor in
             do {
                 // Generate all items using SpeakableItemList
                 let records = try await service.generateList(

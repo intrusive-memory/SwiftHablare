@@ -681,9 +681,15 @@ public actor GenerationService {
                 // Insert into SwiftData
                 context.insert(storage)
 
-                // Save at interval
+                // Save at interval with proper error handling
                 if (index + 1) % saveInterval == 0 || (index + 1) == list.totalCount {
-                    try? context.save()
+                    do {
+                        try context.save()
+                    } catch {
+                        print("Error saving audio at interval (item \(index + 1)): \(error.localizedDescription)")
+                        // Don't throw yet - try to save partial results below
+                        throw error
+                    }
                 }
 
                 savedRecords.append(storage)
@@ -695,14 +701,26 @@ public actor GenerationService {
 
             } catch {
                 // Save partial results before failing
-                try? context.save()
+                do {
+                    try context.save()
+                    print("Saved \(savedRecords.count) partial results before failure")
+                } catch let saveError {
+                    print("Error saving partial results: \(saveError.localizedDescription)")
+                }
                 list.failProcessing(with: error)
                 throw error
             }
         }
 
-        // Mark as complete
-        try? context.save()
+        // Mark as complete - final save
+        do {
+            try context.save()
+        } catch {
+            print("Error in final save of generation list: \(error.localizedDescription)")
+            list.failProcessing(with: error)
+            throw error
+        }
+
         list.completeProcessing()
 
         return savedRecords

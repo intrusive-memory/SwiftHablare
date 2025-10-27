@@ -63,6 +63,12 @@ public struct GenerateAudioButton: View {
     /// SwiftData model context for persistence
     public let modelContext: ModelContext
 
+    /// Optional GuionElementModel to link generated audio to
+    ///
+    /// When provided, the generated TypedDataStorage will be added to
+    /// element.generatedContent to establish the relationship.
+    public let element: GuionElementModel?
+
     /// Callback when play button is tapped
     ///
     /// SwiftHablare does NOT handle playback - the app is responsible.
@@ -114,16 +120,19 @@ public struct GenerateAudioButton: View {
     ///   - item: SpeakableItem to generate audio for
     ///   - service: GenerationService for audio generation
     ///   - modelContext: ModelContext for SwiftData persistence
+    ///   - element: Optional GuionElementModel to link generated audio to
     ///   - onPlay: Optional callback when play button is tapped
     public init(
         item: any SpeakableItem,
         service: GenerationService,
         modelContext: ModelContext,
+        element: GuionElementModel? = nil,
         onPlay: ((TypedDataStorage) -> Void)? = nil
     ) {
         self.item = item
         self.service = service
         self.modelContext = modelContext
+        self.element = element
         self.onPlay = onPlay
     }
 
@@ -145,7 +154,7 @@ public struct GenerateAudioButton: View {
             }
         }
         .task {
-            checkTask = Task {
+            checkTask = Task { @MainActor in
                 await checkForExistingAudio()
             }
         }
@@ -281,14 +290,31 @@ public struct GenerateAudioButton: View {
         progress = 0.0
         errorMessage = nil
 
-        // Create generation task
-        generationTask = Task {
+        // Create generation task with explicit MainActor context
+        generationTask = Task { @MainActor in
             do {
                 // Extract Sendable data from item
                 let text = item.textToSpeak
                 let voiceId = item.voiceId
                 let provider = item.voiceProvider
                 let providerId = provider.providerId
+
+                // Re-check for existing audio to prevent race condition
+                // Another process might have created it between our initial check and now
+                let existingDescriptor = FetchDescriptor<TypedDataStorage>(
+                    predicate: #Predicate { storage in
+                        storage.providerId == providerId &&
+                        storage.voiceID == voiceId &&
+                        storage.prompt == text
+                    }
+                )
+
+                if let existingRecord = try? modelContext.fetch(existingDescriptor).first {
+                    // Audio was created by another process - use it
+                    audioState = .completed(existingRecord)
+                    progress = 1.0
+                    return
+                }
 
                 // Ensure provider is configured
                 guard provider.isConfigured() else {
@@ -349,7 +375,22 @@ public struct GenerateAudioButton: View {
 
                 // Insert into SwiftData
                 modelContext.insert(storage)
-                try modelContext.save()
+
+                // Link to GuionElementModel if provided
+                if let element = element {
+                    if element.generatedContent == nil {
+                        element.generatedContent = []
+                    }
+                    element.generatedContent?.append(storage)
+                }
+
+                // Save changes with proper error handling
+                do {
+                    try modelContext.save()
+                } catch {
+                    print("Error saving audio to SwiftData: \(error.localizedDescription)")
+                    throw error
+                }
 
                 // Update progress to complete
                 progress = 1.0
