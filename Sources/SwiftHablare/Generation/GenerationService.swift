@@ -251,7 +251,7 @@ public actor GenerationService {
     /// The default providers (Apple and ElevenLabs) are always included.
     ///
     /// - Returns: Array of registered voice providers
-    public func registeredProviders() -> [VoiceProvider] {
+    nonisolated public func registeredProviders() -> [VoiceProvider] {
         return Array(providerRegistry.values)
     }
 
@@ -269,7 +269,7 @@ public actor GenerationService {
     ///
     /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
     /// - Returns: Voice provider if found, nil otherwise
-    public func provider(withId providerId: String) -> VoiceProvider? {
+    nonisolated public func provider(withId providerId: String) -> VoiceProvider? {
         return providerRegistry[providerId]
     }
 
@@ -277,7 +277,7 @@ public actor GenerationService {
     ///
     /// - Parameter providerId: Provider identifier to check
     /// - Returns: True if provider is registered
-    public func isProviderRegistered(_ providerId: String) -> Bool {
+    nonisolated public func isProviderRegistered(_ providerId: String) -> Bool {
         return providerRegistry[providerId] != nil
     }
 
