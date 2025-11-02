@@ -5,7 +5,7 @@
 //  Tests for macOS NSSpeechTTSEngine implementation
 //
 
-#if canImport(AppKit)
+#if os(macOS) && !targetEnvironment(macCatalyst)
 import XCTest
 import AVFoundation
 @testable import SwiftHablare
@@ -316,11 +316,14 @@ final class NSSpeechTTSEngineTests: XCTestCase {
             return
         }
 
+        // Copy engine to local variable to avoid sendability issues with task group
+        let localEngine = engine!
+
         // Generate multiple audio files concurrently
         await withThrowingTaskGroup(of: Data.self) { group in
             for i in 0..<3 {
                 group.addTask {
-                    try await self.engine.generateAudio(
+                    try await localEngine.generateAudio(
                         text: "Concurrent test \(i)",
                         voiceId: firstVoice.id
                     )

@@ -20,9 +20,9 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
         super.setUp()
 
         // Create platform-appropriate engine
-        #if canImport(UIKit)
+        #if os(iOS) || targetEnvironment(macCatalyst)
         engine = AVSpeechTTSEngine()
-        #elseif canImport(AppKit)
+        #elseif os(macOS)
         engine = NSSpeechTTSEngine()
         #else
         XCTFail("Unsupported platform")
