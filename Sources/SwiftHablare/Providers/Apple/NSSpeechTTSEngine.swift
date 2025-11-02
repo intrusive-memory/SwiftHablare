@@ -8,6 +8,7 @@
 #if os(macOS) && !targetEnvironment(macCatalyst)
 import AppKit
 import AVFoundation
+import ObjectiveC
 
 /// macOS implementation of Apple TTS using NSSpeechSynthesizer
 ///
