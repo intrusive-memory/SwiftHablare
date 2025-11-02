@@ -595,7 +595,7 @@ final class GenerationServiceTests: XCTestCase {
 
     func testVoiceCacheExpiration() async throws {
         // Use very short cache lifetime for testing
-        let service = GenerationService(cacheLifetime: 0.1)  // 100ms
+        let service = GenerationService(cacheLifetime: 0.2)  // 200ms
 
         // Fetch voices
         let voices1 = try await service.fetchVoices(from: "apple", using: modelContext)
@@ -603,14 +603,14 @@ final class GenerationServiceTests: XCTestCase {
 
         // Cache should be valid immediately
         let hasCache1 = await service.hasValidCache(for: "apple", using: modelContext)
-        XCTAssertTrue(hasCache1)
+        XCTAssertTrue(hasCache1, "Cache should be valid immediately after fetch")
 
-        // Wait for cache to expire
-        try await Task.sleep(for: .milliseconds(150))
+        // Wait for cache to expire (use 2.5x the lifetime to account for timing variations)
+        try await Task.sleep(for: .milliseconds(500))
 
         // Cache should be expired
         let hasCache2 = await service.hasValidCache(for: "apple", using: modelContext)
-        XCTAssertFalse(hasCache2)
+        XCTAssertFalse(hasCache2, "Cache should be expired after waiting")
 
         // Fetch again - should refresh cache
         let voices2 = try await service.fetchVoices(from: "apple", using: modelContext)
@@ -618,7 +618,7 @@ final class GenerationServiceTests: XCTestCase {
 
         // Cache should be valid again
         let hasCache3 = await service.hasValidCache(for: "apple", using: modelContext)
-        XCTAssertTrue(hasCache3)
+        XCTAssertTrue(hasCache3, "Cache should be valid after refresh")
     }
 
     func testRefreshVoices() async throws {

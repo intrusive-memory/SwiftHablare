@@ -215,6 +215,9 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
     }
 
     func testEstimateDurationMatchesGeneratedAudio() async throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers on simulators")
+        #else
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {
             XCTFail("No voices available")
@@ -240,6 +243,7 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
         let tolerance = actualDuration * 0.5
         XCTAssertEqual(estimatedDuration, actualDuration, accuracy: tolerance,
                       "Estimated duration should be reasonably close to actual")
+        #endif
     }
 
     // MARK: - Error Handling Tests

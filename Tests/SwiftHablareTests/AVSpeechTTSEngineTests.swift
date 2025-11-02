@@ -125,6 +125,9 @@ final class AVSpeechTTSEngineTests: XCTestCase {
     }
 
     func testGenerateAudioProducesValidAudioFormat() async throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Audio validation test skipped on simulator - AVSpeechSynthesizer.write() doesn't generate audio buffers on simulators")
+        #else
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
             XCTFail("No voices available for testing")
@@ -146,6 +149,7 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         let audioFile = try AVAudioFile(forReading: tempURL)
         XCTAssertNotNil(audioFile.processingFormat, "Should have valid audio format")
         XCTAssertGreaterThan(audioFile.length, 0, "Audio file should have frames")
+        #endif
     }
 
     func testGenerateAudioWithDifferentVoices() async throws {
@@ -213,6 +217,21 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
 
         // Should still get valid audio data (placeholder)
+        XCTAssertFalse(audioData.isEmpty)
+        XCTAssertGreaterThan(audioData.count, 1024)
+    }
+    #elseif targetEnvironment(macCatalyst)
+    func testCatalystGeneratesPlaceholderAudio() async throws {
+        let voices = try await engine.fetchVoices()
+        guard let firstVoice = voices.first else {
+            XCTFail("No voices available")
+            return
+        }
+
+        let text = "Catalyst test"
+        let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
+
+        // Catalyst also produces placeholder audio (AVSpeechSynthesizer.write() limitation)
         XCTAssertFalse(audioData.isEmpty)
         XCTAssertGreaterThan(audioData.count, 1024)
     }
