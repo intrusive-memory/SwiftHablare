@@ -23,7 +23,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
-        .package(path: "../SwiftCompartido")
+        .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main")
     ],
     targets: [
         .target(
