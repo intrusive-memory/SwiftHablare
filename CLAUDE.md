@@ -14,9 +14,10 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macCatalyst 26.0
 - **macOS Support**: ❌ **NOT SUPPORTED** - iOS and Catalyst only
-- **Total Tests**: 164+ passing
+- **Total Tests**: 180 passing
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
+- **Language Support**: ✨ Multi-language voice generation with language-specific caching (v2.3.0+)
 
 ## Platform Support
 
@@ -128,12 +129,12 @@ SwiftHablaré does NOT provide:
 ### What's Included vs Not Included
 
 **SwiftHablaré includes:**
-- ✅ `SpeakableItem` protocol for protocol-oriented TTS
+- ✅ `SpeakableItem` protocol for protocol-oriented TTS with language code support (v2.3.0+)
 - ✅ `SpeakableGroup` protocol for batch audio generation (v2.3.0)
-- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice provider integration (Apple TTS, ElevenLabs) with language filtering
 - ✅ Provider registry and management
 - ✅ Thread-safe audio generation
-- ✅ Voice caching with SwiftData
+- ✅ Language-specific voice caching with SwiftData (v2.3.0+)
 - ✅ TypedDataStorage integration for generated audio
 - ✅ Simple UI pickers (provider & voice selection)
 - ✅ Audio generation buttons (individual & batch) (v2.3.0)
@@ -163,7 +164,8 @@ SwiftHablaré does NOT provide:
 **Features:**
 - Always configured (no API key required)
 - Fetches voices from `AVSpeechSynthesisVoice`
-- Filters voices by system language
+- Filters voices by language code (defaults to system language) (v2.3.0+)
+- Supports explicit language specification for multi-language apps
 - Estimates duration using text length heuristics
 - Generates AIFF format audio
 
@@ -187,15 +189,21 @@ SwiftHablaré does NOT provide:
 
 ### Overview
 
-The `SpeakableItem` protocol enables **protocol-oriented text-to-speech generation** where any type can become speakable by conforming to a simple 3-property protocol:
+The `SpeakableItem` protocol enables **protocol-oriented text-to-speech generation** where any type can become speakable by conforming to a simple protocol:
 
 ```swift
 public protocol SpeakableItem {
     var voiceProvider: VoiceProvider { get }
     var voiceId: String { get }
     var textToSpeak: String { get }
+    var languageCode: String { get } // v2.3.0+ - Defaults to system language
 }
 ```
+
+**Language Code Support (v2.3.0+):**
+- The `languageCode` property has a default implementation that returns the system language
+- Override to specify a custom language for multi-language applications
+- Ensures voices are fetched and cached per language
 
 ### Design Philosophy
 
@@ -240,6 +248,41 @@ let message = Message(
 
 // Generate audio (convenience method from protocol extension)
 let audioData = try await message.speak()
+```
+
+### Language Code Usage (v2.3.0+)
+
+The `languageCode` property allows you to specify which language's voices to use:
+
+```swift
+// Use default system language (automatic)
+struct EnglishMessage: SpeakableItem {
+    let voiceProvider: VoiceProvider
+    let voiceId: String
+    let textToSpeak: String
+    // languageCode automatically uses system language
+}
+
+// Override for specific language
+struct SpanishMessage: SpeakableItem {
+    let voiceProvider: VoiceProvider
+    let voiceId: String
+    let textToSpeak: String
+
+    var languageCode: String { "es" }
+}
+
+// Multi-language support
+struct LocalizedMessage: SpeakableItem {
+    let voiceProvider: VoiceProvider
+    let voiceId: String
+    let textToSpeak: String
+    let locale: Locale
+
+    var languageCode: String {
+        locale.language.languageCode?.identifier ?? "en"
+    }
+}
 ```
 
 ### Convenience Methods
@@ -1217,14 +1260,20 @@ try keychain.delete(key: "elevenlabs-api-key")
 
 ### 6. Voice Caching
 
+**Language-Specific Caching (v2.3.0+):**
+
+Voices are cached per provider AND language code to prevent cache collisions. This ensures that fetching Spanish voices doesn't return cached English voices.
+
 **SwiftData Model:**
 ```swift
 @Model
 public final class VoiceCacheModel {
-    @Attribute(.unique) public var id: String
-    public var name: String
+    @Attribute(.unique) public var id: String  // Format: "providerId:languageCode:voiceId"
     public var providerId: String
-    public var language: String?
+    public var cacheLanguageCode: String  // Language code used when fetching
+    public var voiceId: String
+    public var voiceName: String
+    public var language: String?  // Voice's actual language (may be more specific)
     public var locality: String?
     public var gender: String?
     public var cachedAt: Date
@@ -1233,9 +1282,17 @@ public final class VoiceCacheModel {
 
 **Usage:**
 ```swift
-// Voices are automatically cached when fetched
-// Cache reduces API calls and improves performance
-// Consuming apps should invalidate cache periodically
+// Voices are automatically cached when fetched, keyed by language
+let enVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "en")
+let esVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "es")
+// Both cached independently - no collision
+
+// Check for language-specific cache
+let hasEnCache = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
+
+// Clear specific language or all languages
+try await service.clearVoiceCache(for: "apple", languageCode: "en", using: context)
+try await service.clearVoiceCache(for: "apple", using: context) // Clears all languages
 ```
 
 ## Development Workflow
@@ -1482,14 +1539,39 @@ Before submitting a PR:
 
 ### Generate Audio
 
+**With System Language (Default):**
 ```swift
 let provider = AppleVoiceProvider()
-let voices = try await provider.fetchVoices()
+let voices = try await provider.fetchVoices()  // Uses system language
 let audioData = try await provider.generateAudio(
     text: "Hello, world!",
     voiceId: voices.first!.id
 )
 // Use audioData in your app
+```
+
+**With Specific Language (v2.3.0+):**
+```swift
+let provider = AppleVoiceProvider()
+
+// Fetch Spanish voices
+let spanishVoices = try await provider.fetchVoices(languageCode: "es")
+
+// Generate Spanish audio
+let audioData = try await provider.generateAudio(
+    text: "Hola, mundo!",
+    voiceId: spanishVoices.first!.id,
+    languageCode: "es"
+)
+
+// Or use GenerationService for better management
+let service = GenerationService()
+let result = try await service.generate(
+    text: "Hola, mundo!",
+    providerId: "apple",
+    voiceId: spanishVoices.first!.id,
+    languageCode: "es"
+)
 ```
 
 ### Work with Provider Registry
@@ -1501,14 +1583,20 @@ let service = GenerationService(modelContext: modelContext)
 // Get all available providers
 let providers = await service.registeredProviders()
 
-// Fetch voices from a specific provider
+// Fetch voices from a specific provider (system language)
 let appleVoices = try await service.fetchVoices(from: "apple")
+
+// Fetch voices with specific language (v2.3.0+)
+let spanishVoices = try await service.fetchVoices(from: "apple", languageCode: "es")
 
 // Fetch voices from all providers
 let allVoices = try await service.fetchAllVoices()
 for (providerId, voices) in allVoices {
     print("\(providerId): \(voices.count) voices")
 }
+
+// Fetch voices from all providers with specific language (v2.3.0+)
+let allSpanishVoices = try await service.fetchAllVoices(languageCode: "es")
 
 // Register a custom provider
 let customProvider = MyCustomVoiceProvider()
@@ -1517,17 +1605,36 @@ await service.registerProvider(customProvider)
 
 ### Cache Voices in SwiftData
 
+**⚠️ DEPRECATED:** Manual caching is no longer necessary. Use `GenerationService.fetchVoices(from:using:languageCode:)` which automatically caches voices with language-specific keys.
+
+**Automatic Caching (Recommended):**
 ```swift
 @MainActor
 func cacheVoices() async throws {
+    let service = GenerationService()
+
+    // Voices are automatically cached with language code
+    let enVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "en")
+    let esVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "es")
+
+    // Cache is automatically managed, no manual insertion needed
+}
+```
+
+**Manual Caching (Only if needed for custom scenarios):**
+```swift
+@MainActor
+func manualCacheVoices() async throws {
     let provider = AppleVoiceProvider()
-    let voices = try await provider.fetchVoices()
+    let languageCode = "en"
+    let voices = try await provider.fetchVoices(languageCode: languageCode)
 
     for voice in voices {
         let cache = VoiceCacheModel(
-            id: voice.id,
-            name: voice.name,
             providerId: voice.providerId,
+            cacheLanguageCode: languageCode,  // v2.3.0+ Required
+            voiceId: voice.id,
+            voiceName: voice.name,
             language: voice.language,
             locality: voice.locality,
             gender: voice.gender
@@ -1535,6 +1642,96 @@ func cacheVoices() async throws {
         modelContext.insert(cache)
     }
     try modelContext.save()
+}
+```
+
+### Multi-Language Voice Generation (v2.3.0+)
+
+**Use Case**: Applications that need to support multiple languages.
+
+```swift
+struct MultiLanguageApp {
+    let service = GenerationService()
+
+    @MainActor
+    func generateMultiLanguageAudio() async throws {
+        // Fetch voices for different languages
+        let englishVoices = try await service.fetchVoices(
+            from: "apple",
+            using: modelContext,
+            languageCode: "en"
+        )
+
+        let spanishVoices = try await service.fetchVoices(
+            from: "apple",
+            using: modelContext,
+            languageCode: "es"
+        )
+
+        let frenchVoices = try await service.fetchVoices(
+            from: "apple",
+            using: modelContext,
+            languageCode: "fr"
+        )
+
+        // All three language caches are independent
+        // No collision between languages
+
+        // Generate audio in different languages
+        let enResult = try await service.generate(
+            text: "Hello, world!",
+            providerId: "apple",
+            voiceId: englishVoices.first!.id,
+            languageCode: "en"
+        )
+
+        let esResult = try await service.generate(
+            text: "¡Hola, mundo!",
+            providerId: "apple",
+            voiceId: spanishVoices.first!.id,
+            languageCode: "es"
+        )
+
+        let frResult = try await service.generate(
+            text: "Bonjour, le monde!",
+            providerId: "apple",
+            voiceId: frenchVoices.first!.id,
+            languageCode: "fr"
+        )
+    }
+}
+
+// Using SpeakableItem with language codes
+struct LocalizedMessage: SpeakableItem {
+    let voiceProvider: VoiceProvider
+    let voiceId: String
+    let textToSpeak: String
+    let locale: Locale
+
+    var languageCode: String {
+        locale.language.languageCode?.identifier ?? "en"
+    }
+}
+
+// Usage
+let messages = [
+    LocalizedMessage(
+        voiceProvider: provider,
+        voiceId: enVoiceId,
+        textToSpeak: "Hello",
+        locale: Locale(identifier: "en_US")
+    ),
+    LocalizedMessage(
+        voiceProvider: provider,
+        voiceId: esVoiceId,
+        textToSpeak: "Hola",
+        locale: Locale(identifier: "es_ES")
+    )
+]
+
+// Each message uses its own language code
+for message in messages {
+    let audio = try await message.speak()  // Uses message.languageCode
 }
 ```
 
@@ -1559,10 +1756,11 @@ func cacheVoices() async throws {
 ## Library Scope and Philosophy
 
 **SwiftHablaré is a focused voice generation library**:
-- Takes text, provider ID, and voice ID as input
+- Takes text, provider ID, voice ID, and optional language code as input
 - Generates audio using the specified voice provider
 - Returns audio data and metadata for the consuming application
 - Integrates with TypedDataStorage for SwiftData persistence
+- Supports multi-language voice generation with language-specific caching (v2.3.0+)
 
 **Out of Scope**:
 - ❌ Audio playback (apps handle playback)
@@ -1573,13 +1771,14 @@ func cacheVoices() async throws {
 - ❌ Complex UI workflows
 
 **In Scope**:
-- ✅ Voice provider integration (Apple TTS, ElevenLabs)
+- ✅ Voice provider integration (Apple TTS, ElevenLabs) with language filtering
 - ✅ Voice provider registry and management
-- ✅ Voice fetching and caching (VoiceCacheModel)
+- ✅ Language-specific voice fetching and caching (VoiceCacheModel) (v2.3.0+)
+- ✅ Multi-language support with automatic system language detection (v2.3.0+)
 - ✅ Thread-safe audio generation (actor-based)
 - ✅ API key management (Keychain)
 - ✅ TypedDataStorage integration for generated audio
-- ✅ SpeakableItem protocol for protocol-oriented TTS
+- ✅ SpeakableItem protocol for protocol-oriented TTS with language codes (v2.3.0+)
 - ✅ SpeakableGroup protocol for batch audio generation (v2.3.0)
 - ✅ SpeakableItemList for batch generation with progress
 - ✅ Platform compatibility (iOS 26+, Catalyst 26+)
