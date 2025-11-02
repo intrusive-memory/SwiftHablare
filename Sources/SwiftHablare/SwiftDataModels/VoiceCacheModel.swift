@@ -18,11 +18,15 @@ public final class VoiceCacheModel {
 
     // MARK: - Properties
 
-    /// Unique identifier (composite: providerId + voiceId)
+    /// Unique identifier (composite: providerId + cacheLanguageCode + voiceId)
     @Attribute(.unique) public var id: String
 
     /// Provider identifier (e.g., "apple", "elevenlabs")
     public var providerId: String
+
+    /// The language code that was requested when fetching these voices
+    /// This is used as part of the cache key to ensure voices are cached per language request
+    public var cacheLanguageCode: String
 
     /// Voice identifier from the provider
     public var voiceId: String
@@ -33,7 +37,8 @@ public final class VoiceCacheModel {
     /// Optional description of the voice
     public var voiceDescription: String?
 
-    /// Language code (e.g., "en", "es", "fr")
+    /// Language code of the voice itself (e.g., "en", "es", "fr")
+    /// This may be more specific than cacheLanguageCode (e.g., "en-US" vs "en")
     public var language: String?
 
     /// Locality/region code (e.g., "US", "GB", "MX")
@@ -57,14 +62,16 @@ public final class VoiceCacheModel {
     ///
     /// - Parameters:
     ///   - providerId: Provider identifier
+    ///   - cacheLanguageCode: The language code that was requested when fetching
     ///   - voiceId: Voice identifier
     ///   - voiceName: Display name
     ///   - voiceDescription: Optional description
-    ///   - language: Language code
+    ///   - language: Language code of the voice itself
     ///   - locality: Locality code
     ///   - gender: Gender
     public init(
         providerId: String,
+        cacheLanguageCode: String,
         voiceId: String,
         voiceName: String,
         voiceDescription: String? = nil,
@@ -72,8 +79,9 @@ public final class VoiceCacheModel {
         locality: String? = nil,
         gender: String? = nil
     ) {
-        self.id = "\(providerId):\(voiceId)"
+        self.id = "\(providerId):\(cacheLanguageCode):\(voiceId)"
         self.providerId = providerId
+        self.cacheLanguageCode = cacheLanguageCode
         self.voiceId = voiceId
         self.voiceName = voiceName
         self.voiceDescription = voiceDescription
@@ -87,10 +95,13 @@ public final class VoiceCacheModel {
 
     /// Create from a Voice struct
     ///
-    /// - Parameter voice: Voice instance from provider
-    public convenience init(from voice: Voice) {
+    /// - Parameters:
+    ///   - voice: Voice instance from provider
+    ///   - cacheLanguageCode: The language code that was requested when fetching
+    public convenience init(from voice: Voice, cacheLanguageCode: String) {
         self.init(
             providerId: voice.providerId,
+            cacheLanguageCode: cacheLanguageCode,
             voiceId: voice.id,
             voiceName: voice.name,
             voiceDescription: voice.description,
@@ -144,7 +155,20 @@ public final class VoiceCacheModel {
 
 extension VoiceCacheModel {
 
-    /// Fetch all cached voices for a provider
+    /// Fetch all cached voices for a provider and language code
+    ///
+    /// - Parameters:
+    ///   - providerId: Provider identifier
+    ///   - languageCode: Language code that was requested
+    /// - Returns: FetchDescriptor for the query
+    public static func fetchDescriptor(forProvider providerId: String, languageCode: String) -> FetchDescriptor<VoiceCacheModel> {
+        let predicate = #Predicate<VoiceCacheModel> { voice in
+            voice.providerId == providerId && voice.cacheLanguageCode == languageCode && voice.isAvailable
+        }
+        return FetchDescriptor<VoiceCacheModel>(predicate: predicate)
+    }
+
+    /// Fetch all cached voices for a provider (all languages)
     ///
     /// - Parameter providerId: Provider identifier
     /// - Returns: FetchDescriptor for the query
@@ -159,10 +183,11 @@ extension VoiceCacheModel {
     ///
     /// - Parameters:
     ///   - providerId: Provider identifier
+    ///   - languageCode: Language code that was requested
     ///   - voiceId: Voice identifier
     /// - Returns: FetchDescriptor for the query
-    public static func fetchDescriptor(providerId: String, voiceId: String) -> FetchDescriptor<VoiceCacheModel> {
-        let id = "\(providerId):\(voiceId)"
+    public static func fetchDescriptor(providerId: String, languageCode: String, voiceId: String) -> FetchDescriptor<VoiceCacheModel> {
+        let id = "\(providerId):\(languageCode):\(voiceId)"
         let predicate = #Predicate<VoiceCacheModel> { voice in
             voice.id == id
         }

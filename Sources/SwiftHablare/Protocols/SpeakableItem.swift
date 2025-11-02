@@ -7,6 +7,16 @@
 
 import Foundation
 
+// MARK: - Language Code Utilities
+
+/// Get the system's current language code
+///
+/// Returns the user's preferred language code (e.g., "en", "es", "fr").
+/// Falls back to "en" if the language code cannot be determined.
+public func systemLanguageCode() -> String {
+    return Locale.current.language.languageCode?.identifier ?? "en"
+}
+
 /// A protocol that defines the requirements for any type that can be spoken.
 ///
 /// Conforming types must provide a voice provider, voice ID, and text to speak.
@@ -97,6 +107,31 @@ public protocol SpeakableItem {
     /// }
     /// ```
     var textToSpeak: String { get }
+
+    /// The language code for speech synthesis
+    ///
+    /// This is the ISO 639-1 language code (e.g., "en", "es", "fr") used
+    /// for voice selection and generation. Defaults to the system's current
+    /// language if not explicitly provided.
+    ///
+    /// ## Example
+    /// ```swift
+    /// // Use system language (default)
+    /// var languageCode: String { systemLanguageCode() }
+    ///
+    /// // Use specific language
+    /// var languageCode: String { "es" }
+    /// ```
+    var languageCode: String { get }
+}
+
+// MARK: - Default Implementation
+
+extension SpeakableItem {
+    /// Default language code returns the system's current language
+    public var languageCode: String {
+        systemLanguageCode()
+    }
 }
 
 // MARK: - Convenience Methods
@@ -122,7 +157,7 @@ extension SpeakableItem {
     /// This method is async and thread-safe. Multiple items can be spoken
     /// concurrently without data races.
     public func speak() async throws -> Data {
-        try await voiceProvider.generateAudio(text: textToSpeak, voiceId: voiceId)
+        try await voiceProvider.generateAudio(text: textToSpeak, voiceId: voiceId, languageCode: languageCode)
     }
 
     /// Estimate the duration of the generated speech

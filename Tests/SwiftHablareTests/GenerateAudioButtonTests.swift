@@ -289,11 +289,11 @@ struct GenerateAudioButtonTests {
 
             func isConfigured() -> Bool { false }
 
-            func fetchVoices() async throws -> [Voice] {
+            func fetchVoices(languageCode: String) async throws -> [Voice] {
                 throw VoiceProviderError.notConfigured
             }
 
-            func generateAudio(text: String, voiceId: String) async throws -> Data {
+            func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
                 throw VoiceProviderError.notConfigured
             }
 

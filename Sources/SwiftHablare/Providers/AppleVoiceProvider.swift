@@ -44,12 +44,12 @@ public final class AppleVoiceProvider: VoiceProvider {
         return true
     }
 
-    public func fetchVoices() async throws -> [Voice] {
-        return try await engine.fetchVoices()
+    public func fetchVoices(languageCode: String) async throws -> [Voice] {
+        return try await engine.fetchVoices(languageCode: languageCode)
     }
 
-    public func generateAudio(text: String, voiceId: String) async throws -> Data {
-        return try await engine.generateAudio(text: text, voiceId: voiceId)
+    public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
+        return try await engine.generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
