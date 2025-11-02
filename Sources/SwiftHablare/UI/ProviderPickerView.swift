@@ -73,7 +73,7 @@ public struct ProviderPickerView: View {
     /// Load providers from the registry
     private func loadProviders() async {
         isLoading = true
-        providers = await service.registeredProviders()
+        providers = service.registeredProviders()
         isLoading = false
     }
 }

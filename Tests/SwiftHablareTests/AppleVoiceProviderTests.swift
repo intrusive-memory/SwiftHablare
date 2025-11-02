@@ -7,6 +7,9 @@
 
 import XCTest
 import AVFoundation
+#if os(macOS) && !targetEnvironment(macCatalyst)
+import AppKit
+#endif
 @testable import SwiftHablare
 
 final class AppleVoiceProviderTests: XCTestCase {
@@ -64,10 +67,18 @@ final class AppleVoiceProviderTests: XCTestCase {
     func testFetchedVoicesHaveValidIdentifiers() async throws {
         let voices = try await provider.fetchVoices()
 
-        // Verify that each voice ID can be used to create an AVSpeechSynthesisVoice
+        // Verify that each voice ID can be used to create a platform-specific voice
         for voice in voices {
+            #if os(macOS) && !targetEnvironment(macCatalyst)
+            // On macOS, verify the voice ID is a valid NSSpeechSynthesizer voice name
+            let voiceName = NSSpeechSynthesizer.VoiceName(rawValue: voice.id)
+            let availableVoices = NSSpeechSynthesizer.availableVoices
+            XCTAssertTrue(availableVoices.contains(voiceName), "Voice ID '\(voice.id)' should be in available voices")
+            #else
+            // On iOS/Catalyst, verify the voice ID can create an AVSpeechSynthesisVoice
             let avVoice = AVSpeechSynthesisVoice(identifier: voice.id)
             XCTAssertNotNil(avVoice, "Voice ID '\(voice.id)' should be valid")
+            #endif
         }
     }
 
@@ -362,11 +373,12 @@ final class AppleVoiceProviderTests: XCTestCase {
         let voicesWithGender = voices.filter { $0.gender != nil }
 
         // Note: Gender might not be available for all voices, so we just verify format if present
+        // macOS includes novelty voices with "neutral" gender
         for voice in voicesWithGender {
             let gender = voice.gender!.lowercased()
             XCTAssertTrue(
-                gender == "male" || gender == "female",
-                "Gender should be 'male' or 'female', got '\(gender)' for voice '\(voice.name)'"
+                gender == "male" || gender == "female" || gender == "neutral",
+                "Gender should be 'male', 'female', or 'neutral', got '\(gender)' for voice '\(voice.name)'"
             )
         }
     }

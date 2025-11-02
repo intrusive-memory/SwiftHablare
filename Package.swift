@@ -12,6 +12,7 @@ let package = Package(
     name: "SwiftHablare",
     platforms: [
         .iOS(.v26),
+        .macOS(.v26),
         .macCatalyst(.v26)
     ],
     products: [
