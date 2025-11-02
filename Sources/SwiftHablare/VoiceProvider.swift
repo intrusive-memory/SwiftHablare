@@ -22,10 +22,17 @@ public protocol VoiceProvider: Sendable {
     func isConfigured() -> Bool
 
     /// Fetch available voices from the provider
-    func fetchVoices() async throws -> [Voice]
+    /// - Parameter languageCode: Optional language code to filter voices (e.g., "en", "es", "fr").
+    ///   If not provided, uses system language code as default.
+    func fetchVoices(languageCode: String) async throws -> [Voice]
 
     /// Generate audio data from text using a specific voice
-    func generateAudio(text: String, voiceId: String) async throws -> Data
+    /// - Parameters:
+    ///   - text: The text to convert to speech
+    ///   - voiceId: The voice identifier to use
+    ///   - languageCode: The language code for generation (e.g., "en", "es", "fr").
+    ///     Defaults to system language if not provided.
+    func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data
 
     /// Estimate the duration (in seconds) of audio that would be generated from the given text
     func estimateDuration(text: String, voiceId: String) async -> TimeInterval
@@ -34,6 +41,22 @@ public protocol VoiceProvider: Sendable {
     /// - Parameter voiceId: The voice identifier to check
     /// - Returns: True if the voice is available, false otherwise
     func isVoiceAvailable(voiceId: String) async -> Bool
+}
+
+// MARK: - Default Language Code Extensions
+
+extension VoiceProvider {
+    /// Fetch available voices using system language code as default
+    public func fetchVoices() async throws -> [Voice] {
+        let languageCode = Locale.current.language.languageCode?.identifier ?? "en"
+        return try await fetchVoices(languageCode: languageCode)
+    }
+
+    /// Generate audio using system language code as default
+    public func generateAudio(text: String, voiceId: String) async throws -> Data {
+        let languageCode = Locale.current.language.languageCode?.identifier ?? "en"
+        return try await generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
+    }
 }
 
 /// Voice provider types

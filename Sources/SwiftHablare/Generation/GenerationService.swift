@@ -148,6 +148,7 @@ public actor GenerationService {
     ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - voiceId: Voice identifier from provider
     ///   - voiceName: Voice name for metadata (optional)
+    ///   - languageCode: Language code for generation (optional, defaults to system language)
     ///   - mimeType: MIME type for audio (optional, derived from provider if not specified)
     /// - Returns: GenerationResult with audio data and metadata
     /// - Throws: VoiceProviderError if generation fails or provider not found
@@ -156,6 +157,7 @@ public actor GenerationService {
         providerId: String,
         voiceId: String,
         voiceName: String? = nil,
+        languageCode: String? = nil,
         mimeType: String? = nil
     ) async throws -> GenerationResult {
         // Get provider from registry
@@ -171,8 +173,11 @@ public actor GenerationService {
         // Estimate duration before generation
         let estimatedDuration = await provider.estimateDuration(text: text, voiceId: voiceId)
 
+        // Determine language code (use provided or default to system language)
+        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+
         // Generate audio (this happens on background thread via actor isolation)
-        let audioData = try await provider.generateAudio(text: text, voiceId: voiceId)
+        let audioData = try await provider.generateAudio(text: text, voiceId: voiceId, languageCode: finalLanguageCode)
 
         // Determine MIME type from provider if not specified
         let finalMimeType: String
@@ -211,6 +216,7 @@ public actor GenerationService {
     ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - voiceId: Voice identifier from provider
     ///   - voiceName: Voice name for metadata (optional)
+    ///   - languageCode: Language code for generation (optional, defaults to system language)
     ///   - mimeType: MIME type for audio (optional)
     /// - Returns: GenerationResult that can be converted to TypedDataStorage
     /// - Throws: VoiceProviderError if generation fails
@@ -219,6 +225,7 @@ public actor GenerationService {
         providerId: String,
         voiceId: String,
         voiceName: String? = nil,
+        languageCode: String? = nil,
         mimeType: String? = nil
     ) async throws -> GenerationResult {
         return try await generate(
@@ -226,6 +233,7 @@ public actor GenerationService {
             providerId: providerId,
             voiceId: voiceId,
             voiceName: voiceName,
+            languageCode: languageCode,
             mimeType: mimeType
         )
     }
@@ -314,9 +322,10 @@ public actor GenerationService {
     ///
     /// - Parameters:
     ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Array of available voices from that provider
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-    public func fetchVoices(from providerId: String) async throws -> [Voice] {
+    public func fetchVoices(from providerId: String, languageCode: String? = nil) async throws -> [Voice] {
         guard let provider = providerRegistry[providerId] else {
             throw VoiceProviderError.notConfigured
         }
@@ -325,8 +334,11 @@ public actor GenerationService {
             throw VoiceProviderError.notConfigured
         }
 
+        // Determine language code (use provided or default to system language)
+        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+
         // Fetch voices from provider
-        return try await provider.fetchVoices()
+        return try await provider.fetchVoices(languageCode: finalLanguageCode)
     }
 
     /// Fetch voices with caching support (MainActor-isolated)
@@ -334,10 +346,11 @@ public actor GenerationService {
     /// - Parameters:
     ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - modelContext: ModelContext for voice caching (must be on MainActor)
+    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Array of available voices from that provider
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     @MainActor
-    public func fetchVoices(from providerId: String, using modelContext: ModelContext) async throws -> [Voice] {
+    public func fetchVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
         guard let provider = providerRegistry[providerId] else {
             throw VoiceProviderError.notConfigured
         }
@@ -345,6 +358,9 @@ public actor GenerationService {
         guard provider.isConfigured() else {
             throw VoiceProviderError.notConfigured
         }
+
+        // Determine language code (use provided or default to system language)
+        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
 
         // Check SwiftData cache first
         let cachedVoices = try fetchCachedVoices(for: providerId, using: modelContext)
@@ -353,7 +369,7 @@ public actor GenerationService {
         }
 
         // Cache miss - fetch fresh voices
-        let voices = try await provider.fetchVoices()
+        let voices = try await provider.fetchVoices(languageCode: finalLanguageCode)
 
         // Save to cache
         try saveCachedVoices(voices, for: providerId, using: modelContext)
@@ -411,8 +427,9 @@ public actor GenerationService {
     /// }
     /// ```
     ///
+    /// - Parameter languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Dictionary mapping provider IDs to voice arrays
-    public func fetchAllVoices() async throws -> [String: [Voice]] {
+    public func fetchAllVoices(languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
         for (providerId, provider) in providerRegistry {
@@ -421,7 +438,7 @@ public actor GenerationService {
             }
 
             do {
-                let voices = try await fetchVoices(from: providerId)
+                let voices = try await fetchVoices(from: providerId, languageCode: languageCode)
                 voicesByProvider[providerId] = voices
             } catch {
                 // Skip providers that fail to fetch voices
@@ -434,10 +451,12 @@ public actor GenerationService {
 
     /// Fetch voices from all providers with caching support (MainActor-isolated)
     ///
-    /// - Parameter modelContext: ModelContext for voice caching (must be on MainActor)
+    /// - Parameters:
+    ///   - modelContext: ModelContext for voice caching (must be on MainActor)
+    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Dictionary mapping provider IDs to voice arrays
     @MainActor
-    public func fetchAllVoices(using modelContext: ModelContext) async throws -> [String: [Voice]] {
+    public func fetchAllVoices(using modelContext: ModelContext, languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
         for (providerId, provider) in providerRegistry {
@@ -446,7 +465,7 @@ public actor GenerationService {
             }
 
             do {
-                let voices = try await fetchVoices(from: providerId, using: modelContext)
+                let voices = try await fetchVoices(from: providerId, using: modelContext, languageCode: languageCode)
                 voicesByProvider[providerId] = voices
             } catch {
                 // Skip providers that fail to fetch voices
@@ -474,10 +493,12 @@ public actor GenerationService {
     /// let freshVoices = try await service.refreshVoices(from: "apple", using: context)
     /// ```
     ///
-    /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    /// - Parameters:
+    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
+    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Freshly fetched array of voices
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-    public func refreshVoices(from providerId: String) async throws -> [Voice] {
+    public func refreshVoices(from providerId: String, languageCode: String? = nil) async throws -> [Voice] {
         guard let provider = providerRegistry[providerId] else {
             throw VoiceProviderError.notConfigured
         }
@@ -486,8 +507,11 @@ public actor GenerationService {
             throw VoiceProviderError.notConfigured
         }
 
+        // Determine language code (use provided or default to system language)
+        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+
         // Fetch fresh voices
-        return try await provider.fetchVoices()
+        return try await provider.fetchVoices(languageCode: finalLanguageCode)
     }
 
     /// Refresh voices with cache update (MainActor-isolated)
@@ -495,10 +519,11 @@ public actor GenerationService {
     /// - Parameters:
     ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
     ///   - modelContext: ModelContext to update cache (must be on MainActor)
+    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
     /// - Returns: Freshly fetched array of voices
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     @MainActor
-    public func refreshVoices(from providerId: String, using modelContext: ModelContext) async throws -> [Voice] {
+    public func refreshVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
         guard let provider = providerRegistry[providerId] else {
             throw VoiceProviderError.notConfigured
         }
@@ -507,8 +532,11 @@ public actor GenerationService {
             throw VoiceProviderError.notConfigured
         }
 
+        // Determine language code (use provided or default to system language)
+        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+
         // Fetch fresh voices
-        let voices = try await provider.fetchVoices()
+        let voices = try await provider.fetchVoices(languageCode: finalLanguageCode)
 
         // Update SwiftData cache
         try saveCachedVoices(voices, for: providerId, using: modelContext)
@@ -632,6 +660,7 @@ public actor GenerationService {
                 // Extract data we need (all Sendable)
                 let text = item.textToSpeak
                 let voiceId = item.voiceId
+                let languageCode = item.languageCode
                 let provider = item.voiceProvider
                 let providerId = provider.providerId
 
@@ -644,7 +673,8 @@ public actor GenerationService {
                 // (not a different instance from the registry)
                 let audioData = try await provider.generateAudio(
                     text: text,
-                    voiceId: voiceId
+                    voiceId: voiceId,
+                    languageCode: languageCode
                 )
 
                 // Estimate duration using the item's own voice provider

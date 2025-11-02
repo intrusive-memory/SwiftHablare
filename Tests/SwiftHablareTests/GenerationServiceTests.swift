@@ -932,11 +932,11 @@ final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable {
         return false
     }
 
-    func fetchVoices() async throws -> [Voice] {
+    func fetchVoices(languageCode: String) async throws -> [Voice] {
         throw VoiceProviderError.notConfigured
     }
 
-    func generateAudio(text: String, voiceId: String) async throws -> Data {
+    func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         throw VoiceProviderError.notConfigured
     }
 
@@ -964,7 +964,7 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
         return true
     }
 
-    func fetchVoices() async throws -> [Voice] {
+    func fetchVoices(languageCode: String) async throws -> [Voice] {
         return [
             Voice(
                 id: "\(providerId)-voice1",
@@ -978,7 +978,7 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
         ]
     }
 
-    func generateAudio(text: String, voiceId: String) async throws -> Data {
+    func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         return Data("mock-audio-data".utf8)
     }
 
@@ -1001,11 +1001,11 @@ final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
         return true
     }
 
-    func fetchVoices() async throws -> [Voice] {
+    func fetchVoices(languageCode: String) async throws -> [Voice] {
         throw VoiceProviderError.invalidResponse
     }
 
-    func generateAudio(text: String, voiceId: String) async throws -> Data {
+    func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         throw VoiceProviderError.invalidResponse
     }
 

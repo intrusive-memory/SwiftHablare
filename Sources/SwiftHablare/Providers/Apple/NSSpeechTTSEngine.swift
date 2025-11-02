@@ -22,12 +22,13 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
 
     // MARK: - AppleTTSEngine Implementation
 
-    func generateAudio(text: String, voiceId: String) async throws -> Data {
+    func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         // Validate text is not empty
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw VoiceProviderError.invalidRequest("Text cannot be empty")
         }
 
+        // Note: languageCode is used for voice selection, but actual voice is determined by voiceId
         return try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
@@ -85,7 +86,7 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
         }
     }
 
-    func fetchVoices() async throws -> [Voice] {
+    func fetchVoices(languageCode: String) async throws -> [Voice] {
         return await MainActor.run {
             // Get all available voice names
             let voiceNames = NSSpeechSynthesizer.availableVoices
@@ -95,9 +96,7 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
                 return []
             }
 
-            // Get system language code
-            let systemLanguageCode = Locale.current.language.languageCode?.identifier ?? "en"
-
+            // Use provided language code for filtering
             // Convert all voices first
             let allVoices = voiceNames.compactMap { voiceName -> Voice? in
                 let attributes = NSSpeechSynthesizer.attributes(forVoice: voiceName)
@@ -140,12 +139,12 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
                 )
             }
 
-            // Filter voices that match the system language (first 2 characters)
+            // Filter voices that match the requested language (first 2 characters)
             let filteredVoices = allVoices.filter { voice in
                 guard let voiceLanguage = voice.language else { return false }
                 let voiceLangPrefix = String(voiceLanguage.prefix(2))
-                let systemLangPrefix = String(systemLanguageCode.prefix(2))
-                return voiceLangPrefix == systemLangPrefix
+                let requestedLangPrefix = String(languageCode.prefix(2))
+                return voiceLangPrefix == requestedLangPrefix
             }
 
             // If no voices match system language, return a reasonable subset of all voices

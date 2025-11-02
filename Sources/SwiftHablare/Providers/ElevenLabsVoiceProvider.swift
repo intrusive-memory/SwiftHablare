@@ -40,12 +40,12 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         }
     }
 
-    public func fetchVoices() async throws -> [Voice] {
+    public func fetchVoices(languageCode: String) async throws -> [Voice] {
         guard let apiKey = try? getAPIKey() else {
             throw VoiceProviderError.notConfigured
         }
 
-        let languageCode = Locale.current.language.languageCode?.identifier ?? "en"
+        // Use the provided language code instead of system language
         let url = URL(string: "https://api.elevenlabs.io/v1/voices?language=\(languageCode)")!
         var request = URLRequest(url: url)
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
@@ -74,7 +74,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         }
     }
 
-    public func generateAudio(text: String, voiceId: String) async throws -> Data {
+    public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         guard let apiKey = try? getAPIKey() else {
             throw VoiceProviderError.notConfigured
         }
@@ -84,6 +84,8 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
             throw VoiceProviderError.invalidRequest("Text cannot be empty")
         }
 
+        // Note: languageCode is provided but ElevenLabs API determines language from voiceId
+        // The language code could be used for voice selection in more advanced scenarios
         let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voiceId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
