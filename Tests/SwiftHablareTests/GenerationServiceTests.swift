@@ -784,6 +784,70 @@ final class GenerationServiceTests: XCTestCase {
 
     // NOTE: testCachingWithoutModelContext removed as ModelContext is now required
 
+    func testCacheLanguageSpecific() async throws {
+        let service = GenerationService()
+
+        // Fetch English voices
+        let enVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "en")
+        XCTAssertFalse(enVoices.isEmpty, "Should have English voices")
+
+        // Verify English cache exists
+        let hasEnCache = await service.hasValidCache(for: "apple", languageCode: "en", using: modelContext)
+        XCTAssertTrue(hasEnCache, "Should have English voice cache")
+
+        // Verify Spanish cache does NOT exist yet
+        let hasEsCache1 = await service.hasValidCache(for: "apple", languageCode: "es", using: modelContext)
+        XCTAssertFalse(hasEsCache1, "Should not have Spanish voice cache yet")
+
+        // Fetch Spanish voices
+        let esVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "es")
+
+        // Verify Spanish cache now exists
+        let hasEsCache2 = await service.hasValidCache(for: "apple", languageCode: "es", using: modelContext)
+        XCTAssertTrue(hasEsCache2, "Should have Spanish voice cache")
+
+        // Verify English cache still exists
+        let hasEnCache2 = await service.hasValidCache(for: "apple", languageCode: "en", using: modelContext)
+        XCTAssertTrue(hasEnCache2, "Should still have English voice cache")
+
+        // Verify voices are different (or at minimum, we have both caches)
+        // This ensures the caches are language-specific
+        XCTAssertNotEqual(enVoices.count, 0)
+        XCTAssertNotEqual(esVoices.count, 0)
+    }
+
+    func testClearLanguageSpecificCache() async throws {
+        let service = GenerationService()
+
+        // Fetch voices for two languages
+        _ = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "en")
+        _ = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "es")
+
+        // Verify both caches exist
+        let hasEnCache1 = await service.hasValidCache(for: "apple", languageCode: "en", using: modelContext)
+        let hasEsCache1 = await service.hasValidCache(for: "apple", languageCode: "es", using: modelContext)
+        XCTAssertTrue(hasEnCache1, "Should have English cache")
+        XCTAssertTrue(hasEsCache1, "Should have Spanish cache")
+
+        // Clear only English cache
+        try await service.clearVoiceCache(for: "apple", languageCode: "en", using: modelContext)
+
+        // Verify English cache is gone but Spanish cache remains
+        let hasEnCache2 = await service.hasValidCache(for: "apple", languageCode: "en", using: modelContext)
+        let hasEsCache2 = await service.hasValidCache(for: "apple", languageCode: "es", using: modelContext)
+        XCTAssertFalse(hasEnCache2, "English cache should be cleared")
+        XCTAssertTrue(hasEsCache2, "Spanish cache should still exist")
+
+        // Clear all caches for the provider (no language code specified)
+        try await service.clearVoiceCache(for: "apple", using: modelContext)
+
+        // Verify all caches are gone
+        let hasEnCache3 = await service.hasValidCache(for: "apple", languageCode: "en", using: modelContext)
+        let hasEsCache3 = await service.hasValidCache(for: "apple", languageCode: "es", using: modelContext)
+        XCTAssertFalse(hasEnCache3, "English cache should be cleared")
+        XCTAssertFalse(hasEsCache3, "Spanish cache should be cleared")
+    }
+
     // MARK: - Concurrency Tests
 
     func testConcurrentAudioGeneration() async throws {
