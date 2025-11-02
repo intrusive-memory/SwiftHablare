@@ -12,6 +12,7 @@ let package = Package(
     name: "SwiftHablare",
     platforms: [
         .iOS(.v26),
+        .macOS(.v26),
         .macCatalyst(.v26)
     ],
     products: [
@@ -22,7 +23,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
-        .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main")
+        .package(path: "../SwiftCompartido")
     ],
     targets: [
         .target(
