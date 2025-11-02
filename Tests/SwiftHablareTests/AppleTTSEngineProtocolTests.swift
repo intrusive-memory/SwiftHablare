@@ -215,8 +215,8 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
     }
 
     func testEstimateDurationMatchesGeneratedAudio() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers on simulators")
+        #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+        throw XCTSkip("Duration validation test skipped on simulator/Catalyst - audio generation doesn't produce valid audio buffers")
         #else
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {

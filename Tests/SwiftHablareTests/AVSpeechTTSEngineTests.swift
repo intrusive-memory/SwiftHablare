@@ -125,8 +125,8 @@ final class AVSpeechTTSEngineTests: XCTestCase {
     }
 
     func testGenerateAudioProducesValidAudioFormat() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Audio validation test skipped on simulator - AVSpeechSynthesizer.write() doesn't generate audio buffers on simulators")
+        #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+        throw XCTSkip("Audio validation test skipped on simulator/Catalyst - AVSpeechSynthesizer.write() doesn't generate audio buffers")
         #else
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
