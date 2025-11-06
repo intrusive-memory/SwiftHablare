@@ -1,13 +1,13 @@
 # SwiftHablare
 
-**Simple voice generation library** - Convert text into spoken audio using Apple TTS or ElevenLabs.
+**Simple voice generation library** - Convert text into spoken audio using Apple TTS, SwiftEspeak, or ElevenLabs.
 
 ## Overview
 
 SwiftHablare is a focused Swift library that takes text and a voice ID, then generates audio. Simple API: `text + voiceId → audio`.
 
 **Core Features:**
-- **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
+- **Three voice providers**: Apple Text-to-Speech (built-in), SwiftEspeak (open-source eSpeak), and ElevenLabs (API-based)
 - **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
 - **Cross-platform**: iOS 26+ and Mac Catalyst 15.0+ (UIKit-based, no macOS)
@@ -28,7 +28,7 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Your Application                            │
 │                                                                   │
-│  1. Select voice provider (Apple or ElevenLabs)                 │
+│  1. Select voice provider (Apple, SwiftEspeak, or ElevenLabs)   │
 │  2. Choose voice ID from provider's voice list                  │
 │  3. Provide text to speak                                       │
 └────────────────────────────┬────────────────────────────────────┘
@@ -42,24 +42,24 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
                              │
                              │ Routes to provider
                              │
-            ┌────────────────┴────────────────┐
-            │                                 │
-            ▼                                 ▼
-  ┌─────────────────────┐         ┌─────────────────────┐
-  │ AppleVoiceProvider  │         │ElevenLabsProvider   │
-  │                     │         │                     │
-  │ • Built-in TTS      │         │ • Neural voices     │
-  │ • No API key needed │         │ • API key required  │
-  │ • AIFF output       │         │ • MP3 output        │
-  │ • iOS 26+ & Catalyst│         │ • Production quality│
-  │ • AVSpeechSynth     │         │ • 11+ voices        │
-  │ • UIKit-only        │         │ • Emotional range   │
-  │                     │         │                     │
-  └──────────┬──────────┘         └──────────┬──────────┘
-             │                               │
-             │ Audio Data (AIFF)             │ Audio Data (MP3)
-             │                               │
-             └───────────────┬───────────────┘
+            ┌────────────────┬────────────────┬────────────────┐
+            │                │                │                │
+            ▼                ▼                ▼                ▼
+  ┌─────────────────────┐ ┌───────────────────────┐ ┌─────────────────────┐
+  │ AppleVoiceProvider  │ │SwiftEspeakVoiceProvider│ │ElevenLabsProvider   │
+  │                     │ │                       │ │                     │
+  │ • Built-in TTS      │ │ • eSpeak synthesis    │ │ • Neural voices     │
+  │ • No API key needed │ │ • No API key needed   │ │ • API key required  │
+  │ • AIFF output       │ │ • WAV output          │ │ • MP3 output        │
+  │ • iOS 26+ & Catalyst│ │ • macOS/iOS bridge    │ │ • Production quality│
+  │ • AVSpeechSynth     │ │ • Requires eSpeak     │ │ • 11+ voices        │
+  │ • UIKit-only        │ │   installation        │ │ • Emotional range   │
+  │                     │ │                       │ │                     │
+  └──────────┬──────────┘ └──────────┬───────────┘ └──────────┬──────────┘
+             │                       │                          │
+             │ Audio Data (AIFF)     │ Audio Data (WAV)          │ Audio Data (MP3)
+             │                       │                          │
+             └───────────────┬───────┴───────────────┬──────────┘
                              │
                              ▼
                  ┌───────────────────────┐
@@ -120,7 +120,7 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
 ```
 
 **Key Points:**
-- **Provider Selection**: Your app chooses Apple or ElevenLabs based on needs
+- **Provider Selection**: Your app chooses Apple, SwiftEspeak, or ElevenLabs based on needs
 - **Voice Selection**: Your app selects specific voice ID from provider's available voices
 - **Thread Safety**: Generation happens on background thread via actor
 - **Consistent API**: Same flow regardless of provider choice
@@ -266,6 +266,38 @@ if provider.isConfigured() {
 - UIKit-based, no macOS support
 
 **All platforms generate AIFF format audio** for consistency across iOS 26+ and Catalyst applications.
+
+### SwiftEspeak Voice Provider
+
+Open-source speech synthesis powered by the eSpeak engine via the SwiftEspeak package.
+
+```swift
+let provider = SwiftEspeakVoiceProvider()
+
+guard provider.isConfigured() else {
+    // eSpeak is not installed or SwiftEspeak failed to load
+    return
+}
+
+// Fetch English voices from the local eSpeak installation
+let voices = try await provider.fetchVoices(languageCode: "en")
+
+// Generate audio using a specific eSpeak voice
+let audioData = try await provider.generateAudio(
+    text: "SwiftEspeak can synthesize speech without any cloud API.",
+    voiceId: "en-us"
+)
+```
+
+**Features:**
+- Uses local eSpeak voices (no network calls or API keys)
+- Generates uncompressed WAV output for easy post-processing
+- Works on Apple platforms that can load the underlying eSpeak library
+- Shares the same VoiceProvider API as the other providers
+
+**Requirements:**
+- SwiftEspeak package linked into the host application
+- eSpeak binary/libraries installed on the target device or simulator
 
 ### ElevenLabs Voice Provider
 

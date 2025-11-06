@@ -291,11 +291,12 @@ final class GenerationServiceTests: XCTestCase {
 
         let providers = await service.registeredProviders()
 
-        XCTAssertEqual(providers.count, 2, "Should have 2 default providers")
+        XCTAssertEqual(providers.count, 3, "Should have 3 default providers")
 
         let providerIds = Set(providers.map { $0.providerId })
         XCTAssertTrue(providerIds.contains("apple"), "Should include Apple provider")
         XCTAssertTrue(providerIds.contains("elevenlabs"), "Should include ElevenLabs provider")
+        XCTAssertTrue(providerIds.contains("swift-espeak"), "Should include SwiftEspeak provider")
     }
 
     func testAppleProviderIsAlwaysConfigured() async {
@@ -343,6 +344,10 @@ final class GenerationServiceTests: XCTestCase {
         let elevenLabsProvider = await service.provider(withId: "elevenlabs")
         XCTAssertNotNil(elevenLabsProvider, "Should find ElevenLabs provider")
         XCTAssertEqual(elevenLabsProvider?.providerId, "elevenlabs")
+
+        let espeakProvider = await service.provider(withId: "swift-espeak")
+        XCTAssertNotNil(espeakProvider, "Should find SwiftEspeak provider")
+        XCTAssertEqual(espeakProvider?.providerId, "swift-espeak")
     }
 
     func testGetProviderByIdReturnsNilForUnknown() async {
@@ -357,6 +362,9 @@ final class GenerationServiceTests: XCTestCase {
 
         let isAppleRegistered = await service.isProviderRegistered("apple")
         XCTAssertTrue(isAppleRegistered, "Apple provider should be registered")
+
+        let isEspeakRegistered = await service.isProviderRegistered("swift-espeak")
+        XCTAssertTrue(isEspeakRegistered, "SwiftEspeak provider should be registered")
 
         let isElevenLabsRegistered = await service.isProviderRegistered("elevenlabs")
         XCTAssertTrue(isElevenLabsRegistered, "ElevenLabs provider should be registered")
@@ -383,7 +391,7 @@ final class GenerationServiceTests: XCTestCase {
 
         // Verify total count includes custom provider
         let allProviders = await service.registeredProviders()
-        XCTAssertEqual(allProviders.count, 3, "Should have 3 providers (2 default + 1 custom)")
+        XCTAssertEqual(allProviders.count, 4, "Should have 4 providers (3 default + 1 custom)")
     }
 
     func testRegisterProviderReplacesExisting() async {
@@ -399,7 +407,7 @@ final class GenerationServiceTests: XCTestCase {
 
         // Verify it's still registered (replaced, not duplicated)
         let allProviders = await service.registeredProviders()
-        XCTAssertEqual(allProviders.count, 2, "Should still have 2 providers")
+        XCTAssertEqual(allProviders.count, 3, "Should still have 3 providers")
 
         let appleProviders = allProviders.filter { $0.providerId == "apple" }
         XCTAssertEqual(appleProviders.count, 1, "Should have exactly one Apple provider")
@@ -416,11 +424,12 @@ final class GenerationServiceTests: XCTestCase {
         await service.registerProvider(customProvider2)
 
         let allProviders = await service.registeredProviders()
-        XCTAssertEqual(allProviders.count, 4, "Should have 4 providers (2 default + 2 custom)")
+        XCTAssertEqual(allProviders.count, 5, "Should have 5 providers (3 default + 2 custom)")
 
         let providerIds = Set(allProviders.map { $0.providerId })
         XCTAssertTrue(providerIds.contains("apple"))
         XCTAssertTrue(providerIds.contains("elevenlabs"))
+        XCTAssertTrue(providerIds.contains("swift-espeak"))
         XCTAssertTrue(providerIds.contains("custom1"))
         XCTAssertTrue(providerIds.contains("custom2"))
     }

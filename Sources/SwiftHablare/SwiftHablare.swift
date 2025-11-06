@@ -10,11 +10,11 @@ import Foundation
 /// SwiftHablare - Audio generation library for screenplays
 ///
 /// SwiftHablare focuses purely on generation - converting screenplay elements
-/// into spoken audio using voice providers (Apple TTS and ElevenLabs).
+/// into spoken audio using voice providers (Apple TTS, SwiftEspeak, and ElevenLabs).
 ///
 /// ## Features
 ///
-/// - Two voice providers: Apple TTS (built-in) and ElevenLabs (API-based)
+/// - Multiple voice providers: Apple TTS (built-in), SwiftEspeak (open-source eSpeak), and ElevenLabs (API-based)
 /// - Voice caching to reduce API calls
 /// - Thread-safe generation using actor isolation
 /// - Saves audio to TypedDataStorage from SwiftCompartido

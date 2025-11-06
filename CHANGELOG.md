@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Integrated the new `SwiftEspeakVoiceProvider`, enabling local eSpeak synthesis through the SwiftEspeak package.
+
+### Documentation
+- Documented SwiftEspeak provider usage and requirements in the main README.
+
 ## [2.3.0] - 2025-10-27
 
 ### Added - UI Components for Audio Generation

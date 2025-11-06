@@ -129,11 +129,15 @@ public actor GenerationService {
         // Initialize registry with default providers
         let appleProvider = AppleVoiceProvider()
         let elevenLabsProvider = ElevenLabsVoiceProvider()
+        let espeakProvider = SwiftEspeakVoiceProvider()
 
-        self.providerRegistry = [
+        var registry: [String: VoiceProvider] = [
             appleProvider.providerId: appleProvider,
-            elevenLabsProvider.providerId: elevenLabsProvider
+            elevenLabsProvider.providerId: elevenLabsProvider,
+            espeakProvider.providerId: espeakProvider
         ]
+
+        self.providerRegistry = registry
     }
 
     // MARK: - Generation
@@ -189,6 +193,8 @@ public actor GenerationService {
                 finalMimeType = "audio/x-aiff"
             case "elevenlabs":
                 finalMimeType = "audio/mpeg"
+            case "swift-espeak":
+                finalMimeType = "audio/wav"
             default:
                 finalMimeType = "audio/mpeg"
             }
@@ -256,7 +262,7 @@ public actor GenerationService {
     /// Get all registered voice providers
     ///
     /// Returns a list of all voice providers in the registry.
-    /// The default providers (Apple and ElevenLabs) are always included.
+    /// The default providers (Apple, SwiftEspeak, and ElevenLabs) are always included.
     ///
     /// - Returns: Array of registered voice providers
     nonisolated public func registeredProviders() -> [VoiceProvider] {
