@@ -72,6 +72,23 @@ SwiftHablare ships with two engine-backed providers:
 | `AppleVoiceProvider` | `AppleTTSEngineBoundary` wrapping platform engines | Uses native system APIs (`AVSpeechSynthesizer` / `NSSpeechSynthesizer`). |
 | `ElevenLabsVoiceProvider` | `ElevenLabsEngine` | Performs HTTPS requests to ElevenLabs API using stored API keys. |
 
+### Platform Example: Apple Engines
+
+The Apple provider demonstrates how a single boundary adapter can coordinate multiple platform engines:
+
+```swift
+#if os(iOS) || targetEnvironment(macCatalyst)
+let engine = AppleTTSEngineBoundary(underlying: AVSpeechTTSEngine())
+#elseif os(macOS)
+let engine = AppleTTSEngineBoundary(underlying: NSSpeechTTSEngine())
+#endif
+```
+
+* `AVSpeechTTSEngine` targets iOS and Mac Catalyst via UIKit/AVFoundation APIs.
+* `NSSpeechTTSEngine` targets macOS via AppKit's `NSSpeechSynthesizer`.
+
+When creating new engines, follow this pattern: keep the boundary type platform-agnostic and inject the appropriate implementation at initialization time.
+
 ## Adding a New Engine
 
 1. **Define Configuration** – create a `struct` that captures any credentials or options required by your engine.

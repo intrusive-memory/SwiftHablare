@@ -4,7 +4,7 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Project Overview
 
-**SwiftHablaré** is a Swift voice generation library for iOS and Mac Catalyst applications. It provides a simple, unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching, secure API key management, and optional SwiftUI components for audio generation.
+**SwiftHablaré** is a Swift voice generation library for iOS, macOS, and Mac Catalyst applications. It provides a simple, unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching, secure API key management, and optional SwiftUI components for audio generation.
 
 **Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, voice caching, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 
@@ -12,8 +12,8 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 - **Current Version**: 2.3.0
 - **Swift Version**: 6.0+
-- **Minimum Deployments**: iOS 26.0, macCatalyst 26.0
-- **macOS Support**: ❌ **NOT SUPPORTED** - iOS and Catalyst only
+- **Minimum Deployments**: iOS 26.0, macOS 26.0, macCatalyst 26.0
+- **macOS Support**: ✅ **SUPPORTED** - native AppKit implementation is available
 - **Total Tests**: 180 passing
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
@@ -21,15 +21,19 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Platform Support
 
-### iOS and Catalyst Only
+### Platform Matrix
 
-**SwiftHablaré is exclusively for iOS and Mac Catalyst platforms.**
+**SwiftHablaré ships with first-class support for iOS, macOS, and Mac Catalyst.**
 
 Supported platforms:
-- **iOS 26.0+** ✅ Full TTS support with real audio generation
-- **macCatalyst 15.0+** ✅ Full TTS support with real audio generation
+- **iOS 26.0+** ✅ Full TTS support with real audio generation via `AVSpeechSynthesizer`
+- **macOS 26.0+** ✅ Full TTS support with real audio generation via `NSSpeechSynthesizer`
+- **macCatalyst 15.0+** ✅ Full TTS support using the iOS engine running in Catalyst
 
-**IMPORTANT:** This library does NOT support macOS. All platform-specific code should ONLY use `#if targetEnvironment(simulator)` to detect iOS simulators. Never use `#if os(macOS)` guards in this codebase.
+**IMPORTANT:** Use explicit platform guards when interacting with UI frameworks:
+- `#if os(iOS)` / `#elseif targetEnvironment(macCatalyst)` for UIKit-only APIs
+- `#if os(macOS)` for AppKit-only APIs
+- `#if targetEnvironment(simulator)` for simulator-specific behavior
 
 ### Simulator Behavior
 
@@ -1395,21 +1399,17 @@ actor MyService {
 
 ### Platform-Specific Code
 
-**IMPORTANT: Never use `#if os(macOS)` guards in this codebase.**
-
-This library is iOS and Catalyst ONLY. The only platform-specific guard allowed is for simulators:
+SwiftHablaré supports multiple Apple platforms. Choose guards deliberately:
 
 ```swift
-#if targetEnvironment(simulator)
-// iOS Simulator - placeholder/mock for testing
-// Real TTS doesn't work on simulators
-#else
-// Physical iOS/Catalyst devices
-// Real TTS functionality
+#if os(iOS)
+// UIKit-specific behavior (including Mac Catalyst)
+#elseif os(macOS)
+// AppKit-specific behavior
 #endif
 ```
 
-**DO NOT** add macOS support or macOS-specific code paths. SwiftHablaré does not support macOS.
+Use `#if targetEnvironment(macCatalyst)` to distinguish Catalyst nuances when the UIKit guard is true. Simulator-specific fallbacks should remain behind `#if targetEnvironment(simulator)` checks.
 
 ## Testing Strategy
 
@@ -1432,8 +1432,8 @@ Tests are split into **fast** (unit) and **slow** (integration) categories:
 - Test class names WITH "Integration"
 
 **Platform Requirements:**
-- ✅ Tests run on iOS Simulator ONLY
-- ❌ Tests do NOT run on macOS (not supported)
+- ✅ Tests run on iOS Simulator (primary CI target)
+- ✅ macOS builds are supported; run focused smoke tests on macOS 14+ before shipping platform-specific changes
 - ✅ Mac Catalyst support (built for Catalyst, tested on simulator)
 
 ### Unit Tests
@@ -1788,7 +1788,7 @@ for message in messages {
 - ✅ SpeakableItem protocol for protocol-oriented TTS with language codes (v2.3.0+)
 - ✅ SpeakableGroup protocol for batch audio generation (v2.3.0)
 - ✅ SpeakableItemList for batch generation with progress
-- ✅ Platform compatibility (iOS 26+, Catalyst 26+)
+- ✅ Platform compatibility (iOS 26+, macOS 26+, Catalyst 26+)
 - ✅ Simple UI pickers (provider & voice selection)
 - ✅ Audio generation buttons (individual & batch) (v2.3.0)
 
@@ -1797,6 +1797,4 @@ for message in messages {
 **For Questions or Contributions**:
 - GitHub Issues: https://github.com/intrusive-memory/SwiftHablare/issues
 - GitHub Discussions: https://github.com/intrusive-memory/SwiftHablare/discussions
-- add to memory: This project is an iOS and MacCatalyst project only. Any and all programming for macOS added now or in the path has no place in this project.
-- add to memory: this library is iOS and MacCatalyst only. Do not compile or program for MacOS.
-- add to memory: This library should be run on iOS 26 and MacCatalyst 26 only.
+- add to memory: SwiftHablaré targets iOS 26+, macOS 26+, and MacCatalyst 26+. Ensure new code paths consider all supported Apple platforms.
