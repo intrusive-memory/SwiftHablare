@@ -47,6 +47,8 @@ Encapsulates the result of generation.
 
 * `audioData` – binary payload returned by the engine.
 * `audioFormat` – `VoiceEngineAudioFormat` enum describing the encoding (`.mp3`, `.wav`, `.aifc`, etc.).
+* `fileExtension` – recommended filename extension for persisted audio. Defaults to `audioFormat.defaultFileExtension` when not provided by the engine.
+* `mimeType` – MIME type for HTTP uploads or metadata. Defaults to `audioFormat.defaultMIMEType` when omitted.
 * `metadata` – dictionary for optional context such as engine version, latency, or request identifiers.
 
 ## Provider Responsibilities
@@ -92,7 +94,7 @@ When creating new engines, follow this pattern: keep the boundary type platform-
 ## Adding a New Engine
 
 1. **Define Configuration** – create a `struct` that captures any credentials or options required by your engine.
-2. **Implement `VoiceEngine`** – conform to the protocol, translating between your service/native SDK and `VoiceEngineRequest`/`VoiceEngineOutput`.
+2. **Implement `VoiceEngine`** – conform to the protocol, translating between your service/native SDK and `VoiceEngineRequest`/`VoiceEngineOutput`. Populate `fileExtension`/`mimeType` if your service returns non-default values (e.g., transcoded MP3 vs. WAV).
 3. **Update Provider** – inject your engine into a `VoiceProvider` implementation. Retrieve configuration data (Keychain, environment, etc.) and pass it into engine calls.
 4. **Document Usage** – extend provider documentation to explain new configuration fields and options.
 
@@ -103,3 +105,5 @@ When creating new engines, follow this pattern: keep the boundary type platform-
 * Add coverage for error translation in providers to ensure engine failures surface meaningful messages.
 
 By following the Engine Boundary Protocol, SwiftHablare can integrate new voice synthesis systems—including LLM-backed or cross-language engines—without modifying the higher-level provider or UI infrastructure.
+`VoiceEngineAudioFormat` also surfaces `defaultFileExtension` and `defaultMIMEType` helpers so engines can rely on consistent metadata when interacting with storage layers or HTTP uploads.
+

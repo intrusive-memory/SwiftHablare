@@ -82,6 +82,8 @@ SwiftHablare/
 
 SwiftHablaré uses an **Engine Boundary Protocol** (`VoiceEngine`) to isolate low-level speech synthesis engines from provider integration logic. Providers remain responsible for configuration, key management, caching, and storage, while engines focus on fetching voices and generating audio. The pattern is documented for AI collaborators in `Docs/EngineBoundaryProtocol.md`.
 
+**File & MIME metadata:** Every `VoiceEngineOutput` must expose the recommended `fileExtension` and `mimeType` for the synthesized audio. Engines may rely on the defaults supplied by `VoiceEngineAudioFormat`, but should override them if their services return alternative container formats.
+
 ### UI Components
 
 SwiftHablaré provides simple SwiftUI components for voice selection and audio generation:

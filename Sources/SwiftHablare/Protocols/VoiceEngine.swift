@@ -16,6 +16,29 @@ public enum VoiceEngineAudioFormat: String, Sendable, Codable {
     case wav
     case pcm16
     case unknown
+
+    /// Default filename extension that should be used when persisting audio in this format.
+    public var defaultFileExtension: String {
+        switch self {
+        case .aiff: return "aiff"
+        case .aifc: return "aifc"
+        case .mp3: return "mp3"
+        case .wav: return "wav"
+        case .pcm16: return "pcm"
+        case .unknown: return "dat"
+        }
+    }
+
+    /// Default MIME type for the audio data represented by this format.
+    public var defaultMIMEType: String {
+        switch self {
+        case .aiff, .aifc: return "audio/aiff"
+        case .mp3: return "audio/mpeg"
+        case .wav: return "audio/wav"
+        case .pcm16: return "audio/L16"
+        case .unknown: return "application/octet-stream"
+        }
+    }
 }
 
 /// Request payload for engine-based synthesis.
@@ -42,15 +65,21 @@ public struct VoiceEngineRequest: Sendable {
 public struct VoiceEngineOutput: Sendable {
     public let audioData: Data
     public let audioFormat: VoiceEngineAudioFormat
+    public let fileExtension: String
+    public let mimeType: String
     public let metadata: [String: String]
 
     public init(
         audioData: Data,
         audioFormat: VoiceEngineAudioFormat,
+        fileExtension: String? = nil,
+        mimeType: String? = nil,
         metadata: [String: String] = [:]
     ) {
         self.audioData = audioData
         self.audioFormat = audioFormat
+        self.fileExtension = fileExtension ?? audioFormat.defaultFileExtension
+        self.mimeType = mimeType ?? audioFormat.defaultMIMEType
         self.metadata = metadata
     }
 }

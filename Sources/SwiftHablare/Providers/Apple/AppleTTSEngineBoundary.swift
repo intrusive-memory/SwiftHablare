@@ -44,13 +44,18 @@ struct AppleTTSEngineBoundary: VoiceEngine {
 
         #if os(iOS) || targetEnvironment(macCatalyst)
         let format: VoiceEngineAudioFormat = .aifc
+        let fileExtension = "aifc"
         #else
         let format: VoiceEngineAudioFormat = .aiff
+        let fileExtension = "aiff"
         #endif
+        let mimeType = "audio/aiff"
 
         return VoiceEngineOutput(
             audioData: data,
             audioFormat: format,
+            fileExtension: fileExtension,
+            mimeType: mimeType,
             metadata: [
                 "engineId": engineId,
                 "voiceId": request.voiceId,

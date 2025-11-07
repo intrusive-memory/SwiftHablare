@@ -108,6 +108,8 @@ struct ElevenLabsEngine: VoiceEngine {
         return VoiceEngineOutput(
             audioData: data,
             audioFormat: .mp3,
+            fileExtension: "mp3",
+            mimeType: "audio/mpeg",
             metadata: [
                 "engineId": engineId,
                 "voiceId": request.voiceId,
