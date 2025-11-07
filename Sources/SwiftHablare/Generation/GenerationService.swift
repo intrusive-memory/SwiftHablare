@@ -512,7 +512,11 @@ public actor GenerationService {
     /// - Returns: Freshly fetched array of voices
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     @MainActor
-    public func refreshVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
+    public func refreshVoices(
+        from providerId: String,
+        using modelContext: ModelContext,
+        languageCode: String? = nil
+    ) async throws -> [Voice] {
         let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
