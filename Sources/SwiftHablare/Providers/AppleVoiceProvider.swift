@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /// Apple Text-to-Speech implementation of VoiceProvider
 ///
@@ -62,5 +65,55 @@ public final class AppleVoiceProvider: VoiceProvider {
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
+    }
+
+#if canImport(SwiftUI)
+    @MainActor
+    public func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(AppleVoiceProviderConfigurationView(provider: self, onConfigured: onConfigured))
+    }
+#endif
+}
+
+#if canImport(SwiftUI)
+@MainActor
+private struct AppleVoiceProviderConfigurationView: View {
+    let provider: AppleVoiceProvider
+    let onConfigured: (Bool) -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "waveform")
+                .font(.largeTitle)
+                .foregroundStyle(.accent)
+
+            Text("\(provider.displayName) is ready to use.")
+                .multilineTextAlignment(.center)
+
+            Text("This provider uses on-device speech synthesis and does not require additional configuration.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Continue") {
+                onConfigured(true)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+    }
+}
+#endif
+
+extension AppleVoiceProvider {
+    public static var descriptor: VoiceProviderDescriptor {
+        VoiceProviderDescriptor(
+            id: "apple",
+            displayName: "Apple Text-to-Speech",
+            isEnabledByDefault: true,
+            isAlwaysEnabled: true,
+            requiresConfiguration: false,
+            makeProvider: { AppleVoiceProvider() }
+        )
     }
 }

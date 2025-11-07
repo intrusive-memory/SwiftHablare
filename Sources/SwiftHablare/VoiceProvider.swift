@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /// Protocol defining voice provider capabilities
 public protocol VoiceProvider: Sendable {
@@ -41,6 +44,22 @@ public protocol VoiceProvider: Sendable {
     /// - Parameter voiceId: The voice identifier to check
     /// - Returns: True if the voice is available, false otherwise
     func isVoiceAvailable(voiceId: String) async -> Bool
+
+#if canImport(SwiftUI)
+    /// Build the SwiftUI configuration panel for this provider
+    ///
+    /// Implementations should present any fields necessary to configure the
+    /// provider (e.g., API keys). The view must invoke the `onConfigured`
+    /// callback with `true` when configuration succeeds, or `false` if it
+    /// fails or is cancelled.
+    ///
+    /// - Parameter onConfigured: Callback invoked when configuration
+    ///   completes.
+    /// - Returns: A type-erased SwiftUI view representing the configuration
+    ///   panel.
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView
+#endif
 }
 
 // MARK: - Default Language Code Extensions

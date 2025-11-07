@@ -32,10 +32,7 @@ public struct ProviderPickerView: View {
     @Binding public var selection: String?
 
     /// Available providers loaded from the service
-    @State private var providers: [VoiceProvider] = []
-
-    /// Whether providers are currently being loaded
-    @State private var isLoading = false
+    @State private var providers: [RegisteredVoiceProvider] = []
 
     /// Create a provider picker
     ///
@@ -52,17 +49,23 @@ public struct ProviderPickerView: View {
             Text("Select Provider")
                 .tag(nil as String?)
 
-            ForEach(providers, id: \.providerId) { provider in
+            ForEach(providers) { provider in
                 HStack {
-                    Text(provider.displayName)
+                    Text(provider.descriptor.displayName)
 
-                    if !provider.isConfigured() {
+                    if !provider.isEnabled {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    } else if !provider.isConfigured {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                             .font(.caption)
                     }
                 }
-                .tag(provider.providerId as String?)
+                .foregroundStyle(provider.isEnabled ? .primary : .secondary)
+                .tag(provider.descriptor.id as String?)
+                .disabled(!provider.isEnabled)
             }
         }
         .task {
@@ -72,9 +75,14 @@ public struct ProviderPickerView: View {
 
     /// Load providers from the registry
     private func loadProviders() async {
-        isLoading = true
-        providers = service.registeredProviders()
-        isLoading = false
+        providers = await service.availableProviderStatuses()
+
+        if let selection,
+           providers.first(where: { $0.descriptor.id == selection && !$0.isEnabled }) != nil {
+            await MainActor.run {
+                self.selection = nil
+            }
+        }
     }
 }
 

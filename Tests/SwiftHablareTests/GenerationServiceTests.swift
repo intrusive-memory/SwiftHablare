@@ -8,6 +8,7 @@
 import XCTest
 import SwiftData
 import SwiftCompartido
+import SwiftUI
 @testable import SwiftHablare
 
 @MainActor
@@ -1011,6 +1012,11 @@ final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable {
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return false
     }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(false) })
+    }
 }
 
 /// Mock provider that is configured (for testing registry)
@@ -1053,6 +1059,11 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return voiceId.hasPrefix(providerId)
     }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(true) })
+    }
 }
 
 /// Mock provider that throws errors (for testing error handling)
@@ -1079,5 +1090,10 @@ final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
 
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return false
+    }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(true) })
     }
 }
