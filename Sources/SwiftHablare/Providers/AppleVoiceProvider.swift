@@ -26,14 +26,15 @@ public final class AppleVoiceProvider: VoiceProvider {
     public let displayName = "Apple Text-to-Speech"
     public let requiresAPIKey = false
 
-    // Platform-specific engine
-    private let engine: AppleTTSEngine
+    // Engine boundary adapter for platform-specific implementations
+    private let engine: AppleTTSEngineBoundary
+    private let configuration = AppleTTSConfiguration()
 
     public init() {
         #if os(iOS) || targetEnvironment(macCatalyst)
-        self.engine = AVSpeechTTSEngine()
+        self.engine = AppleTTSEngineBoundary(underlying: AVSpeechTTSEngine())
         #elseif os(macOS)
-        self.engine = NSSpeechTTSEngine()
+        self.engine = AppleTTSEngineBoundary(underlying: NSSpeechTTSEngine())
         #else
         fatalError("Unsupported platform for Apple TTS")
         #endif
@@ -41,28 +42,25 @@ public final class AppleVoiceProvider: VoiceProvider {
 
     public func isConfigured() -> Bool {
         // Apple TTS is always available on supported platforms
-        return true
+        return engine.canGenerate(with: configuration)
     }
 
     public func fetchVoices(languageCode: String) async throws -> [Voice] {
-        return try await engine.fetchVoices(languageCode: languageCode)
+        return try await engine.fetchVoices(languageCode: languageCode, configuration: configuration)
     }
 
     public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
-        return try await engine.generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
+        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: languageCode)
+        let output = try await engine.generateAudio(request: request, configuration: configuration)
+        return output.audioData
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        return engine.estimateDuration(text: text, voiceId: voiceId)
+        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: Locale.current.language.languageCode?.identifier ?? "en")
+        return engine.estimateDuration(request: request, configuration: configuration)
     }
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
-        // Check if the voice exists in the fetched voices
-        do {
-            let voices = try await fetchVoices()
-            return voices.contains { $0.id == voiceId }
-        } catch {
-            return false
-        }
+        return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
     }
 }

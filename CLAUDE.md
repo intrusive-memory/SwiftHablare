@@ -45,6 +45,7 @@ Integration tests that require real audio are skipped on simulators using `#if t
 ```
 SwiftHablare/
 ├── VoiceProvider.swift              # Protocol for voice providers
+├── Protocols/VoiceEngine.swift      # Engine Boundary Protocol for providers
 ├── Protocols/
 │   ├── SpeakableItem.swift          # Protocol for speakable objects
 │   └── SpeakableGroup.swift         # ✨ Protocol for grouped speakable items
@@ -53,7 +54,9 @@ SwiftHablare/
 │   └── SpeakableItemList.swift      # ✨ Batch generation with progress
 ├── Providers/
 │   ├── AppleVoiceProvider.swift     # Apple TTS implementation
-│   └── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
+│   ├── ElevenLabsVoiceProvider.swift # ElevenLabs API implementation
+│   ├── Apple/AppleTTSEngineBoundary.swift # Engine adapter for Apple TTS
+│   └── ElevenLabs/ElevenLabsEngine.swift  # Engine adapter for ElevenLabs
 ├── Generation/
 │   └── GenerationService.swift      # ✨ Actor-based service with provider registry
 ├── Security/
@@ -70,6 +73,10 @@ SwiftHablare/
     ├── SpeakableGroupExamples.swift # ✨ Example group implementations
     └── SpeakableItemListExample.swift # ✨ Complete batch generation example
 ```
+
+### Engine Boundary Protocol
+
+SwiftHablaré uses an **Engine Boundary Protocol** (`VoiceEngine`) to isolate low-level speech synthesis engines from provider integration logic. Providers remain responsible for configuration, key management, caching, and storage, while engines focus on fetching voices and generating audio. The pattern is documented for AI collaborators in `Docs/EngineBoundaryProtocol.md`.
 
 ### UI Components
 
