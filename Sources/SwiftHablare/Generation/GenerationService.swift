@@ -427,10 +427,10 @@ public actor GenerationService {
     public func fetchAllVoices(languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
-        for (providerId, provider) in providerRegistry {
-            guard provider.isConfigured() else {
-                continue // Skip unconfigured providers
-            }
+        let providers = await providerRegistry.availableProviders()
+
+        for entry in providers where entry.isEnabled && entry.isConfigured {
+            let providerId = entry.descriptor.id
 
             do {
                 let voices = try await fetchVoices(from: providerId, languageCode: languageCode)
@@ -454,10 +454,10 @@ public actor GenerationService {
     public func fetchAllVoices(using modelContext: ModelContext, languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
-        for (providerId, provider) in providerRegistry {
-            guard provider.isConfigured() else {
-                continue // Skip unconfigured providers
-            }
+        let providers = await providerRegistry.availableProviders()
+
+        for entry in providers where entry.isEnabled && entry.isConfigured {
+            let providerId = entry.descriptor.id
 
             do {
                 let voices = try await fetchVoices(from: providerId, using: modelContext, languageCode: languageCode)
