@@ -20,9 +20,6 @@ jobs:
           - platform: Catalyst
             destination: 'platform=macOS,variant=Mac Catalyst'
             skip_integration: true
-          - platform: macOS
-            destination: 'platform=macOS'
-            skip_integration: true
 
     steps:
       - name: Checkout code
@@ -144,4 +141,113 @@ jobs:
           name: fast-test-results-${{ matrix.platform }}
           path: |
             test-output-${{ matrix.platform }}.log
+          retention-days: 7
+
+  fast-test-macos:
+    name: Fast Tests (macOS)
+    runs-on: macos-26
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Build for macOS
+        run: |
+          echo "🔨 Building for macOS"
+          xcodebuild build \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
+            | xcpretty || true
+
+      - name: Clean test database
+        run: |
+          # Remove any existing test databases to prevent schema conflicts
+          rm -rf ~/Library/Application\ Support/default.store*
+          rm -rf ~/Library/Application\ Support/*.store
+
+      - name: Run fast tests on macOS (unit tests only)
+        run: |
+          echo "🏃 Running fast tests on macOS (unit tests only)"
+          echo "Platform: macOS"
+          echo "Destination: platform=macOS"
+          echo "Integration tests will run on the weekly schedule"
+          echo ""
+
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
+            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
+            | tee test-output-macOS.log \
+            | xcpretty --test --color
+
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          if grep -q "TEST FAILED" test-output-macOS.log || grep -q "** TEST FAILED **" test-output-macOS.log; then
+            echo "❌ Tests failed"
+            exit 1
+          elif grep -q "TEST SUCCEEDED" test-output-macOS.log || grep -q "** TEST SUCCEEDED **" test-output-macOS.log; then
+            echo "✅ Tests succeeded"
+            exit 0
+          else
+            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
+            exit $TEST_EXIT_CODE
+          fi
+
+      - name: Extract test summary
+        if: always()
+        shell: bash {0}
+        run: |
+          echo "## Fast Test Results - macOS (Unit Tests Only)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** macOS" >> $GITHUB_STEP_SUMMARY
+          echo "**Destination:** platform=macOS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  **Note:** Integration tests are skipped in PR checks and run weekly on schedule." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f test-output-macOS.log ]; then
+            LAST_EXECUTION_LINE=$(grep "Executed.*test" test-output-macOS.log | tail -n 1 || true)
+
+            if [ -n "$LAST_EXECUTION_LINE" ]; then
+              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*" || echo "0")
+              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*" || echo "0")
+
+              if [ -z "$FAILURES" ] || [ "$FAILURES" = "" ]; then
+                FAILURES=0
+              fi
+
+              if [ -z "$TOTAL_TESTS" ] || [ "$TOTAL_TESTS" = "" ] || [ "$TOTAL_TESTS" = "0" ]; then
+                echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
+              else
+                PASSED=$((TOTAL_TESTS - FAILURES))
+
+                if [ "$FAILURES" -eq 0 ]; then
+                  echo "✅ **All unit tests passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                  echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            else
+              echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No test output found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-results-macOS
+          path: |
+            test-output-macOS.log
           retention-days: 7
