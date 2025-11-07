@@ -304,6 +304,13 @@ struct GenerateAudioButtonTests {
             func isVoiceAvailable(voiceId: String) async -> Bool {
                 return false
             }
+
+            #if canImport(SwiftUI)
+            @MainActor
+            func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+                return AnyView(EmptyView())
+            }
+            #endif
         }
 
         let unconfiguredProvider = UnconfiguredProvider()

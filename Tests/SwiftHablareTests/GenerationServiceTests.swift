@@ -8,6 +8,7 @@
 import XCTest
 import SwiftData
 import SwiftCompartido
+import SwiftUI
 @testable import SwiftHablare
 
 @MainActor
@@ -287,7 +288,10 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Provider Registry Tests
 
     func testDefaultProvidersAreRegistered() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testDefaultProvidersAreRegistered")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         let providers = await service.registeredProviders()
 
@@ -366,7 +370,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterCustomProvider() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisterCustomProvider")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Create and register a custom provider
         let customProvider = MockUnconfiguredProvider()
@@ -387,7 +394,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterProviderReplacesExisting() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisterProviderReplacesExisting")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Get original Apple provider
         let originalApple = await service.provider(withId: "apple")
@@ -406,7 +416,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisteredProvidersIncludesAllProviders() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisteredProvidersIncludesAllProviders")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Register additional providers
         let customProvider1 = MockConfiguredProvider(id: "custom1")
@@ -1011,6 +1024,11 @@ final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable {
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return false
     }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(false) })
+    }
 }
 
 /// Mock provider that is configured (for testing registry)
@@ -1053,6 +1071,11 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return voiceId.hasPrefix(providerId)
     }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(true) })
+    }
 }
 
 /// Mock provider that throws errors (for testing error handling)
@@ -1079,5 +1102,10 @@ final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
 
     func isVoiceAvailable(voiceId: String) async -> Bool {
         return false
+    }
+
+    @MainActor
+    func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(EmptyView().onAppear { onConfigured(true) })
     }
 }

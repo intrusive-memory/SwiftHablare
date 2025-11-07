@@ -88,14 +88,11 @@ public actor GenerationService {
 
     // MARK: - Properties
 
-    /// Registry of available voice providers
-    ///
-    /// Note: Marked nonisolated(unsafe) to allow access from MainActor methods.
-    /// Safe because: registry is only modified during init and via actor-isolated registerProvider.
-    nonisolated(unsafe) private var providerRegistry: [String: VoiceProvider]
-
     /// Cache lifetime (default: 24 hours)
     private let cacheLifetime: TimeInterval
+
+    /// Voice provider registry for resolving providers
+    private let providerRegistry: VoiceProviderRegistry
 
     // MARK: - Initialization
 
@@ -123,17 +120,12 @@ public actor GenerationService {
     /// ```
     ///
     /// - Parameter cacheLifetime: How long to cache voices before refetching (default: 24 hours)
-    public init(cacheLifetime: TimeInterval = 24 * 60 * 60) {
+    public init(
+        cacheLifetime: TimeInterval = 24 * 60 * 60,
+        providerRegistry: VoiceProviderRegistry = .shared
+    ) {
         self.cacheLifetime = cacheLifetime
-
-        // Initialize registry with default providers
-        let appleProvider = AppleVoiceProvider()
-        let elevenLabsProvider = ElevenLabsVoiceProvider()
-
-        self.providerRegistry = [
-            appleProvider.providerId: appleProvider,
-            elevenLabsProvider.providerId: elevenLabsProvider
-        ]
+        self.providerRegistry = providerRegistry
     }
 
     // MARK: - Generation
@@ -161,14 +153,7 @@ public actor GenerationService {
         mimeType: String? = nil
     ) async throws -> GenerationResult {
         // Get provider from registry
-        guard let provider = providerRegistry[providerId] else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        // Ensure provider is configured
-        guard provider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
+        let provider = try await configuredProvider(for: providerId)
 
         // Estimate duration before generation
         let estimatedDuration = await provider.estimateDuration(text: text, voiceId: voiceId)
@@ -245,7 +230,7 @@ public actor GenerationService {
     ///   - providerId: Provider identifier
     /// - Returns: True if voice is available
     public func isVoiceAvailable(_ voiceId: String, from providerId: String) async -> Bool {
-        guard let provider = providerRegistry[providerId] else {
+        guard let provider = try? await providerRegistry.configuredProvider(for: providerId) else {
             return false
         }
         return await provider.isVoiceAvailable(voiceId: voiceId)
@@ -259,8 +244,13 @@ public actor GenerationService {
     /// The default providers (Apple and ElevenLabs) are always included.
     ///
     /// - Returns: Array of registered voice providers
-    nonisolated public func registeredProviders() -> [VoiceProvider] {
-        return Array(providerRegistry.values)
+    public func registeredProviders() async -> [VoiceProvider] {
+        await providerRegistry.instantiateAllProviders()
+    }
+
+    /// Retrieve provider metadata including enablement/configuration state.
+    public func availableProviderStatuses() async -> [RegisteredVoiceProvider] {
+        await providerRegistry.availableProviders()
     }
 
     /// Register a custom voice provider
@@ -269,24 +259,41 @@ public actor GenerationService {
     /// providerId already exists, it will be replaced.
     ///
     /// - Parameter provider: Voice provider to register
-    public func registerProvider(_ provider: VoiceProvider) {
-        providerRegistry[provider.providerId] = provider
+    public func registerProvider(_ provider: VoiceProvider) async {
+        let descriptor = VoiceProviderDescriptor(
+            id: provider.providerId,
+            displayName: provider.displayName,
+            isEnabledByDefault: !provider.requiresAPIKey,
+            requiresConfiguration: provider.requiresAPIKey,
+            makeProvider: { provider }
+        )
+        await providerRegistry.register(descriptor)
     }
 
     /// Get a voice provider by its ID
     ///
     /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
     /// - Returns: Voice provider if found, nil otherwise
-    nonisolated public func provider(withId providerId: String) -> VoiceProvider? {
-        return providerRegistry[providerId]
+    public func provider(withId providerId: String) async -> VoiceProvider? {
+        await providerRegistry.provider(for: providerId)
     }
 
     /// Check if a provider is registered
     ///
     /// - Parameter providerId: Provider identifier to check
     /// - Returns: True if provider is registered
-    nonisolated public func isProviderRegistered(_ providerId: String) -> Bool {
-        return providerRegistry[providerId] != nil
+    public func isProviderRegistered(_ providerId: String) async -> Bool {
+        await providerRegistry.contains(providerId: providerId)
+    }
+
+    /// Update the enablement state for a provider.
+    public func setProvider(_ providerId: String, enabled: Bool) async {
+        await providerRegistry.setEnabled(enabled, for: providerId)
+    }
+
+    /// Check whether a provider is currently enabled.
+    public func isProviderEnabled(_ providerId: String) async -> Bool {
+        await providerRegistry.isEnabled(providerId: providerId)
     }
 
     /// Fetch voices from a specific provider by ID
@@ -326,13 +333,7 @@ public actor GenerationService {
     /// - Returns: Array of available voices from that provider
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     public func fetchVoices(from providerId: String, languageCode: String? = nil) async throws -> [Voice] {
-        guard let provider = providerRegistry[providerId] else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        guard provider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
+        let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
         let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
@@ -351,13 +352,7 @@ public actor GenerationService {
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     @MainActor
     public func fetchVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
-        guard let provider = providerRegistry[providerId] else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        guard provider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
+        let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
         let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
@@ -432,10 +427,10 @@ public actor GenerationService {
     public func fetchAllVoices(languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
-        for (providerId, provider) in providerRegistry {
-            guard provider.isConfigured() else {
-                continue // Skip unconfigured providers
-            }
+        let providers = await providerRegistry.availableProviders()
+
+        for entry in providers where entry.isEnabled && entry.isConfigured {
+            let providerId = entry.descriptor.id
 
             do {
                 let voices = try await fetchVoices(from: providerId, languageCode: languageCode)
@@ -459,10 +454,10 @@ public actor GenerationService {
     public func fetchAllVoices(using modelContext: ModelContext, languageCode: String? = nil) async throws -> [String: [Voice]] {
         var voicesByProvider: [String: [Voice]] = [:]
 
-        for (providerId, provider) in providerRegistry {
-            guard provider.isConfigured() else {
-                continue // Skip unconfigured providers
-            }
+        let providers = await providerRegistry.availableProviders()
+
+        for entry in providers where entry.isEnabled && entry.isConfigured {
+            let providerId = entry.descriptor.id
 
             do {
                 let voices = try await fetchVoices(from: providerId, using: modelContext, languageCode: languageCode)
@@ -499,13 +494,7 @@ public actor GenerationService {
     /// - Returns: Freshly fetched array of voices
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     public func refreshVoices(from providerId: String, languageCode: String? = nil) async throws -> [Voice] {
-        guard let provider = providerRegistry[providerId] else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        guard provider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
+        let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
         let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
@@ -523,14 +512,12 @@ public actor GenerationService {
     /// - Returns: Freshly fetched array of voices
     /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
     @MainActor
-    public func refreshVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
-        guard let provider = providerRegistry[providerId] else {
-            throw VoiceProviderError.notConfigured
-        }
-
-        guard provider.isConfigured() else {
-            throw VoiceProviderError.notConfigured
-        }
+    public func refreshVoices(
+        from providerId: String,
+        using modelContext: ModelContext,
+        languageCode: String? = nil
+    ) async throws -> [Voice] {
+        let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
         let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
@@ -767,6 +754,16 @@ public actor GenerationService {
         list.completeProcessing()
 
         return savedRecords
+    }
+
+    // MARK: - Provider resolution
+
+    private func configuredProvider(for providerId: String) async throws -> VoiceProvider {
+        do {
+            return try await providerRegistry.configuredProvider(for: providerId)
+        } catch {
+            throw VoiceProviderError.notConfigured
+        }
     }
 }
 

@@ -63,6 +63,7 @@ SwiftHablare/
 │   └── ElevenLabs/ElevenLabsEngine.swift  # Engine adapter for ElevenLabs
 ├── Generation/
 │   └── GenerationService.swift      # ✨ Actor-based service with provider registry
+├── VoiceProviderRegistry.swift      # ✨ Registry + enablement state for voice providers
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
 ├── SwiftDataModels/
@@ -123,6 +124,32 @@ These are simple, focused UI components that integrate directly with GenerationS
 - ❌ Per-item progress in group generation (items track their own progress)
 
 Applications are responsible for audio playback and more complex UI workflows.
+
+### Voice Provider Registry
+
+SwiftHablaré exposes a **VoiceProviderRegistry** singleton that coordinates discovery, enablement, and configuration for every
+`VoiceProvider` implementation shipped in the package or supplied by integrators.
+
+Key concepts:
+
+- **`VoiceProviderDescriptor`** – Lightweight metadata describing a provider (identifier, display name, default enablement,
+  configuration requirements, and a factory closure that instantiates the provider on demand). Providers also supply a
+  SwiftUI configuration panel builder used by the registry whenever the host needs to collect credentials or allow users to
+  edit existing settings.
+- **Automatic registration** – The registry seeds itself with the built-in `AppleVoiceProvider` (always enabled) and
+  `ElevenLabsVoiceProvider` (user-enabled). External packages can either call
+  `VoiceProviderRegistry.shared.register(_:)` during startup **or** subclass
+  `VoiceProviderAutoRegistrar` to have their descriptors registered automatically
+  when the module is loaded (Objective-C runtime platforms).
+- **Enablement & configuration state** – The registry persists enablement flags in `UserDefaults` while leaving configuration
+  storage to each provider. When `configuredProvider(for:)` is invoked, the registry instantiates the provider, verifies it is
+  enabled, and then calls `isConfigured()` to ensure the provider’s own configuration is valid before returning it.
+- **Configuration panels** – When a provider is enabled (or reconfigured later), the registry returns the provider’s SwiftUI
+  configuration panel so the host app can surface the appropriate UI. Providers are responsible for saving their configuration
+  and invoking the supplied completion closure to tell the registry whether setup succeeded.
+
+Consumers should invoke `VoiceProviderRegistry.shared.availableProviders()` to render the list of choices in UI, and
+`configuredProvider(for:)` to fetch a ready-to-use provider for generation.
 
 ### Data Persistence
 

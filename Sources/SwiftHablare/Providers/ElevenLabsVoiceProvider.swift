@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /// ElevenLabs implementation of VoiceProvider
 public final class ElevenLabsVoiceProvider: VoiceProvider {
@@ -70,5 +73,138 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         }
         let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey)
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
+    }
+
+    /// Retrieve the current API key if one exists.
+    public func currentAPIKey() -> String? {
+        if let ephemeralAPIKey {
+            return ephemeralAPIKey
+        }
+        return try? keychainManager.getAPIKey(for: apiKeyAccount)
+    }
+
+    /// Persist a new API key for ElevenLabs usage.
+    public func updateAPIKey(_ apiKey: String) throws {
+        guard ephemeralAPIKey == nil else {
+            return
+        }
+        try keychainManager.saveAPIKey(apiKey, for: apiKeyAccount)
+    }
+
+    /// Remove the stored API key from secure storage.
+    public func clearAPIKey() throws {
+        guard ephemeralAPIKey == nil else {
+            return
+        }
+        try keychainManager.deleteAPIKey(for: apiKeyAccount)
+    }
+
+#if canImport(SwiftUI)
+    @MainActor
+    public func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {
+        AnyView(ElevenLabsVoiceProviderConfigurationView(provider: self, onConfigured: onConfigured))
+    }
+#endif
+}
+
+#if canImport(SwiftUI)
+@MainActor
+private struct ElevenLabsVoiceProviderConfigurationView: View {
+    @State private var apiKey: String
+    @State private var isProcessing = false
+    @State private var errorMessage: String?
+
+    let provider: ElevenLabsVoiceProvider
+    let onConfigured: (Bool) -> Void
+
+    init(provider: ElevenLabsVoiceProvider, onConfigured: @escaping (Bool) -> Void) {
+        self.provider = provider
+        self.onConfigured = onConfigured
+        _apiKey = State(initialValue: provider.currentAPIKey() ?? "")
+    }
+
+    var body: some View {
+        Form {
+            Section(header: Text("API Key")) {
+                SecureField("Enter ElevenLabs API Key", text: $apiKey)
+                    .textContentType(.password)
+                    .disabled(isProcessing)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Section {
+                Button {
+                    saveAPIKey()
+                } label: {
+                    if isProcessing {
+                        ProgressView()
+                    } else {
+                        Text("Save API Key")
+                    }
+                }
+                .disabled(apiKey.isEmpty || isProcessing)
+
+                Button(role: .destructive) {
+                    removeAPIKey()
+                } label: {
+                    Text("Remove API Key")
+                }
+                .disabled(isProcessing || provider.currentAPIKey() == nil)
+            }
+        }
+        .navigationTitle(provider.displayName)
+    }
+
+    private func saveAPIKey() {
+        guard !apiKey.isEmpty else { return }
+        isProcessing = true
+        errorMessage = nil
+
+        Task { @MainActor in
+            do {
+                try provider.updateAPIKey(apiKey)
+                onConfigured(true)
+            } catch {
+                errorMessage = error.localizedDescription
+                onConfigured(false)
+            }
+
+            isProcessing = false
+        }
+    }
+
+    private func removeAPIKey() {
+        isProcessing = true
+        errorMessage = nil
+
+        Task { @MainActor in
+            do {
+                try provider.clearAPIKey()
+                apiKey = ""
+                onConfigured(false)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+
+            isProcessing = false
+        }
+    }
+}
+#endif
+
+extension ElevenLabsVoiceProvider {
+    public static var descriptor: VoiceProviderDescriptor {
+        VoiceProviderDescriptor(
+            id: "elevenlabs",
+            displayName: "ElevenLabs",
+            isEnabledByDefault: false,
+            requiresConfiguration: true,
+            makeProvider: { ElevenLabsVoiceProvider() }
+        )
     }
 }
