@@ -20,7 +20,8 @@ Use this skill when you need to add a new `VoiceProvider` implementation and exp
 
 3. **Register the provider**
    - During startup (for example in `SwiftHablare.configureVoiceProviders()` or app initialization), call
-     `await VoiceProviderRegistry.shared.register(NewProvider.descriptor)`.
+     `await VoiceProviderRegistry.shared.register(NewProvider.descriptor)` **or** subclass
+     `VoiceProviderAutoRegistrar` to register automatically when the module loads on Objective-C platforms.
    - The registry persists enablement state automatically and will call the provider’s `isConfigured()` before returning it from
      `configuredProvider(for:)`.
 

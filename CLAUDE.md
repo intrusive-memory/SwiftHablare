@@ -137,8 +137,10 @@ Key concepts:
   SwiftUI configuration panel builder used by the registry whenever the host needs to collect credentials or allow users to
   edit existing settings.
 - **Automatic registration** – The registry seeds itself with the built-in `AppleVoiceProvider` (always enabled) and
-  `ElevenLabsVoiceProvider` (user-enabled). Additional providers can call `VoiceProviderRegistry.shared.register(_:)` during
-  startup to appear in the catalog.
+  `ElevenLabsVoiceProvider` (user-enabled). External packages can either call
+  `VoiceProviderRegistry.shared.register(_:)` during startup **or** subclass
+  `VoiceProviderAutoRegistrar` to have their descriptors registered automatically
+  when the module is loaded (Objective-C runtime platforms).
 - **Enablement & configuration state** – The registry persists enablement flags in `UserDefaults` while leaving configuration
   storage to each provider. When `configuredProvider(for:)` is invoked, the registry instantiates the provider, verifies it is
   enabled, and then calls `isConfigured()` to ensure the provider’s own configuration is valid before returning it.
