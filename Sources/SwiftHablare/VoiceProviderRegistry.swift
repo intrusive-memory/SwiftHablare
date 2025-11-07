@@ -5,9 +5,9 @@
 //  Central registry for discovering and configuring voice providers.
 //
 
-import Foundation
+@preconcurrency import Foundation
 #if canImport(SwiftUI)
-import SwiftUI
+@preconcurrency import SwiftUI
 #endif
 
 /// Describes a voice provider that can be registered with the registry.
@@ -28,17 +28,15 @@ public struct VoiceProviderDescriptor: Identifiable, @unchecked Sendable {
     public let configurationPanel: ConfigurationPanelBuilder
 #endif
 
+#if canImport(SwiftUI)
     public init(
         id: String,
         displayName: String,
         isEnabledByDefault: Bool,
         isAlwaysEnabled: Bool = false,
         requiresConfiguration: Bool,
-        makeProvider: @escaping ProviderFactory
-#if canImport(SwiftUI)
-        ,
+        makeProvider: @escaping ProviderFactory,
         configurationPanel: ConfigurationPanelBuilder? = nil
-#endif
     ) {
         self.id = id
         self.displayName = displayName
@@ -46,12 +44,27 @@ public struct VoiceProviderDescriptor: Identifiable, @unchecked Sendable {
         self.isAlwaysEnabled = isAlwaysEnabled
         self.requiresConfiguration = requiresConfiguration
         self.makeProvider = makeProvider
-#if canImport(SwiftUI)
         self.configurationPanel = configurationPanel ?? { provider, onConfigured in
             provider.makeConfigurationView(onConfigured: onConfigured)
         }
-#endif
     }
+#else
+    public init(
+        id: String,
+        displayName: String,
+        isEnabledByDefault: Bool,
+        isAlwaysEnabled: Bool = false,
+        requiresConfiguration: Bool,
+        makeProvider: @escaping ProviderFactory
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.isEnabledByDefault = isEnabledByDefault
+        self.isAlwaysEnabled = isAlwaysEnabled
+        self.requiresConfiguration = requiresConfiguration
+        self.makeProvider = makeProvider
+    }
+#endif
 }
 
 /// Metadata describing a registered provider and its current state.
@@ -91,17 +104,19 @@ public enum VoiceProviderRegistryError: Error, LocalizedError, Sendable {
 public actor VoiceProviderRegistry {
     public static let shared = VoiceProviderRegistry()
 
-    private let userDefaults: UserDefaults
+    nonisolated(unsafe) private let userDefaults: UserDefaults
     private var descriptors: [String: VoiceProviderDescriptor]
 
     internal init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
-        self.descriptors = [:]
+        var tempDescriptors: [String: VoiceProviderDescriptor] = [:]
 
         for descriptor in VoiceProviderRegistry.defaultDescriptors {
-            descriptors[descriptor.id] = descriptor
-            ensureDefaultState(for: descriptor)
+            tempDescriptors[descriptor.id] = descriptor
+            Self.ensureDefaultStateSync(for: descriptor, in: userDefaults)
         }
+
+        self.descriptors = tempDescriptors
     }
 
     /// Register an additional provider descriptor.
@@ -193,15 +208,19 @@ public actor VoiceProviderRegistry {
 #if canImport(SwiftUI)
     /// Build the configuration view for a provider, if one is available.
     @MainActor
-    public func configurationPanel(for providerId: String, onConfigured: @escaping (Bool) -> Void) -> AnyView? {
-        guard let descriptor = descriptors[providerId] else {
+    public func configurationPanel(for providerId: String, onConfigured: @escaping @MainActor (Bool) -> Void) async -> AnyView? {
+        // Get descriptor from actor
+        guard let descriptor = await getDescriptor(for: providerId) else {
             return nil
         }
 
         let provider = descriptor.makeProvider()
+
         return descriptor.configurationPanel(provider) { [weak self] success in
             guard let self else {
-                onConfigured(success)
+                Task { @MainActor in
+                    onConfigured(success)
+                }
                 return
             }
 
@@ -213,16 +232,26 @@ public actor VoiceProviderRegistry {
             }
         }
     }
+
+    /// Internal helper to get descriptor from actor context
+    private func getDescriptor(for providerId: String) -> VoiceProviderDescriptor? {
+        descriptors[providerId]
+    }
 #endif
 
     // MARK: - Private helpers
 
-    private func ensureDefaultState(for descriptor: VoiceProviderDescriptor) {
+    private static func ensureDefaultStateSync(for descriptor: VoiceProviderDescriptor, in userDefaults: UserDefaults) {
+        let key = "voiceProvider.enabled.\(descriptor.id)"
         if descriptor.isAlwaysEnabled {
-            userDefaults.set(true, forKey: enabledKey(for: descriptor.id))
-        } else if userDefaults.object(forKey: enabledKey(for: descriptor.id)) == nil {
-            userDefaults.set(descriptor.isEnabledByDefault, forKey: enabledKey(for: descriptor.id))
+            userDefaults.set(true, forKey: key)
+        } else if userDefaults.object(forKey: key) == nil {
+            userDefaults.set(descriptor.isEnabledByDefault, forKey: key)
         }
+    }
+
+    private func ensureDefaultState(for descriptor: VoiceProviderDescriptor) {
+        Self.ensureDefaultStateSync(for: descriptor, in: userDefaults)
     }
 
     private func isEnabled(descriptor: VoiceProviderDescriptor) -> Bool {

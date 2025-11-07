@@ -85,7 +85,7 @@ private struct AppleVoiceProviderConfigurationView: View {
         VStack(spacing: 16) {
             Image(systemName: "waveform")
                 .font(.largeTitle)
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
 
             Text("\(provider.displayName) is ready to use.")
                 .multilineTextAlignment(.center)

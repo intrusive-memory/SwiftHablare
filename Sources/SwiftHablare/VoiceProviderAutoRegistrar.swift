@@ -44,14 +44,7 @@ open class VoiceProviderAutoRegistrar: NSObject {
         }
     }
 
-    #if canImport(ObjectiveC)
-    /// Automatically invoked by the Objective-C runtime when the module loads.
-    override public class func load() {
-        super.load()
-
-        Task {
-            await registerProviders(into: VoiceProviderRegistry.shared)
-        }
-    }
-    #endif
+    // Note: Swift does not support Objective-C's +load method.
+    // Auto-registration must be done manually by calling registerProviders(into:)
+    // from your application initialization code.
 }

@@ -180,7 +180,7 @@ public struct GenerateAudioButtonExample: View {
             return
         }
 
-        guard let provider = service.provider(withId: providerId) else {
+        guard let provider = await service.provider(withId: providerId) else {
             return
         }
 

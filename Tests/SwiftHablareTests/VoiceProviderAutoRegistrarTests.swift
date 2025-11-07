@@ -4,10 +4,10 @@ import XCTest
 final class VoiceProviderAutoRegistrarTests: XCTestCase {
     func testRegisterProvidersAddsDescriptors() async throws {
         let setup = makeTestUserDefaults(suiteName: "VoiceProviderAutoRegistrarTests")
-        let userDefaults = setup.defaults
+        let defaults = setup.defaults
         defer { setup.cleanup() }
 
-        let registry = VoiceProviderRegistry(userDefaults: userDefaults)
+        let registry = VoiceProviderRegistry(userDefaults: defaults)
 
         final class SampleRegistrar: VoiceProviderAutoRegistrar {
             override class var descriptors: [VoiceProviderDescriptor] {

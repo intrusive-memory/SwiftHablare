@@ -1,4 +1,7 @@
-import Foundation
+@preconcurrency import Foundation
+
+// UserDefaults is inherently thread-safe, so we can safely conform it to Sendable for testing
+extension UserDefaults: @unchecked @retroactive Sendable {}
 
 /// Creates a `UserDefaults` instance suitable for tests on all platforms and a
 /// cleanup closure that clears any persisted values written during the test.
