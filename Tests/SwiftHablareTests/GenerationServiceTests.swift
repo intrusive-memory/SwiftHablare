@@ -288,7 +288,10 @@ final class GenerationServiceTests: XCTestCase {
     // MARK: - Provider Registry Tests
 
     func testDefaultProvidersAreRegistered() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testDefaultProvidersAreRegistered")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         let providers = await service.registeredProviders()
 
@@ -367,7 +370,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterCustomProvider() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisterCustomProvider")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Create and register a custom provider
         let customProvider = MockUnconfiguredProvider()
@@ -388,7 +394,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisterProviderReplacesExisting() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisterProviderReplacesExisting")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Get original Apple provider
         let originalApple = await service.provider(withId: "apple")
@@ -407,7 +416,10 @@ final class GenerationServiceTests: XCTestCase {
     }
 
     func testRegisteredProvidersIncludesAllProviders() async {
-        let service = GenerationService()
+        let setup = makeTestUserDefaults(suiteName: "testRegisteredProvidersIncludesAllProviders")
+        defer { setup.cleanup() }
+        let registry = VoiceProviderRegistry(userDefaults: setup.defaults)
+        let service = GenerationService(providerRegistry: registry)
 
         // Register additional providers
         let customProvider1 = MockConfiguredProvider(id: "custom1")
