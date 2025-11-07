@@ -10,14 +10,15 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 2.3.0
+- **Current Version**: 3.5.1
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macOS 26.0, macCatalyst 26.0
 - **macOS Support**: ✅ **SUPPORTED** - native AppKit implementation is available
-- **Total Tests**: 180 passing
+- **Total Tests**: 215+ passing
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance
 - **Language Support**: ✨ Multi-language voice generation with language-specific caching (v2.3.0+)
+- **Provider Registry**: ✨ Centralized provider management with configuration panels (v3.5.1+)
 
 ## Platform Support
 
