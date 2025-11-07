@@ -3,9 +3,9 @@ import XCTest
 
 final class VoiceProviderAutoRegistrarTests: XCTestCase {
     func testRegisterProvidersAddsDescriptors() async throws {
-        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: "VoiceProviderAutoRegistrarTests"))
-        userDefaults.removePersistentDomain(forName: "VoiceProviderAutoRegistrarTests")
-        defer { userDefaults.removePersistentDomain(forName: "VoiceProviderAutoRegistrarTests") }
+        let setup = makeTestUserDefaults(suiteName: "VoiceProviderAutoRegistrarTests")
+        let userDefaults = setup.defaults
+        defer { setup.cleanup() }
 
         let registry = VoiceProviderRegistry(userDefaults: userDefaults)
 

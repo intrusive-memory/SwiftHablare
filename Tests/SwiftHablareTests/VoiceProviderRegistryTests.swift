@@ -5,13 +5,15 @@ import SwiftUI
 @MainActor
 final class VoiceProviderRegistryTests: XCTestCase {
     private var userDefaults: UserDefaults!
+    private var cleanupDefaults: (() -> Void)?
     private var registry: VoiceProviderRegistry!
 
     override func setUp() async throws {
         try await super.setUp()
 
-        userDefaults = try XCTUnwrap(UserDefaults(suiteName: "VoiceProviderRegistryTests"))
-        userDefaults.removePersistentDomain(forName: "VoiceProviderRegistryTests")
+        let setup = makeTestUserDefaults(suiteName: "VoiceProviderRegistryTests")
+        userDefaults = setup.defaults
+        cleanupDefaults = setup.cleanup
 
         registry = VoiceProviderRegistry(userDefaults: userDefaults)
     }
@@ -19,7 +21,8 @@ final class VoiceProviderRegistryTests: XCTestCase {
     override func tearDown() async throws {
         registry = nil
 
-        userDefaults.removePersistentDomain(forName: "VoiceProviderRegistryTests")
+        cleanupDefaults?()
+        cleanupDefaults = nil
         userDefaults = nil
 
         try await super.tearDown()
