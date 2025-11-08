@@ -345,7 +345,7 @@ await registry.register(descriptor)
 **For Custom Providers:**
 
 ```swift
-// Option 1: Manual registration
+// Option 1: Direct registration
 class MyVoiceProvider: VoiceProvider {
     // ... implementation
 }
@@ -353,20 +353,26 @@ class MyVoiceProvider: VoiceProvider {
 let service = GenerationService()
 await service.registerProvider(MyVoiceProvider())
 
-// Option 2: Automatic registration (Objective-C runtime platforms)
+// Option 2: Using VoiceProviderAutoRegistrar (requires manual registration)
 class MyProviderRegistrar: VoiceProviderAutoRegistrar {
-    override func createDescriptor() -> VoiceProviderDescriptor {
-        VoiceProviderDescriptor(
-            id: "my-provider",
-            displayName: "My Provider",
-            isEnabledByDefault: false,
-            requiresConfiguration: true,
-            makeProvider: { MyVoiceProvider() }
-        )
+    override class var descriptors: [VoiceProviderDescriptor] {
+        [
+            VoiceProviderDescriptor(
+                id: "my-provider",
+                displayName: "My Provider",
+                isEnabledByDefault: false,
+                requiresConfiguration: true,
+                makeProvider: { MyVoiceProvider() }
+            )
+        ]
     }
 }
-// Auto-registers when module loads
+
+// In your app initialization:
+await MyProviderRegistrar.registerProviders(into: .shared)
 ```
+
+**Note**: Swift does not support Objective-C's `+load` method for automatic registration. External packages must call `registerProviders(into:)` during app initialization to make their providers available.
 
 ## UI Components (v2.3.0)
 

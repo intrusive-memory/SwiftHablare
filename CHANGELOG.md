@@ -56,12 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Callback-based completion handling
   - Integrates with registry configuration flow
 
-#### VoiceProviderAutoRegistrar (Objective-C Runtime)
-- Base class for automatic provider registration on supported platforms
-  - Subclass and override `createDescriptor()` to auto-register providers
-  - Uses Objective-C +load method for early registration
-  - Enables external packages to register providers without explicit calls
-  - Platform-specific: macOS, iOS, Catalyst (requires Objective-C runtime)
+#### VoiceProviderAutoRegistrar
+- Base class for organizing provider registration in external packages
+  - Subclass and override `descriptors` property to define providers
+  - Provides `registerProviders(into:)` helper method
+  - **Requires manual registration**: Swift does not support Objective-C `+load` for automatic registration
+  - External packages must call `registerProviders(into:)` during app initialization
 
 #### Test Coverage
 - **80+ new tests** with 100% pass rate:
@@ -172,22 +172,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### For Custom Providers
 ```swift
-// Old: Manual registration
+// Direct registration (simple approach)
 let customProvider = MyVoiceProvider()
 await service.registerProvider(customProvider)
 
-// New: Registry-based registration (automatic)
+// Using VoiceProviderAutoRegistrar (for packages)
 class MyProviderRegistrar: VoiceProviderAutoRegistrar {
-    override func createDescriptor() -> VoiceProviderDescriptor {
-        VoiceProviderDescriptor(
-            id: "my-provider",
-            displayName: "My Provider",
-            isEnabledByDefault: false,
-            requiresConfiguration: true,
-            makeProvider: { MyVoiceProvider() }
-        )
+    override class var descriptors: [VoiceProviderDescriptor] {
+        [
+            VoiceProviderDescriptor(
+                id: "my-provider",
+                displayName: "My Provider",
+                isEnabledByDefault: false,
+                requiresConfiguration: true,
+                makeProvider: { MyVoiceProvider() }
+            )
+        ]
     }
 }
+
+// Must be called during app initialization:
+await MyProviderRegistrar.registerProviders(into: .shared)
 ```
 
 #### For UI Code
