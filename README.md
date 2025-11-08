@@ -8,6 +8,7 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 
 **Core Features:**
 - **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
+- **Provider registry**: Centralized provider management with configuration panels (v3.5.1)
 - **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
 - **Cross-platform**: iOS 26+ and Mac Catalyst 15.0+ (UIKit-based, no macOS)
@@ -298,6 +299,80 @@ if provider.isConfigured() {
 
 **API Key:**
 Get your API key at [elevenlabs.io](https://elevenlabs.io)
+
+### Voice Provider Registry (v3.5.1)
+
+SwiftHablaré includes a centralized `VoiceProviderRegistry` for managing voice providers with enablement and configuration state.
+
+```swift
+import SwiftHablare
+
+// Access the shared registry
+let registry = VoiceProviderRegistry.shared
+
+// Get all available providers with status
+let providers = await registry.availableProviders()
+for provider in providers {
+    print("\(provider.displayName): enabled=\(provider.isEnabled), configured=\(provider.isConfigured)")
+}
+
+// Enable/disable providers
+await registry.setEnabled(true, for: "elevenlabs")
+
+// Get a configured provider instance
+if let provider = try? await registry.configuredProvider(for: "apple") {
+    let voices = try await provider.fetchVoices()
+}
+
+// Register custom providers
+let descriptor = VoiceProviderDescriptor(
+    id: "my-provider",
+    displayName: "My Provider",
+    isEnabledByDefault: false,
+    requiresConfiguration: true,
+    makeProvider: { MyVoiceProvider() }
+)
+await registry.register(descriptor)
+```
+
+**Key Features:**
+- **Automatic Registration**: Built-in providers (Apple, ElevenLabs) auto-register on startup
+- **Enablement State**: User-controlled on/off state persisted in UserDefaults
+- **Configuration Validation**: Ensures providers are properly configured before use
+- **SwiftUI Configuration Panels**: Each provider supplies a configuration view for credentials
+- **External Provider Support**: Third-party packages can register custom providers
+
+**For Custom Providers:**
+
+```swift
+// Option 1: Direct registration
+class MyVoiceProvider: VoiceProvider {
+    // ... implementation
+}
+
+let service = GenerationService()
+await service.registerProvider(MyVoiceProvider())
+
+// Option 2: Using VoiceProviderAutoRegistrar (requires manual registration)
+class MyProviderRegistrar: VoiceProviderAutoRegistrar {
+    override class var descriptors: [VoiceProviderDescriptor] {
+        [
+            VoiceProviderDescriptor(
+                id: "my-provider",
+                displayName: "My Provider",
+                isEnabledByDefault: false,
+                requiresConfiguration: true,
+                makeProvider: { MyVoiceProvider() }
+            )
+        ]
+    }
+}
+
+// In your app initialization:
+await MyProviderRegistrar.registerProviders(into: .shared)
+```
+
+**Note**: Swift does not support Objective-C's `+load` method for automatic registration. External packages must call `registerProviders(into:)` during app initialization to make their providers available.
 
 ## UI Components (v2.3.0)
 
