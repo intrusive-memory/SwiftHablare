@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Current Status (as of 2025-11-09)
-- **Version**: 3.6.0
+- **Version**: 3.7.0
 - **Tests**: 259 passing tests with 96%+ coverage
 - **Platforms**: iOS 26+, macOS 26+, Catalyst 26+ (all fully supported)
 - **Swift**: 6.0+ with strict concurrency enabled
