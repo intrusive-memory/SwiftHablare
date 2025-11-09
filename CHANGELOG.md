@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Current Status (as of 2025-11-09)
+- **Version**: 3.5.1
+- **Tests**: 259 passing tests with 96%+ coverage
+- **Platforms**: iOS 26+, macOS 26+, Catalyst 26+ (all fully supported)
+- **Swift**: 6.0+ with strict concurrency enabled
+- **Features**: Voice Provider Registry, Engine Boundary Protocol, Multi-language support
+
+### Documentation
+- Updated CLAUDE.md, README.md, and CHANGELOG.md to reflect current status
+- Clarified macOS support (fully supported with NSSpeechSynthesizer via Engine Boundary Protocol)
+- Updated test counts (259 passing tests, up from 215)
+- Removed outdated UIKit-only references
+- Clarified platform support across iOS 26+, macOS 26+, and Catalyst 26+
+- Added Engine Boundary Protocol documentation
+- Updated platform-specific implementation details
+
+### Removed
+- Removed deprecated VoiceProviderType enum references from documentation
+- Removed outdated manual caching examples (automatic caching is now standard)
+- Cleaned up simulator-specific workarounds in documentation
+
 ## [3.5.1] - 2025-11-07
 
 ### Added - Voice Provider Registry and Configuration System
@@ -149,10 +170,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 7. `Tests/SwiftHablareTests/GenerateAudioButtonTests.swift` - Registry integration (7 additions)
 
 #### Quality Metrics
-- **Test Count**: 215+ total tests (180 → 215+, +35 tests)
+- **Test Count**: 259 total tests (comprehensive coverage)
 - **Test Coverage**: 96%+ on voice generation components
 - **Build Status**: ✅ All platforms passing (iOS, macOS, Catalyst)
-- **Swift 6**: Full strict concurrency compliance maintained
+- **Swift 6**: Full strict concurrency compliance with strict mode enabled
 - **CI/CD**: Zero test failures in isolated test runs
 
 #### Performance Characteristics

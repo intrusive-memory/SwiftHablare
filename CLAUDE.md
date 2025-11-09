@@ -13,12 +13,13 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 - **Current Version**: 3.5.1
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macOS 26.0, macCatalyst 26.0
-- **macOS Support**: ✅ **SUPPORTED** - native AppKit implementation is available
-- **Total Tests**: 215+ passing
+- **macOS Support**: ✅ **FULLY SUPPORTED** - native macOS support with NSSpeechSynthesizer
+- **Total Tests**: 259 passing
 - **Test Coverage**: 96%+ on voice generation components
-- **Swift Concurrency**: Full Swift 6 compliance
+- **Swift Concurrency**: Full Swift 6 compliance with strict concurrency enabled
 - **Language Support**: ✨ Multi-language voice generation with language-specific caching (v2.3.0+)
 - **Provider Registry**: ✨ Centralized provider management with configuration panels (v3.5.1+)
+- **Engine Boundary Protocol**: ✨ Platform-agnostic voice engine abstraction (v3.5.1+)
 
 ## Platform Support
 
@@ -27,9 +28,14 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 **SwiftHablaré ships with first-class support for iOS, macOS, and Mac Catalyst.**
 
 Supported platforms:
-- **iOS 26.0+** ✅ Full TTS support with real audio generation via `AVSpeechSynthesizer`
+- **iOS 26.0+** ✅ Full TTS support with real audio generation via `AVSpeechSynthesizer.write()`
 - **macOS 26.0+** ✅ Full TTS support with real audio generation via `NSSpeechSynthesizer`
-- **macCatalyst 15.0+** ✅ Full TTS support using the iOS engine running in Catalyst
+- **macCatalyst 26.0+** ✅ Full TTS support using the iOS engine (AVSpeechSynthesizer) running in Catalyst
+
+**Platform-Specific Implementations:**
+- iOS and Catalyst use `AVSpeechTTSEngine` (AVFoundation)
+- macOS uses `NSSpeechTTSEngine` (AppKit)
+- Both engines implement the `VoiceEngine` protocol for consistency
 
 **IMPORTANT:** Use explicit platform guards when interacting with UI frameworks:
 - `#if os(iOS)` / `#elseif targetEnvironment(macCatalyst)` for UIKit-only APIs
@@ -39,7 +45,8 @@ Supported platforms:
 ### Simulator Behavior
 
 - **Physical iOS/Catalyst devices**: Real TTS with `AVSpeechSynthesizer.write()`
-- **iOS Simulator**: Placeholder audio for testing (AVSpeechSynthesizer.write() doesn't generate buffers on simulators)
+- **iOS Simulator**: May produce limited audio (AVSpeechSynthesizer.write() has limited functionality on simulators)
+- **macOS**: Always produces real audio via `NSSpeechSynthesizer`
 
 Integration tests that require real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
 
@@ -192,27 +199,22 @@ SwiftHablaré does NOT provide:
 ### AppleVoiceProvider
 
 **Platform-Specific Behavior:**
-```swift
-#if targetEnvironment(simulator)
-// iOS Simulator: Placeholder AIFF audio (silent) for test compatibility
-// Real TTS not available on simulator due to AVSpeechSynthesizer.write() limitation
-#else
-// Physical iOS/Catalyst devices: Real speech synthesis using AVSpeechSynthesizer.write()
-// Captures audio buffers and writes to AIFF file
-#endif
-```
+- **iOS/Catalyst**: Uses `AVSpeechSynthesizer.write()` for real audio generation (AIFC format)
+- **macOS**: Uses `NSSpeechSynthesizer` for real audio generation (AIFF format)
+- **iOS Simulator**: Limited audio support due to AVSpeechSynthesizer.write() constraints
 
 **Features:**
 - Always configured (no API key required)
-- Fetches voices from `AVSpeechSynthesisVoice`
+- Fetches voices from platform-specific synthesizers
 - Filters voices by language code (defaults to system language) (v2.3.0+)
 - Supports explicit language specification for multi-language apps
 - Estimates duration using text length heuristics
-- Generates AIFF format audio
+- Generates AIFF/AIFC format audio depending on platform
+- Platform-agnostic through Engine Boundary Protocol (v3.5.1+)
 
 **Test Coverage:**
 - 22 unit tests (100% coverage)
-- 4 integration tests (skipped on iOS Simulator, run on physical devices)
+- Integration tests run on all platforms (iOS, macOS, Catalyst)
 
 ### ElevenLabsVoiceProvider
 
@@ -1475,23 +1477,24 @@ Tests are split into **fast** (unit) and **slow** (integration) categories:
 - Models: 100%
 
 **Current Status:**
-- 109 total tests passing
+- 259 total tests passing
 - 96%+ average coverage
 - 0 test failures
-- Swift 6 strict concurrency compliance
+- Swift 6 strict concurrency compliance with strict mode enabled
 
 ### Integration Tests
 
-**IMPORTANT:** Integration tests run on iOS Simulator. Use `#if targetEnvironment(simulator)` to skip tests that require real audio on simulator.
+**Platform Support:** Integration tests run on all supported platforms (iOS, macOS, Catalyst).
 
 **Apple Voice Provider:**
 ```swift
 func testEndToEndSpeechGeneration() async throws {
     #if targetEnvironment(simulator)
+    // iOS Simulator may have limited TTS capabilities
     throw XCTSkip("Apple TTS integration test skipped on simulator")
     #endif
 
-    // Test on iOS/Catalyst devices only
+    // Test on physical devices and macOS
     let provider = AppleVoiceProvider()
     let voices = try await provider.fetchVoices()
     let audioData = try await provider.generateAudio(text: "Test", voiceId: voices.first!.id)
@@ -1516,18 +1519,29 @@ func testEndToEndWithElevenLabs() async throws {
 
 ### Running Tests
 
-**Run all tests on iOS Simulator:**
+**Run all tests (recommended - uses swift test):**
 ```bash
+swift test --enable-code-coverage
+```
+
+**Run tests on specific platform:**
+```bash
+# iOS Simulator
 xcodebuild test \
   -scheme SwiftHablare \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+
+# macOS
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=macOS'
 ```
 
 **Run only unit tests (fast):**
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
@@ -1536,7 +1550,7 @@ xcodebuild test \
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
@@ -1642,9 +1656,9 @@ await service.registerProvider(customProvider)
 
 ### Cache Voices in SwiftData
 
-**⚠️ DEPRECATED:** Manual caching is no longer necessary. Use `GenerationService.fetchVoices(from:using:languageCode:)` which automatically caches voices with language-specific keys.
+**Voice caching is automatic** when using `GenerationService.fetchVoices()`. The service automatically caches voices with language-specific keys to prevent cache collisions.
 
-**Automatic Caching (Recommended):**
+**Automatic Caching:**
 ```swift
 @MainActor
 func cacheVoices() async throws {
@@ -1655,30 +1669,6 @@ func cacheVoices() async throws {
     let esVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "es")
 
     // Cache is automatically managed, no manual insertion needed
-}
-```
-
-**Manual Caching (Only if needed for custom scenarios):**
-```swift
-@MainActor
-func manualCacheVoices() async throws {
-    let provider = AppleVoiceProvider()
-    let languageCode = "en"
-    let voices = try await provider.fetchVoices(languageCode: languageCode)
-
-    for voice in voices {
-        let cache = VoiceCacheModel(
-            providerId: voice.providerId,
-            cacheLanguageCode: languageCode,  // v2.3.0+ Required
-            voiceId: voice.id,
-            voiceName: voice.name,
-            language: voice.language,
-            locality: voice.locality,
-            gender: voice.gender
-        )
-        modelContext.insert(cache)
-    }
-    try modelContext.save()
 }
 ```
 
