@@ -97,7 +97,7 @@ jobs:
           gh pr create \
             --base main \
             --head development \
-            --title "Version ${{ steps.new-version.outputs.new }} => ${{ steps.current-version.outputs.current }}" \
+            --title "${{ steps.new-version.outputs.new }} => ${{ steps.current-version.outputs.current }}" \
             --body "## Automated Version Bump
 
           This PR contains an automated version bump following the publication of release **${{ github.event.release.tag_name }}**.
