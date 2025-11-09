@@ -524,6 +524,215 @@ struct ChapterView: View {
 
 See `Sources/SwiftHablare/Examples/SpeakableGroupExamples.swift` for complete implementations.
 
+### Markdown & Screenplay Support
+
+SwiftHablaré provides SpeakableItem implementations for markdown and screenplay elements from SwiftCompartido.
+
+**What's SwiftCompartido?**
+SwiftCompartido parses markdown and Fountain screenplay files into a unified `GuionElement` model. SwiftHablaré adds voice generation support for these elements.
+
+#### Supported Element Types
+
+SwiftHablaré can generate audio for all markdown and screenplay elements:
+
+| Element Type | Description | Voice Type |
+|-------------|-------------|------------|
+| **Action** | Narrative description, paragraphs, lists | Narrator |
+| **Dialogue** | Character speech | Character |
+| **Character** | Character name announcements | Narrator |
+| **Scene Heading** | Location sluglines (INT. COFFEE SHOP - DAY) | Narrator |
+| **Section Heading** | Markdown headings (# through ######) | Narrator |
+| **Parenthetical** | Stage directions | Narrator |
+| **Transition** | Scene transitions (CUT TO:, FADE OUT) | Narrator |
+| **Synopsis** | Scene summaries | Narrator |
+| **Lyrics** | Song lyrics | Character |
+
+#### Basic Usage
+
+```swift
+import SwiftHablare
+import SwiftCompartido
+
+// Parse markdown file
+let markdownURL = URL(fileURLWithPath: "article.md")
+let parsed = try GuionParsedElementCollection(file: markdownURL)
+let elements = parsed.elements
+
+// Create speakable items
+let provider = AppleVoiceProvider()
+let voices = try await provider.fetchVoices()
+let voiceId = voices.first!.id
+
+let speakableElements = elements.map { element in
+    GuionElementSpeakable(
+        element: element,
+        voiceProvider: provider,
+        voiceId: voiceId
+    )
+}
+
+// Generate audio for each element
+for speakable in speakableElements {
+    let audioData = try await speakable.speak()
+    // Save to TypedDataStorage...
+}
+```
+
+#### Dialogue Pairs
+
+For screenplay dialogue (character + dialogue pairs):
+
+```swift
+// Extract character-dialogue pairs
+var pairs: [DialoguePairSpeakable] = []
+for i in 0..<elements.count - 1 {
+    if case .character = elements[i].elementType,
+       case .dialogue = elements[i + 1].elementType {
+        let pair = DialoguePairSpeakable(
+            character: elements[i],
+            dialogue: elements[i + 1],
+            voiceProvider: provider,
+            voiceId: getVoiceForCharacter(elements[i].elementText),
+            includeCharacterName: false  // Just speak the dialogue
+        )
+        pairs.append(pair)
+    }
+}
+```
+
+#### Section Headings
+
+Announce markdown headings with level context:
+
+```swift
+let heading = GuionElement(
+    elementType: .sectionHeading(level: 2),
+    elementText: "Act One"
+)
+
+let speakable = SectionHeadingSpeakable(
+    heading: heading,
+    voiceProvider: provider,
+    voiceId: narratorVoiceId,
+    announceLevel: true  // Speaks: "Act: Act One"
+)
+```
+
+#### Batch Generation by Scene
+
+Group screenplay elements by scene:
+
+```swift
+let scene = SceneSpeakable(
+    sceneHeading: sceneHeadingElement,
+    elements: sceneElements,
+    voiceMapping: { element in
+        // Map different elements to different voices
+        switch element.elementType {
+        case .dialogue:
+            return characterVoiceId
+        default:
+            return narratorVoiceId
+        }
+    },
+    voiceProvider: provider
+)
+
+// Generate all scene audio
+let service = GenerationService(modelContext: modelContext)
+let records = try await service.generateList(
+    SpeakableItemList(name: scene.groupName, items: scene.getGroupedElements()),
+    to: modelContext
+)
+```
+
+#### Batch Generation by Chapter
+
+Group screenplay elements by chapter (Act level):
+
+```swift
+let chapter = ChapterSpeakable(
+    chapterHeading: chapterHeadingElement,  // Level 2 heading (##)
+    elements: chapterElements,
+    voiceMapping: { element in
+        // Return appropriate voiceId for element type
+        getVoiceId(for: element)
+    },
+    voiceProvider: provider
+)
+
+print(chapter.groupDescription)
+// "25 elements (3 scenes, 12 dialogue lines)"
+```
+
+#### Complete Markdown Document
+
+Generate audio for an entire markdown file:
+
+```swift
+let document = MarkdownDocumentSpeakable(
+    filename: "article.md",
+    elements: parsed.elements,
+    voiceProvider: provider,
+    defaultVoiceId: narratorVoiceId
+)
+
+// Generate all audio with progress tracking
+let list = SpeakableItemList(
+    name: document.filename,
+    items: document.getGroupedElements()
+)
+
+let records = try await service.generateList(list, to: modelContext)
+print("Generated \(records.count) audio files")
+```
+
+#### Helper Extensions
+
+SwiftHablaré adds useful extensions to `GuionElement`:
+
+```swift
+// Check if element has speakable content
+if element.isSpeakable {
+    // Element has non-empty text
+}
+
+// Get recommended voice type
+switch element.recommendedVoiceType {
+case .character:
+    // Use character voice
+case .narrator:
+    // Use narrator voice
+}
+```
+
+#### Available Implementations
+
+SwiftHablaré provides these ready-to-use implementations in `Sources/SwiftHablare/Examples/GuionElementSpeakableExamples.swift`:
+
+1. **GuionElementSpeakable** - General adapter for any GuionElement
+2. **DialoguePairSpeakable** - Character-dialogue pairs
+3. **SectionHeadingSpeakable** - Markdown headings with level announcements
+4. **SceneSpeakable** - Scene grouping for batch generation
+5. **ChapterSpeakable** - Chapter grouping for batch generation
+6. **MarkdownDocumentSpeakable** - Complete document batch generation
+
+#### Markdown Element Mapping
+
+CommonMarkParser in SwiftCompartido converts markdown to GuionElements:
+
+| Markdown | → | GuionElement Type |
+|----------|---|-------------------|
+| `# Heading` | → | `.sectionHeading(level: 1)` |
+| `## Heading` | → | `.sectionHeading(level: 2)` |
+| Paragraphs | → | `.action` |
+| Block quotes | → | `.action` (with `>` prefix) |
+| Lists | → | `.action` (with `•` or numbers) |
+| Code blocks | → | `.action` (indented) |
+| `---` | → | `.pageBreak` |
+
+See the [SwiftCompartido documentation](https://github.com/intrusive-memory/SwiftCompartido) for more details on screenplay parsing.
+
 ## Voice Caching
 
 SwiftHablare automatically caches voices in SwiftData to reduce API calls:
