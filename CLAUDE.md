@@ -10,15 +10,16 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 3.5.1
+- **Current Version**: 3.6.0
 - **Swift Version**: 6.0+
 - **Minimum Deployments**: iOS 26.0, macOS 26.0, macCatalyst 26.0
-- **macOS Support**: ✅ **SUPPORTED** - native AppKit implementation is available
-- **Total Tests**: 215+ passing
+- **macOS Support**: ✅ **FULLY SUPPORTED** - native macOS support with NSSpeechSynthesizer
+- **Total Tests**: 259 passing
 - **Test Coverage**: 96%+ on voice generation components
-- **Swift Concurrency**: Full Swift 6 compliance
+- **Swift Concurrency**: Full Swift 6 compliance with strict concurrency enabled
 - **Language Support**: ✨ Multi-language voice generation with language-specific caching (v2.3.0+)
 - **Provider Registry**: ✨ Centralized provider management with configuration panels (v3.5.1+)
+- **Engine Boundary Protocol**: ✨ Platform-agnostic voice engine abstraction (v3.5.1+)
 
 ## Platform Support
 
@@ -27,9 +28,14 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 **SwiftHablaré ships with first-class support for iOS, macOS, and Mac Catalyst.**
 
 Supported platforms:
-- **iOS 26.0+** ✅ Full TTS support with real audio generation via `AVSpeechSynthesizer`
+- **iOS 26.0+** ✅ Full TTS support with real audio generation via `AVSpeechSynthesizer.write()`
 - **macOS 26.0+** ✅ Full TTS support with real audio generation via `NSSpeechSynthesizer`
-- **macCatalyst 15.0+** ✅ Full TTS support using the iOS engine running in Catalyst
+- **macCatalyst 26.0+** ✅ Full TTS support using the iOS engine (AVSpeechSynthesizer) running in Catalyst
+
+**Platform-Specific Implementations:**
+- iOS and Catalyst use `AVSpeechTTSEngine` (AVFoundation)
+- macOS uses `NSSpeechTTSEngine` (AppKit)
+- Both engines implement the `VoiceEngine` protocol for consistency
 
 **IMPORTANT:** Use explicit platform guards when interacting with UI frameworks:
 - `#if os(iOS)` / `#elseif targetEnvironment(macCatalyst)` for UIKit-only APIs
@@ -39,7 +45,8 @@ Supported platforms:
 ### Simulator Behavior
 
 - **Physical iOS/Catalyst devices**: Real TTS with `AVSpeechSynthesizer.write()`
-- **iOS Simulator**: Placeholder audio for testing (AVSpeechSynthesizer.write() doesn't generate buffers on simulators)
+- **iOS Simulator**: May produce limited audio (AVSpeechSynthesizer.write() has limited functionality on simulators)
+- **macOS**: Always produces real audio via `NSSpeechSynthesizer`
 
 Integration tests that require real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
 
@@ -192,27 +199,22 @@ SwiftHablaré does NOT provide:
 ### AppleVoiceProvider
 
 **Platform-Specific Behavior:**
-```swift
-#if targetEnvironment(simulator)
-// iOS Simulator: Placeholder AIFF audio (silent) for test compatibility
-// Real TTS not available on simulator due to AVSpeechSynthesizer.write() limitation
-#else
-// Physical iOS/Catalyst devices: Real speech synthesis using AVSpeechSynthesizer.write()
-// Captures audio buffers and writes to AIFF file
-#endif
-```
+- **iOS/Catalyst**: Uses `AVSpeechSynthesizer.write()` for real audio generation (AIFC format)
+- **macOS**: Uses `NSSpeechSynthesizer` for real audio generation (AIFF format)
+- **iOS Simulator**: Limited audio support due to AVSpeechSynthesizer.write() constraints
 
 **Features:**
 - Always configured (no API key required)
-- Fetches voices from `AVSpeechSynthesisVoice`
+- Fetches voices from platform-specific synthesizers
 - Filters voices by language code (defaults to system language) (v2.3.0+)
 - Supports explicit language specification for multi-language apps
 - Estimates duration using text length heuristics
-- Generates AIFF format audio
+- Generates AIFF/AIFC format audio depending on platform
+- Platform-agnostic through Engine Boundary Protocol (v3.5.1+)
 
 **Test Coverage:**
 - 22 unit tests (100% coverage)
-- 4 integration tests (skipped on iOS Simulator, run on physical devices)
+- Integration tests run on all platforms (iOS, macOS, Catalyst)
 
 ### ElevenLabsVoiceProvider
 
@@ -1042,6 +1044,461 @@ All `SpeakableGroup` operations are thread-safe:
 - SwiftData saves happen on `@MainActor`
 - Progress updates happen on main thread
 
+## Markdown & Screenplay Support (v3.6.0)
+
+### Overview
+
+SwiftHablaré provides comprehensive support for markdown and screenplay elements through integration with SwiftCompartido's `GuionElement` model. This enables text-to-speech generation for parsed markdown files and Fountain screenplay documents.
+
+**Key Concept**: SwiftCompartido normalizes markdown and Fountain files into a unified `GuionElement` model. SwiftHablaré adds voice generation capabilities for these elements through SpeakableItem conformance.
+
+### Integration with SwiftCompartido
+
+SwiftCompartido is a screenplay and document management library that:
+- Parses markdown files using CommonMarkParser (swift-markdown)
+- Parses Fountain screenplay files
+- Converts both formats into `GuionElement` models
+- Provides SwiftData persistence via `GuionElementModel`
+
+SwiftHablaré consumes these models and makes them speakable.
+
+### Supported Element Types
+
+All GuionElement types can be converted to speech:
+
+| ElementType | Description | Recommended Voice | Example |
+|------------|-------------|-------------------|---------|
+| `.action` | Narrative, paragraphs, lists, quotes | Narrator | "The sun rises over the mountains." |
+| `.dialogue` | Character speech | Character | "I can't believe we made it." |
+| `.character` | Character name | Narrator | "ALICE" |
+| `.sceneHeading` | Location slugline | Narrator | "INT. COFFEE SHOP - DAY" |
+| `.sectionHeading(level:)` | Markdown headings (# through ######) | Narrator | "## Act One" |
+| `.parenthetical` | Stage directions | Narrator | "(whispering)" |
+| `.transition` | Scene transitions | Narrator | "CUT TO:" |
+| `.synopsis` | Scene summaries | Narrator | "Scene summary text" |
+| `.lyrics` | Song lyrics | Character | "Song lyrics here" |
+| `.comment` | Screenplay comments | Narrator | "/* Note: ... */" |
+| `.pageBreak` | Page breaks | - | (visual only) |
+
+### SpeakableItem Implementations
+
+SwiftHablaré provides six GuionElement-based implementations in `Sources/SwiftHablare/Examples/GuionElementSpeakableExamples.swift`:
+
+#### 1. GuionElementSpeakable
+
+General adapter for any GuionElement:
+
+```swift
+let element = GuionElement(
+    elementType: .action,
+    elementText: "The sun rises over the mountains."
+)
+
+let speakable = GuionElementSpeakable(
+    element: element,
+    voiceProvider: provider,
+    voiceId: voiceId,
+    languageCode: "en"  // Optional, defaults to system language
+)
+
+let audioData = try await speakable.speak()
+```
+
+**Use Case**: Converting any screenplay or markdown element to speech.
+
+#### 2. DialoguePairSpeakable
+
+Specialized for character-dialogue pairs:
+
+```swift
+let character = GuionElement(elementType: .character, elementText: "ALICE")
+let dialogue = GuionElement(elementType: .dialogue, elementText: "Hello, world!")
+
+let speakable = DialoguePairSpeakable(
+    character: character,
+    dialogue: dialogue,
+    voiceProvider: provider,
+    voiceId: aliceVoiceId,
+    includeCharacterName: false  // true: "ALICE: Hello, world!"
+)
+```
+
+**Use Case**: Screenplay dialogue with character context.
+
+#### 3. SectionHeadingSpeakable
+
+Announces markdown/screenplay headings with level context:
+
+```swift
+let heading = GuionElement(
+    elementType: .sectionHeading(level: 2),
+    elementText: "Act One"
+)
+
+let speakable = SectionHeadingSpeakable(
+    heading: heading,
+    voiceProvider: provider,
+    voiceId: narratorVoiceId,
+    announceLevel: true  // Speaks: "Act: Act One"
+)
+```
+
+**Heading Levels** (from Fountain.io spec):
+- Level 1 (`#`): Title/Script name
+- Level 2 (`##`): Act
+- Level 3 (`###`): Sequence
+- Level 4 (`####`): Scene group
+- Level 5 (`#####`): Sub-scene
+- Level 6 (`######`): Beat
+
+**Use Case**: Document structure announcements.
+
+#### 4. SceneSpeakable (SpeakableGroup)
+
+Groups screenplay elements by scene:
+
+```swift
+let scene = SceneSpeakable(
+    sceneHeading: sceneHeadingElement,
+    elements: sceneElements,
+    voiceMapping: { element in
+        // Map element types to appropriate voices
+        switch element.elementType {
+        case .dialogue:
+            return getCharacterVoice(element)
+        default:
+            return narratorVoiceId
+        }
+    },
+    voiceProvider: provider
+)
+
+// Batch generate all scene audio
+let list = SpeakableItemList(name: scene.groupName, items: scene.getGroupedElements())
+let records = try await service.generateList(list, to: modelContext)
+```
+
+**Use Case**: Batch generation for complete scenes with voice mapping.
+
+#### 5. ChapterSpeakable (SpeakableGroup)
+
+Groups screenplay elements by chapter (Act level):
+
+```swift
+let chapter = ChapterSpeakable(
+    chapterHeading: chapterHeadingElement,  // .sectionHeading(level: 2)
+    elements: chapterElements,
+    voiceMapping: { element in getVoiceId(for: element) },
+    voiceProvider: provider
+)
+
+print(chapter.groupDescription)
+// "25 elements (3 scenes, 12 dialogue lines)"
+```
+
+**Chapter Detection**: Chapters are defined by Level 2 section headings (`##`). SwiftCompartido uses `chapterIndex` for organizing elements.
+
+**Use Case**: Batch generation for acts or major document sections.
+
+#### 6. MarkdownDocumentSpeakable (SpeakableGroup)
+
+Generates audio for complete markdown files:
+
+```swift
+// Parse markdown file
+let markdownURL = URL(fileURLWithPath: "article.md")
+let parsed = try GuionParsedElementCollection(file: markdownURL)
+
+// Create speakable document
+let document = MarkdownDocumentSpeakable(
+    filename: "article.md",
+    elements: parsed.elements,
+    voiceProvider: provider,
+    defaultVoiceId: narratorVoiceId
+)
+
+// Batch generate with progress
+let list = SpeakableItemList(name: document.filename, items: document.getGroupedElements())
+let records = try await service.generateList(list, to: modelContext)
+```
+
+**Markdown Element Mapping:**
+
+| Markdown | → | GuionElement Type |
+|----------|---|-------------------|
+| `# Heading` | → | `.sectionHeading(level: 1)` |
+| `## Heading` | → | `.sectionHeading(level: 2)` |
+| Paragraphs | → | `.action` |
+| Block quotes (`>`) | → | `.action` (with prefix) |
+| Lists (`-`, `*`, `1.`) | → | `.action` (with prefix) |
+| Code blocks | → | `.action` (indented) |
+| `---` (thematic break) | → | `.pageBreak` |
+| HTML blocks | → | `.comment` |
+
+**Use Case**: Audio book generation from markdown articles/documents.
+
+### Helper Extensions
+
+SwiftHablaré adds useful extensions to `GuionElement`:
+
+```swift
+// Check if element has speakable content
+if element.isSpeakable {
+    // Element has non-empty, non-whitespace text
+}
+
+// Get recommended voice type
+switch element.recommendedVoiceType {
+case .character:
+    // Dialogue, character names, lyrics
+    // Use expressive character voices
+case .narrator:
+    // Action, scene headings, transitions
+    // Use neutral narrator voice
+}
+```
+
+**VoiceType Enum:**
+```swift
+public enum VoiceType {
+    case character  // Dialogue, lyrics
+    case narrator   // Action, headings, transitions
+}
+```
+
+### Complete Workflow Example
+
+Here's a complete example of parsing and generating audio for a markdown file:
+
+```swift
+import SwiftHablare
+import SwiftCompartido
+import SwiftData
+
+@MainActor
+func generateMarkdownAudio() async throws {
+    // 1. Parse markdown file
+    let markdownURL = URL(fileURLWithPath: "screenplay.md")
+    let parsed = try GuionParsedElementCollection(file: markdownURL)
+
+    // 2. Set up voice provider
+    let provider = AppleVoiceProvider()
+    let voices = try await provider.fetchVoices()
+    let narratorVoice = voices.first { $0.name.contains("Samantha") }!
+    let characterVoice = voices.first { $0.name.contains("Alex") }!
+
+    // 3. Create speakable items with voice mapping
+    let speakableItems: [any SpeakableItem] = parsed.elements.compactMap { element in
+        guard element.isSpeakable else { return nil }
+
+        let voiceId = element.recommendedVoiceType == .character
+            ? characterVoice.id
+            : narratorVoice.id
+
+        return GuionElementSpeakable(
+            element: element,
+            voiceProvider: provider,
+            voiceId: voiceId
+        )
+    }
+
+    // 4. Generate audio with progress tracking
+    let service = GenerationService(modelContext: modelContext)
+    let list = SpeakableItemList(name: "Screenplay Audio", items: speakableItems)
+
+    let records = try await service.generateList(list, to: modelContext)
+
+    print("Generated \(records.count) audio files")
+    print("Progress: \(list.progress * 100)%")
+    print("Status: \(list.statusMessage)")
+}
+```
+
+### Scene-Based Generation
+
+For screenplays with explicit scene structure:
+
+```swift
+@MainActor
+func generateSceneAudio() async throws {
+    let parsed = try GuionParsedElementCollection(file: screenplayURL)
+    var scenes: [SceneSpeakable] = []
+    var currentScene: [GuionElement] = []
+    var currentHeading: GuionElement?
+
+    // Group elements by scene
+    for element in parsed.elements {
+        if case .sceneHeading = element.elementType {
+            if let heading = currentHeading, !currentScene.isEmpty {
+                scenes.append(SceneSpeakable(
+                    sceneHeading: heading,
+                    elements: currentScene,
+                    voiceMapping: { getVoiceFor($0) },
+                    voiceProvider: provider
+                ))
+            }
+            currentHeading = element
+            currentScene = []
+        } else {
+            currentScene.append(element)
+        }
+    }
+
+    // Generate audio for each scene
+    for scene in scenes {
+        let list = SpeakableItemList(name: scene.groupName, items: scene.getGroupedElements())
+        let records = try await service.generateList(list, to: modelContext)
+        print("Generated \(records.count) audio files for \(scene.groupName)")
+    }
+}
+```
+
+### Character Voice Mapping
+
+For screenplays with multiple characters, implement custom voice mapping:
+
+```swift
+class CharacterVoiceMapper {
+    private var voiceMap: [String: String] = [:]
+    private let availableVoices: [Voice]
+
+    init(voices: [Voice]) {
+        self.availableVoices = voices
+    }
+
+    func voiceId(for element: GuionElement) -> String {
+        switch element.elementType {
+        case .dialogue:
+            // Get character name from preceding element
+            return getCharacterVoiceId()
+        case .character:
+            // Cache mapping for this character
+            let characterName = element.elementText
+            if voiceMap[characterName] == nil {
+                voiceMap[characterName] = assignVoice(for: characterName)
+            }
+            return voiceMap[characterName]!
+        default:
+            // Use narrator voice for everything else
+            return narratorVoiceId
+        }
+    }
+
+    private func assignVoice(for characterName: String) -> String {
+        // Your voice assignment logic
+        // Could be based on:
+        // - Character metadata (age, gender)
+        // - Random assignment
+        // - User preferences
+        // - Voice quality matching
+        return availableVoices.randomElement()!.id
+    }
+}
+```
+
+### Test Coverage
+
+Comprehensive test coverage in `Tests/SwiftHablareTests/GuionElementSpeakableTests.swift`:
+
+- **26 tests** covering all GuionElement-based implementations
+- **100% test coverage** on all implementations
+- Tests cover:
+  - GuionElementSpeakable (action, dialogue, scene headings, section headings)
+  - DialoguePairSpeakable (with/without character names)
+  - SectionHeadingSpeakable (all 6 levels, with/without announcement)
+  - SceneSpeakable (basic scenes, empty scenes, voice mapping)
+  - ChapterSpeakable (with/without heading, multiple scenes, descriptions)
+  - MarkdownDocumentSpeakable (basic documents, empty documents)
+  - Helper extensions (isSpeakable, recommendedVoiceType)
+  - Audio generation integration
+  - Batch generation
+  - Duration estimation
+
+### Thread Safety
+
+All GuionElement-based speakable items are thread-safe:
+- Use `GenerationService` actor for background audio generation
+- SwiftData persistence happens on `@MainActor`
+- Safe to use with structured concurrency (TaskGroup, async let)
+- No race conditions in element traversal or voice mapping
+
+### Performance Considerations
+
+**Batch Generation:**
+- Use `SpeakableItemList` for progress tracking
+- Set appropriate `saveInterval` for large documents
+- Consider cancellation for long-running generations
+
+**Voice Caching:**
+- Voices are automatically cached per language
+- Cache persists across app launches
+- Reduces startup time for large screenplays
+
+**Memory Management:**
+- GuionElement is a lightweight value type
+- Audio data stored in TypedDataStorage (SwiftData)
+- Large files stored externally via `fileReference`
+
+### SwiftCompartido Integration
+
+SwiftHablaré works seamlessly with SwiftCompartido's persistence layer:
+
+**GuionElementModel** (SwiftData):
+```swift
+@Model
+public final class GuionElementModel {
+    public var elementType: ElementType
+    public var elementText: String
+    public var chapterIndex: Int
+    public var orderIndex: Int
+
+    @Relationship(inverse: \GuionDocumentModel.elements)
+    public var document: GuionDocumentModel?
+
+    @Relationship(deleteRule: .cascade)
+    public var generatedContent: [TypedDataStorage]?  // Audio files
+}
+```
+
+**Linking Audio to Elements:**
+```swift
+// Generate audio for element
+let speakable = GuionElementSpeakable(element: element, provider: provider, voiceId: voiceId)
+let result = try await service.generate(
+    text: speakable.textToSpeak,
+    providerId: "apple",
+    voiceId: voiceId
+)
+
+// Create TypedDataStorage record
+let storage = result.toTypedDataStorage()
+
+// Link to GuionElementModel
+storage.owningElement = elementModel
+elementModel.generatedContent = [storage]
+
+// Save to SwiftData
+modelContext.insert(storage)
+try modelContext.save()
+```
+
+**Benefits:**
+- Automatic cleanup when elements deleted
+- Query elements with/without audio
+- Track generation metadata per element
+- Support for multiple audio versions per element
+
+### Resources
+
+**Example Files:**
+- `Sources/SwiftHablare/Examples/GuionElementSpeakableExamples.swift` - All 6 implementations
+- `Tests/SwiftHablareTests/GuionElementSpeakableTests.swift` - Comprehensive tests
+
+**Related Documentation:**
+- [SwiftCompartido README](https://github.com/intrusive-memory/SwiftCompartido) - Screenplay parsing
+- [CommonMarkParser Documentation](https://github.com/intrusive-memory/SwiftCompartido/blob/main/Sources/SwiftCompartido/Serialization/CommonMarkParser.swift) - Markdown parsing
+- [Fountain.io Specification](https://fountain.io) - Screenplay format standard
+
 ## Key Patterns
 
 ### 1. Voice Generation
@@ -1475,23 +1932,24 @@ Tests are split into **fast** (unit) and **slow** (integration) categories:
 - Models: 100%
 
 **Current Status:**
-- 109 total tests passing
+- 259 total tests passing
 - 96%+ average coverage
 - 0 test failures
-- Swift 6 strict concurrency compliance
+- Swift 6 strict concurrency compliance with strict mode enabled
 
 ### Integration Tests
 
-**IMPORTANT:** Integration tests run on iOS Simulator. Use `#if targetEnvironment(simulator)` to skip tests that require real audio on simulator.
+**Platform Support:** Integration tests run on all supported platforms (iOS, macOS, Catalyst).
 
 **Apple Voice Provider:**
 ```swift
 func testEndToEndSpeechGeneration() async throws {
     #if targetEnvironment(simulator)
+    // iOS Simulator may have limited TTS capabilities
     throw XCTSkip("Apple TTS integration test skipped on simulator")
     #endif
 
-    // Test on iOS/Catalyst devices only
+    // Test on physical devices and macOS
     let provider = AppleVoiceProvider()
     let voices = try await provider.fetchVoices()
     let audioData = try await provider.generateAudio(text: "Test", voiceId: voices.first!.id)
@@ -1516,18 +1974,29 @@ func testEndToEndWithElevenLabs() async throws {
 
 ### Running Tests
 
-**Run all tests on iOS Simulator:**
+**Run all tests (recommended - uses swift test):**
 ```bash
+swift test --enable-code-coverage
+```
+
+**Run tests on specific platform:**
+```bash
+# iOS Simulator
 xcodebuild test \
   -scheme SwiftHablare \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+
+# macOS
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=macOS'
 ```
 
 **Run only unit tests (fast):**
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
@@ -1536,7 +2005,7 @@ xcodebuild test \
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
@@ -1642,9 +2111,9 @@ await service.registerProvider(customProvider)
 
 ### Cache Voices in SwiftData
 
-**⚠️ DEPRECATED:** Manual caching is no longer necessary. Use `GenerationService.fetchVoices(from:using:languageCode:)` which automatically caches voices with language-specific keys.
+**Voice caching is automatic** when using `GenerationService.fetchVoices()`. The service automatically caches voices with language-specific keys to prevent cache collisions.
 
-**Automatic Caching (Recommended):**
+**Automatic Caching:**
 ```swift
 @MainActor
 func cacheVoices() async throws {
@@ -1655,30 +2124,6 @@ func cacheVoices() async throws {
     let esVoices = try await service.fetchVoices(from: "apple", using: modelContext, languageCode: "es")
 
     // Cache is automatically managed, no manual insertion needed
-}
-```
-
-**Manual Caching (Only if needed for custom scenarios):**
-```swift
-@MainActor
-func manualCacheVoices() async throws {
-    let provider = AppleVoiceProvider()
-    let languageCode = "en"
-    let voices = try await provider.fetchVoices(languageCode: languageCode)
-
-    for voice in voices {
-        let cache = VoiceCacheModel(
-            providerId: voice.providerId,
-            cacheLanguageCode: languageCode,  // v2.3.0+ Required
-            voiceId: voice.id,
-            voiceName: voice.name,
-            language: voice.language,
-            locality: voice.locality,
-            gender: voice.gender
-        )
-        modelContext.insert(cache)
-    }
-    try modelContext.save()
 }
 ```
 

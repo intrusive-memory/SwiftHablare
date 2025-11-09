@@ -2,12 +2,30 @@
   "originHash" : "949a2a042e6c5f50a815cb3ac7c20acb026e3e2dcf2fe6abfee6b37c708c4f4d",
   "pins" : [
     {
+      "identity" : "swift-cmark",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-cmark.git",
+      "state" : {
+        "branch" : "gfm",
+        "revision" : "924936d0427cb25a61169739a7660230bffa6ea6"
+      }
+    },
+    {
+      "identity" : "swift-markdown",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-markdown.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "f7a559ec0d1f4a6a31b82187b5cdf97c632f68f6"
+      }
+    },
+    {
       "identity" : "swiftcompartido",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/intrusive-memory/SwiftCompartido.git",
       "state" : {
         "branch" : "main",
-        "revision" : "e5f32a1b0b78204b175de2217f149476026062d7"
+        "revision" : "1ae2675c5730083e100d489be95afd6f59823365"
       }
     },
     {

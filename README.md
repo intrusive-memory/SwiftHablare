@@ -142,11 +142,11 @@ dependencies: [
 ## Requirements
 
 - Swift 6.0+
-- iOS 26.0+ / Mac Catalyst 15.0+
+- iOS 26.0+ / macOS 26.0+ / Mac Catalyst 26.0+
 - SwiftCompartido 2.1.0+
-- UIKit-based (no macOS support)
+- Cross-platform (iOS, macOS, Catalyst)
 
-**Platform Support**: SwiftHablare is a UIKit-based library supporting iOS 26+ and Mac Catalyst 15+. Native macOS is not supported.
+**Platform Support**: SwiftHablaré provides first-class support for iOS 26+, macOS 26+, and Mac Catalyst 26+ with platform-specific TTS engines.
 
 ## Quick Start
 
@@ -237,7 +237,7 @@ SwiftHablare/
 
 ### Apple Voice Provider
 
-Built-in text-to-speech for iOS 26+ and Mac Catalyst. No API key required.
+Built-in text-to-speech for iOS 26+, macOS 26+, and Mac Catalyst 26+. No API key required.
 
 ```swift
 let provider = AppleVoiceProvider()
@@ -260,13 +260,12 @@ if provider.isConfigured() {
 - Automatic language filtering
 - Quality detection (standard/enhanced/premium)
 - Gender detection based on voice name
+- Platform-agnostic through Engine Boundary Protocol
 
-**Implementation:**
-- iOS 26+ & Catalyst: Uses AVSpeechSynthesizer.write()
-- Consistent AIFF format output across all platforms
-- UIKit-based, no macOS support
-
-**All platforms generate AIFF format audio** for consistency across iOS 26+ and Catalyst applications.
+**Platform-Specific Implementation:**
+- **iOS 26+ & Catalyst**: Uses AVSpeechSynthesizer.write() (AIFC format)
+- **macOS 26+**: Uses NSSpeechSynthesizer (AIFF format)
+- Unified interface via VoiceEngine protocol
 
 ### ElevenLabs Voice Provider
 
@@ -525,6 +524,215 @@ struct ChapterView: View {
 
 See `Sources/SwiftHablare/Examples/SpeakableGroupExamples.swift` for complete implementations.
 
+### Markdown & Screenplay Support
+
+SwiftHablaré provides SpeakableItem implementations for markdown and screenplay elements from SwiftCompartido.
+
+**What's SwiftCompartido?**
+SwiftCompartido parses markdown and Fountain screenplay files into a unified `GuionElement` model. SwiftHablaré adds voice generation support for these elements.
+
+#### Supported Element Types
+
+SwiftHablaré can generate audio for all markdown and screenplay elements:
+
+| Element Type | Description | Voice Type |
+|-------------|-------------|------------|
+| **Action** | Narrative description, paragraphs, lists | Narrator |
+| **Dialogue** | Character speech | Character |
+| **Character** | Character name announcements | Narrator |
+| **Scene Heading** | Location sluglines (INT. COFFEE SHOP - DAY) | Narrator |
+| **Section Heading** | Markdown headings (# through ######) | Narrator |
+| **Parenthetical** | Stage directions | Narrator |
+| **Transition** | Scene transitions (CUT TO:, FADE OUT) | Narrator |
+| **Synopsis** | Scene summaries | Narrator |
+| **Lyrics** | Song lyrics | Character |
+
+#### Basic Usage
+
+```swift
+import SwiftHablare
+import SwiftCompartido
+
+// Parse markdown file
+let markdownURL = URL(fileURLWithPath: "article.md")
+let parsed = try GuionParsedElementCollection(file: markdownURL)
+let elements = parsed.elements
+
+// Create speakable items
+let provider = AppleVoiceProvider()
+let voices = try await provider.fetchVoices()
+let voiceId = voices.first!.id
+
+let speakableElements = elements.map { element in
+    GuionElementSpeakable(
+        element: element,
+        voiceProvider: provider,
+        voiceId: voiceId
+    )
+}
+
+// Generate audio for each element
+for speakable in speakableElements {
+    let audioData = try await speakable.speak()
+    // Save to TypedDataStorage...
+}
+```
+
+#### Dialogue Pairs
+
+For screenplay dialogue (character + dialogue pairs):
+
+```swift
+// Extract character-dialogue pairs
+var pairs: [DialoguePairSpeakable] = []
+for i in 0..<elements.count - 1 {
+    if case .character = elements[i].elementType,
+       case .dialogue = elements[i + 1].elementType {
+        let pair = DialoguePairSpeakable(
+            character: elements[i],
+            dialogue: elements[i + 1],
+            voiceProvider: provider,
+            voiceId: getVoiceForCharacter(elements[i].elementText),
+            includeCharacterName: false  // Just speak the dialogue
+        )
+        pairs.append(pair)
+    }
+}
+```
+
+#### Section Headings
+
+Announce markdown headings with level context:
+
+```swift
+let heading = GuionElement(
+    elementType: .sectionHeading(level: 2),
+    elementText: "Act One"
+)
+
+let speakable = SectionHeadingSpeakable(
+    heading: heading,
+    voiceProvider: provider,
+    voiceId: narratorVoiceId,
+    announceLevel: true  // Speaks: "Act: Act One"
+)
+```
+
+#### Batch Generation by Scene
+
+Group screenplay elements by scene:
+
+```swift
+let scene = SceneSpeakable(
+    sceneHeading: sceneHeadingElement,
+    elements: sceneElements,
+    voiceMapping: { element in
+        // Map different elements to different voices
+        switch element.elementType {
+        case .dialogue:
+            return characterVoiceId
+        default:
+            return narratorVoiceId
+        }
+    },
+    voiceProvider: provider
+)
+
+// Generate all scene audio
+let service = GenerationService(modelContext: modelContext)
+let records = try await service.generateList(
+    SpeakableItemList(name: scene.groupName, items: scene.getGroupedElements()),
+    to: modelContext
+)
+```
+
+#### Batch Generation by Chapter
+
+Group screenplay elements by chapter (Act level):
+
+```swift
+let chapter = ChapterSpeakable(
+    chapterHeading: chapterHeadingElement,  // Level 2 heading (##)
+    elements: chapterElements,
+    voiceMapping: { element in
+        // Return appropriate voiceId for element type
+        getVoiceId(for: element)
+    },
+    voiceProvider: provider
+)
+
+print(chapter.groupDescription)
+// "25 elements (3 scenes, 12 dialogue lines)"
+```
+
+#### Complete Markdown Document
+
+Generate audio for an entire markdown file:
+
+```swift
+let document = MarkdownDocumentSpeakable(
+    filename: "article.md",
+    elements: parsed.elements,
+    voiceProvider: provider,
+    defaultVoiceId: narratorVoiceId
+)
+
+// Generate all audio with progress tracking
+let list = SpeakableItemList(
+    name: document.filename,
+    items: document.getGroupedElements()
+)
+
+let records = try await service.generateList(list, to: modelContext)
+print("Generated \(records.count) audio files")
+```
+
+#### Helper Extensions
+
+SwiftHablaré adds useful extensions to `GuionElement`:
+
+```swift
+// Check if element has speakable content
+if element.isSpeakable {
+    // Element has non-empty text
+}
+
+// Get recommended voice type
+switch element.recommendedVoiceType {
+case .character:
+    // Use character voice
+case .narrator:
+    // Use narrator voice
+}
+```
+
+#### Available Implementations
+
+SwiftHablaré provides these ready-to-use implementations in `Sources/SwiftHablare/Examples/GuionElementSpeakableExamples.swift`:
+
+1. **GuionElementSpeakable** - General adapter for any GuionElement
+2. **DialoguePairSpeakable** - Character-dialogue pairs
+3. **SectionHeadingSpeakable** - Markdown headings with level announcements
+4. **SceneSpeakable** - Scene grouping for batch generation
+5. **ChapterSpeakable** - Chapter grouping for batch generation
+6. **MarkdownDocumentSpeakable** - Complete document batch generation
+
+#### Markdown Element Mapping
+
+CommonMarkParser in SwiftCompartido converts markdown to GuionElements:
+
+| Markdown | → | GuionElement Type |
+|----------|---|-------------------|
+| `# Heading` | → | `.sectionHeading(level: 1)` |
+| `## Heading` | → | `.sectionHeading(level: 2)` |
+| Paragraphs | → | `.action` |
+| Block quotes | → | `.action` (with `>` prefix) |
+| Lists | → | `.action` (with `•` or numbers) |
+| Code blocks | → | `.action` (indented) |
+| `---` | → | `.pageBreak` |
+
+See the [SwiftCompartido documentation](https://github.com/intrusive-memory/SwiftCompartido) for more details on screenplay parsing.
+
 ## Voice Caching
 
 SwiftHablare automatically caches voices in SwiftData to reduce API calls:
@@ -745,7 +953,7 @@ do {
 
 ## Testing
 
-SwiftHablare has a comprehensive test suite with over 109 passing tests and 96%+ coverage.
+SwiftHablaré has a comprehensive test suite with 259 passing tests and 96%+ coverage.
 
 ### Test Organization
 
@@ -755,8 +963,7 @@ Tests are organized into two categories for optimal CI performance:
 - ✅ Run on every pull request
 - ✅ Run on push to main/master
 - ⚡ Complete in ~30 seconds
-- 📱 Run on **iOS Simulator** (iPhone 16 Pro)
-- ❌ **Not run on macOS** (iOS and Catalyst only)
+- 📱 Run on **macOS** (primary platform)
 - 📁 All test files except those with "Integration" in the name
 - Examples:
   - `AppleVoiceProviderTests.swift`
@@ -768,85 +975,82 @@ Tests are organized into two categories for optimal CI performance:
 - 🗓️ Run weekly on Saturdays at 3 AM UTC
 - 🧪 Real API calls to voice providers
 - ⏱️ Complete in ~2-5 minutes
-- 📱 Run on **iOS Simulator** (iPhone 16 Pro)
-- ❌ **Not run on macOS** (iOS and Catalyst only)
+- 💻 Run on **macOS** and **iOS Simulator**
 - 📁 Tests with "Integration" in the class name
 - Examples:
   - `AppleVoiceProviderIntegrationTests.swift`
   - `ElevenLabsVoiceProviderIntegrationTests.swift`
 
 **Platform Support:**
-- ✅ iOS 26+ (tested on iOS Simulator)
-- ✅ Mac Catalyst 26+ (built for Catalyst, tested on simulator)
-- ❌ macOS (not supported - tests will NOT run on macOS)
+- ✅ iOS 26+ (tested on iOS Simulator and physical devices)
+- ✅ macOS 26+ (tested natively on macOS)
+- ✅ Mac Catalyst 26+ (tested on simulator)
 
 ### Running Tests Locally
 
-**Important:** Tests must be run on iOS Simulator, not macOS. Use `xcodebuild` with proper destinations.
-
-**Run all tests on iOS Simulator:**
+**Quick test (recommended - runs on macOS):**
 ```bash
+swift test --enable-code-coverage
+```
+
+**Run all tests on specific platform:**
+```bash
+# macOS (native)
+xcodebuild test \
+  -scheme SwiftHablare \
+  -destination 'platform=macOS'
+
+# iOS Simulator
 xcodebuild test \
   -scheme SwiftHablare \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
 ```
 
-**Run only fast tests (skip integration) on iOS Simulator:**
+**Run only fast tests (skip integration):**
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
 
-**Run only integration tests on iOS Simulator:**
+**Run only integration tests:**
 ```bash
 xcodebuild test \
   -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=macOS' \
   -only-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
   -only-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
 
 **With code coverage:**
 ```bash
-xcodebuild test \
-  -scheme SwiftHablare \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  -enableCodeCoverage YES
-```
-
-**Quick test with swift test (may default to macOS):**
-> ⚠️ **Warning:** `swift test` without destinations may run tests for macOS, which is not supported. Use `xcodebuild` with explicit destinations for reliable testing.
-
-```bash
-# This may run on macOS - not recommended
-swift test
+swift test --enable-code-coverage
 ```
 
 ### CI/CD Workflows
 
-SwiftHablare uses GitHub Actions with three workflows. **All tests run on iOS Simulator (iPhone 16 Pro), not macOS.**
+SwiftHablaré uses GitHub Actions with three workflows running on macOS runners.
 
 1. **`fast-tests.yml`** - Runs on every PR
-   - ✅ Executes unit tests only on iOS Simulator
+   - ✅ Executes unit tests on macOS
    - ⚡ Provides fast feedback for pull requests (~30s)
    - ⏭️ Skips integration tests to keep PRs responsive
-   - ❌ Does not run on macOS (iOS/Catalyst only)
+   - 💻 Runs natively on macOS runners
 
 2. **`integration-tests.yml`** - Runs weekly
    - 🗓️ Saturday at 3 AM UTC (middle of the night for US timezones)
-   - 🧪 Executes integration tests with real API calls on iOS Simulator
+   - 🧪 Executes integration tests with real API calls
    - ⏱️ Long-running tests (~2-5 minutes)
    - 🎮 Can be triggered manually via workflow_dispatch
-   - ❌ Does not run on macOS (iOS/Catalyst only)
+   - 💻 Runs on macOS runners
 
 3. **`tests-full.yml`** - Manual only
-   - 📋 Full test suite (unit + integration) on iOS Simulator
+   - 📋 Full test suite (unit + integration)
    - 🔧 Useful for comprehensive testing before releases
    - 🎮 Triggered manually when needed
-   - ❌ Does not run on macOS (iOS/Catalyst only)
+   - 💻 Runs on macOS runners
 
 ### Writing Tests
 
@@ -880,6 +1084,11 @@ import XCTest
 // Note: "Integration" in the class name marks this as a long-running test
 final class MyProviderIntegrationTests: XCTestCase {
     func testRealAPICall() async throws {
+        #if targetEnvironment(simulator)
+        // Skip on iOS simulator if needed
+        throw XCTSkip("Integration test requires physical device or macOS")
+        #endif
+
         // This test will be skipped in PR checks
         // and only run on the weekly schedule
         let provider = ElevenLabsVoiceProvider()
