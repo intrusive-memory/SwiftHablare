@@ -27,6 +27,11 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         self.ephemeralAPIKey = apiKey
     }
 
+    /// User-Agent string for HTTP requests
+    private var userAgent: String {
+        "\(SwiftHablare.name)/\(SwiftHablare.version)"
+    }
+
     /// Get API key from ephemeral storage (test) or keychain (production)
     private func getAPIKey() throws -> String {
         if let ephemeralKey = ephemeralAPIKey {
@@ -39,17 +44,17 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         guard let apiKey = try? getAPIKey() else {
             return false
         }
-        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey)
+        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
         return engine.canGenerate(with: configuration)
     }
 
     public func fetchVoices(languageCode: String) async throws -> [Voice] {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey())
+        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey(), userAgent: userAgent)
         return try await engine.fetchVoices(languageCode: languageCode, configuration: configuration)
     }
 
     public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey())
+        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey(), userAgent: userAgent)
         let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: languageCode, options: [
             "model_id": "eleven_monolingual_v1",
             "stability": "0.5",
@@ -60,7 +65,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: (try? getAPIKey()) ?? "")
+        let configuration = ElevenLabsEngineConfiguration(apiKey: (try? getAPIKey()) ?? "", userAgent: userAgent)
         let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: Locale.current.language.languageCode?.identifier ?? "en", options: [
             "stability": "0.5"
         ])
@@ -71,7 +76,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         guard let apiKey = try? getAPIKey() else {
             return false
         }
-        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey)
+        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
     }
 

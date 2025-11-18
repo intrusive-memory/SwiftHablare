@@ -9,6 +9,7 @@ import Foundation
 
 struct ElevenLabsEngineConfiguration: Sendable {
     let apiKey: String
+    let userAgent: String
 }
 
 struct ElevenLabsEngine: VoiceEngine {
@@ -31,6 +32,7 @@ struct ElevenLabsEngine: VoiceEngine {
         let url = URL(string: "https://api.elevenlabs.io/v1/voices?language=\(languageCode)")!
         var request = URLRequest(url: url)
         request.setValue(configuration.apiKey, forHTTPHeaderField: "xi-api-key")
+        request.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
@@ -71,6 +73,7 @@ struct ElevenLabsEngine: VoiceEngine {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue(configuration.apiKey, forHTTPHeaderField: "xi-api-key")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
         let body: [String: Any] = [
             "text": request.text,
@@ -142,6 +145,7 @@ struct ElevenLabsEngine: VoiceEngine {
         let url = URL(string: "https://api.elevenlabs.io/v1/voices/\(voiceId)")!
         var request = URLRequest(url: url)
         request.setValue(configuration.apiKey, forHTTPHeaderField: "xi-api-key")
+        request.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
