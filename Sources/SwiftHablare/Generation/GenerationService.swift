@@ -716,7 +716,9 @@ public actor GenerationService {
                     do {
                         try context.save()
                     } catch {
+                        #if DEBUG
                         print("Error saving audio at interval (item \(index + 1)): \(error.localizedDescription)")
+                        #endif
                         // Don't throw yet - try to save partial results below
                         throw error
                     }
@@ -733,9 +735,13 @@ public actor GenerationService {
                 // Save partial results before failing
                 do {
                     try context.save()
+                    #if DEBUG
                     print("Saved \(savedRecords.count) partial results before failure")
+                    #endif
                 } catch let saveError {
+                    #if DEBUG
                     print("Error saving partial results: \(saveError.localizedDescription)")
+                    #endif
                 }
                 list.failProcessing(with: error)
                 throw error
@@ -746,7 +752,9 @@ public actor GenerationService {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("Error in final save of generation list: \(error.localizedDescription)")
+            #endif
             list.failProcessing(with: error)
             throw error
         }
