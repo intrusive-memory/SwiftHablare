@@ -9,6 +9,7 @@ DerivedData/
 /test-output.log
 performance-metrics.json
 performance-output.log
+Package.resolved
 
 # Test artifacts (generated audio files)
 /TestArtifacts/
