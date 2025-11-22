@@ -159,14 +159,18 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                 bufferCount += 1
                             }
                         } catch {
+                            #if DEBUG
                             print("Error writing audio buffer: \(error)")
+                            #endif
                         }
                     }
 
                     // If no buffers were generated, fall back to placeholder
                     if bufferCount == 0 {
                         try? FileManager.default.removeItem(at: tempURL)
+                        #if DEBUG
                         print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
+                        #endif
                         let placeholderData = try await self.generatePlaceholderAudio(text: text)
                         continuation.resume(returning: placeholderData)
                         return
@@ -234,8 +238,10 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     let data = try Data(contentsOf: tempURL)
                     try? FileManager.default.removeItem(at: tempURL)
 
+                    #if DEBUG
                     print("⚠️  Generated placeholder silent audio (\(data.count) bytes, duration: \(String(format: "%.2f", estimatedDuration))s)")
                     print("   Note: Real TTS audio generation is not supported in iOS Simulator.")
+                    #endif
                     continuation.resume(returning: data)
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))

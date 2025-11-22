@@ -144,15 +144,21 @@ public final class SpeakableItemListExampleViewModel {
         do {
             let records = try await service.generateList(list, to: modelContext)
             generatedRecords = records
+            #if DEBUG
             print("✅ Successfully generated \(records.count) audio files")
+            #endif
 
         } catch {
             errorMessage = error.localizedDescription
+            #if DEBUG
             print("❌ Generation failed: \(error)")
+            #endif
 
             // Even on error, we have partial results saved
             if list.currentIndex > 0 {
+                #if DEBUG
                 print("ℹ️  Saved \(list.currentIndex) items before error")
+                #endif
             }
         }
 

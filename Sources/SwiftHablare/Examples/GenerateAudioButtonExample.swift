@@ -219,7 +219,9 @@ public struct GenerateAudioButtonExample: View {
     /// This is the app's responsibility.
     private func playAudio(from record: TypedDataStorage, for itemId: String) {
         guard let audioData = record.binaryValue else {
+            #if DEBUG
             print("No audio data in record")
+            #endif
             return
         }
 
@@ -245,7 +247,9 @@ public struct GenerateAudioButtonExample: View {
             }
 
         } catch {
+            #if DEBUG
             print("Failed to play audio: \(error)")
+            #endif
             playingItemId = nil
         }
     }

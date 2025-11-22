@@ -192,7 +192,9 @@ public enum SpeakableItemUsageExamples {
         )
 
         let audioData = try await message.speak()
+        #if DEBUG
         print("Generated \(audioData.count) bytes of audio")
+        #endif
     }
 
     /// Example: Speaking character dialogue
@@ -210,10 +212,14 @@ public enum SpeakableItemUsageExamples {
         )
 
         let duration = await dialogue.estimateDuration()
+        #if DEBUG
         print("Estimated duration: \(duration) seconds")
+        #endif
 
         _ = try await dialogue.speak()
+        #if DEBUG
         print("Generated audio for character dialogue")
+        #endif
     }
 
     /// Example: Speaking multiple items in sequence
@@ -229,10 +235,14 @@ public enum SpeakableItemUsageExamples {
         ]
 
         let totalDuration = await items.estimateTotalDuration()
+        #if DEBUG
         print("Total duration: \(totalDuration) seconds")
+        #endif
 
         let audioFiles = try await items.speakAll()
+        #if DEBUG
         print("Generated \(audioFiles.count) audio files")
+        #endif
     }
 }
 #endif
