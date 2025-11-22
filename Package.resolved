@@ -2,6 +2,15 @@
   "originHash" : "e0f24de975aee4800e83b770abbca130e281f39bf782e8e2339fbd8ea7aeb8af",
   "pins" : [
     {
+      "identity" : "libgit2",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ibrahimcetin/libgit2.git",
+      "state" : {
+        "revision" : "a75bab85c48cef6583841ff2a435744f206fcff9",
+        "version" : "1.9.1"
+      }
+    },
+    {
       "identity" : "swift-cmark",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-cmark.git",
@@ -16,7 +25,7 @@
       "location" : "https://github.com/swiftlang/swift-markdown.git",
       "state" : {
         "branch" : "main",
-        "revision" : "f7a559ec0d1f4a6a31b82187b5cdf97c632f68f6"
+        "revision" : "b2135f426fca19029430fbf26564e953b2d0f3d3"
       }
     },
     {
@@ -25,7 +34,7 @@
       "location" : "https://github.com/intrusive-memory/SwiftCompartido.git",
       "state" : {
         "branch" : "development",
-        "revision" : "323ff09aef1ea780009020f841a1022e479ef0b3"
+        "revision" : "3f3b211ac498baad581bfd6cec5050ab700ea996"
       }
     },
     {
@@ -35,6 +44,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "a7b081d5cdd1f8e590492a0cb5eeb160dcadd053"
+      }
+    },
+    {
+      "identity" : "swiftgitx",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ibrahimcetin/SwiftGitX.git",
+      "state" : {
+        "revision" : "526f707b4f77aee5cce5d432b557e1a8eacab006",
+        "version" : "0.1.9"
       }
     },
     {
