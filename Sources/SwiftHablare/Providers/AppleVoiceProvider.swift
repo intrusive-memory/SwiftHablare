@@ -64,7 +64,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: Locale.current.language.languageCode?.identifier ?? "en")
+        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
         return engine.estimateDuration(request: request, configuration: configuration)
     }
 

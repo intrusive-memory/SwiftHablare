@@ -14,7 +14,7 @@ import Foundation
 /// Returns the user's preferred language code (e.g., "en", "es", "fr").
 /// Falls back to "en" if the language code cannot be determined.
 public func systemLanguageCode() -> String {
-    return Locale.current.language.languageCode?.identifier ?? "en"
+    return LanguageCodeResolver.systemLanguageCode
 }
 
 /// A protocol that defines the requirements for any type that can be spoken.

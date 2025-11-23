@@ -159,7 +159,7 @@ public actor GenerationService {
         let estimatedDuration = await provider.estimateDuration(text: text, voiceId: voiceId)
 
         // Determine language code (use provided or default to system language)
-        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
 
         // Generate audio (this happens on background thread via actor isolation)
         let audioData = try await provider.generateAudio(text: text, voiceId: voiceId, languageCode: finalLanguageCode)
@@ -324,7 +324,7 @@ public actor GenerationService {
         let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
-        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
 
         // Fetch voices from provider
         return try await provider.fetchVoices(languageCode: finalLanguageCode)
@@ -343,7 +343,7 @@ public actor GenerationService {
         let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
-        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
 
         // Check SwiftData cache first (with language code)
         let cachedVoices = try fetchCachedVoices(for: providerId, languageCode: finalLanguageCode, using: modelContext)
@@ -485,7 +485,7 @@ public actor GenerationService {
         let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
-        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
 
         // Fetch fresh voices
         return try await provider.fetchVoices(languageCode: finalLanguageCode)
@@ -508,7 +508,7 @@ public actor GenerationService {
         let provider = try await configuredProvider(for: providerId)
 
         // Determine language code (use provided or default to system language)
-        let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
+        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
 
         // Fetch fresh voices
         let voices = try await provider.fetchVoices(languageCode: finalLanguageCode)
