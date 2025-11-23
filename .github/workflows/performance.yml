@@ -50,8 +50,8 @@ jobs:
         run: |
           echo "Running baseline performance tests on ${{ steps.latest_release.outputs.baseline_label }}..."
 
-          # Save current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          # Save current commit SHA (not branch, since we might be in detached HEAD)
+          CURRENT_SHA=$(git rev-parse HEAD)
 
           # Checkout baseline ref
           git checkout ${{ steps.latest_release.outputs.baseline_ref }}
@@ -129,8 +129,8 @@ jobs:
           echo "=== Baseline metrics ==="
           cat performance-results/baseline.json
 
-          # Return to PR branch
-          git checkout $CURRENT_BRANCH
+          # Return to PR commit SHA
+          git checkout $CURRENT_SHA
 
           exit 0
 
