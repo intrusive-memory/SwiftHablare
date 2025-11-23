@@ -1,15 +1,16 @@
 //
-//  PerformanceTests.swift
+//  PerformanceIntegrationTests.swift
 //  SwiftHablareTests
 //
 //  Performance benchmarks for SwiftHablare operations.
 //  These tests establish baselines and measure optimization improvements.
+//  Runs weekly on integration test schedule (long-running benchmarks).
 //
 
 import XCTest
 @testable import SwiftHablare
 
-final class PerformanceTests: XCTestCase {
+final class PerformanceIntegrationTests: XCTestCase {
 
     // MARK: - Test Configuration
 

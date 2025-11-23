@@ -1,0 +1,207 @@
+name: Performance Tests
+
+on:
+  schedule:
+    # Run weekly on Saturdays at 3 AM UTC
+    - cron: '0 3 * * 6'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      reason:
+        description: 'Reason for running performance tests'
+        required: false
+        default: 'Manual trigger'
+
+jobs:
+  # First run unit tests to ensure baseline functionality
+  unit-tests:
+    name: Unit Tests (Prerequisites for Performance)
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Clean test database
+        run: |
+          rm -rf ~/Library/Application\ Support/default.store*
+          rm -rf ~/Library/Application\ Support/*.store
+
+      - name: Run unit tests (fast tests only)
+        run: |
+          echo "🏃 Running unit tests before performance benchmarks..."
+          echo "Platform: macOS"
+          echo ""
+
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
+            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/PerformanceIntegrationTests \
+            | tee unit-test-output.log \
+            | xcpretty --test --color
+
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          if grep -q "TEST FAILED" unit-test-output.log || grep -q "** TEST FAILED **" unit-test-output.log; then
+            echo "❌ Unit tests failed - performance tests will not run"
+            exit 1
+          elif grep -q "TEST SUCCEEDED" unit-test-output.log || grep -q "** TEST SUCCEEDED **" unit-test-output.log; then
+            echo "✅ Unit tests passed - ready for performance benchmarks"
+            exit 0
+          else
+            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
+            exit $TEST_EXIT_CODE
+          fi
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-prereq-unit-tests
+          path: unit-test-output.log
+          retention-days: 30
+
+  # Run performance tests ONLY if unit tests pass
+  performance-tests:
+    name: Performance Benchmarks
+    runs-on: macos-26
+    needs: [unit-tests]  # Wait for unit tests to complete successfully
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Clean test database
+        run: |
+          rm -rf ~/Library/Application\ Support/default.store*
+          rm -rf ~/Library/Application\ Support/*.store
+
+      - name: Run performance benchmarks
+        run: |
+          echo "⚡ Running performance benchmarks..."
+          echo "Platform: macOS"
+          echo "Test Class: PerformanceIntegrationTests (21 benchmarks)"
+          echo ""
+          echo "These tests measure:"
+          echo "  - Voice fetching performance"
+          echo "  - Audio generation performance"
+          echo "  - Provider initialization speed"
+          echo "  - Voice filtering and sorting"
+          echo "  - Concurrent operations"
+          echo "  - Memory footprint"
+          echo "  - Multi-language performance"
+          echo ""
+
+          # Run ONLY performance integration tests
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
+            -only-testing:SwiftHablareTests/PerformanceIntegrationTests \
+            | tee performance-output.log \
+            | xcpretty --test --color
+
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          if grep -q "TEST FAILED" performance-output.log || grep -q "** TEST FAILED **" performance-output.log; then
+            echo "❌ Performance tests failed"
+            exit 1
+          elif grep -q "TEST SUCCEEDED" performance-output.log || grep -q "** TEST SUCCEEDED **" performance-output.log; then
+            echo "✅ Performance tests completed"
+            exit 0
+          else
+            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
+            exit $TEST_EXIT_CODE
+          fi
+
+      - name: Extract performance metrics
+        if: always()
+        shell: bash {0}
+        run: |
+          echo "## Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** macOS" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Class:** PerformanceIntegrationTests" >> $GITHUB_STEP_SUMMARY
+          echo "**Total Benchmarks:** 21" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f performance-output.log ]; then
+            # Extract baseline recording if present
+            if grep -q "PERFORMANCE BASELINE RECORDED" performance-output.log; then
+              echo "### 📊 Performance Baseline" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              sed -n '/PERFORMANCE BASELINE RECORDED/,/==========================================$/p' performance-output.log | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Extract comparison if present
+            if grep -q "PERFORMANCE COMPARISON" performance-output.log; then
+              echo "### 📈 Performance Comparison" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              sed -n '/PERFORMANCE COMPARISON/,/==========================================$/p' performance-output.log | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Extract test results
+            LAST_EXECUTION_LINE=$(grep "Executed.*test" performance-output.log | tail -n 1 || true)
+
+            if [ -n "$LAST_EXECUTION_LINE" ]; then
+              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*" || echo "0")
+              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*" || echo "0")
+
+              if [ -z "$FAILURES" ] || [ "$FAILURES" = "" ]; then
+                FAILURES=0
+              fi
+
+              if [ -n "$TOTAL_TESTS" ] && [ "$TOTAL_TESTS" != "0" ]; then
+                PASSED=$((TOTAL_TESTS - FAILURES))
+
+                echo "### Test Summary" >> $GITHUB_STEP_SUMMARY
+                if [ "$FAILURES" -eq 0 ]; then
+                  echo "✅ **All benchmarks passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                  echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            fi
+          else
+            echo "No performance test output found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results
+          path: |
+            performance-output.log
+          retention-days: 90  # Keep longer for historical tracking
+
+      - name: Check for performance regressions
+        if: always()
+        shell: bash {0}
+        run: |
+          if grep -q "REGRESSION" performance-output.log; then
+            echo "⚠️  Performance regression detected!" >> $GITHUB_STEP_SUMMARY
+            echo "Review the performance comparison above for details." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ No performance regressions detected" >> $GITHUB_STEP_SUMMARY
+          fi
