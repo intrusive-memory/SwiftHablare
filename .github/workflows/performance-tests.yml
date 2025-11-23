@@ -1,19 +1,15 @@
-name: Performance Tests (Weekly Historical Tracking)
-
-# This workflow runs performance tests weekly for long-term tracking.
-# Performance tests also run on every PR after unit tests pass.
-# This weekly run provides historical baseline data for comparison.
+name: Performance Tests
 
 on:
   schedule:
-    # Run weekly on Saturdays at 3 AM UTC for historical tracking
+    # Run weekly on Saturdays at 3 AM UTC
     - cron: '0 3 * * 6'
   workflow_dispatch:  # Allow manual triggering
     inputs:
       reason:
         description: 'Reason for running performance tests'
         required: false
-        default: 'Manual historical tracking run'
+        default: 'Manual trigger'
 
 jobs:
   # First run unit tests to ensure baseline functionality
