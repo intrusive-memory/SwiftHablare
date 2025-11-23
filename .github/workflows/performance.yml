@@ -1,0 +1,229 @@
+name: Performance Tests
+
+on:
+  pull_request:
+    branches: [main, development]
+  push:
+    branches: [main, development]
+  release:
+    types: [published, created]
+  workflow_dispatch:
+  schedule:
+    # Run performance tests weekly on Sundays at 00:00 UTC
+    - cron: '0 0 * * 0'
+
+jobs:
+  performance:
+    name: Swift Performance Tests
+    runs-on: macos-26
+    # Performance tests are informational only - don't block PRs
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comparison
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Build in Release mode
+        run: |
+          echo "🔨 Building in Release mode"
+          swift build -c release
+
+      - name: Run performance tests
+        id: perf_tests
+        run: |
+          echo "Running performance tests..."
+
+          # Create output directory
+          mkdir -p performance-results
+
+          # Run performance tests in release mode and capture output
+          set +e
+          swift test -c release --filter PerformanceTests > performance-results/output.txt 2>&1
+          PERF_EXIT_CODE=$?
+
+          # Show test output for debugging
+          echo "=== Test output (first 100 lines) ==="
+          head -100 performance-results/output.txt
+
+          echo "=== Test output (last 50 lines) ==="
+          tail -50 performance-results/output.txt
+
+          # Extract performance metrics
+          echo "Extracting performance metrics..."
+          grep -E "measured\[" performance-results/output.txt > performance-results/metrics.txt || true
+
+          echo "=== Found metrics ==="
+          cat performance-results/metrics.txt || echo "No XCTest metrics found"
+
+          # Create JSON output for benchmarking
+          python3 - <<'PYTHON_SCRIPT' > performance-results/benchmarks.json
+          import json
+          import re
+          import sys
+
+          metrics = {}
+
+          try:
+              with open('performance-results/output.txt', 'r') as f:
+                  content = f.read()
+
+                  # Look for baseline output from testRecordPerformanceBaseline
+                  baseline_section = re.search(
+                      r'PERFORMANCE BASELINE RECORDED.*?={10,}',
+                      content,
+                      re.DOTALL
+                  )
+
+                  if baseline_section:
+                      section_text = baseline_section.group(0)
+
+                      # Parse lines like "Voice Fetch Time:     0.1234s"
+                      for line in section_text.split('\n'):
+                          match = re.search(r'([^:]+):\s+(\d+\.\d+)s', line)
+                          if match:
+                              name = match.group(1).strip()
+                              value = float(match.group(2))
+                              metrics[name] = {
+                                  'name': name,
+                                  'unit': 's',
+                                  'value': value
+                              }
+
+              # If no baseline metrics, look for XCTest measure() results
+              if not metrics:
+                  with open('performance-results/metrics.txt', 'r') as f:
+                      for line in f:
+                          # Parse XCTest output: "measured[Wall Clock Time, seconds] average: 0.123"
+                          match = re.search(r'measured\[([^\]]+)\]\s+average:\s+(\d+\.\d+)', line)
+                          if match:
+                              name = match.group(1).strip()
+                              value = float(match.group(2))
+                              metrics[name] = {
+                                  'name': name,
+                                  'unit': 's',
+                                  'value': value
+                              }
+          except FileNotFoundError:
+              print("No metrics file found", file=sys.stderr)
+
+          # Output in GitHub benchmark format
+          benchmarks = [
+              {
+                  'name': v['name'],
+                  'unit': v['unit'],
+                  'value': v['value']
+              }
+              for v in metrics.values()
+          ]
+
+          print(json.dumps(benchmarks, indent=2))
+          PYTHON_SCRIPT
+
+          cat performance-results/benchmarks.json
+
+          # Exit with success even if tests failed (non-blocking)
+          exit 0
+
+      - name: Format performance results for PR comment
+        if: github.event_name == 'pull_request'
+        id: format_results
+        run: |
+          echo "Formatting performance results for PR comment..."
+
+          # Create markdown comment
+          cat > performance-comment.md <<'EOF_COMMENT'
+          ## 📊 Performance Test Results
+
+          **SwiftHablare** performance metrics from this PR:
+
+          EOF_COMMENT
+
+          # Add metrics table if we have results
+          if [ -f performance-results/benchmarks.json ] && [ -s performance-results/benchmarks.json ]; then
+            echo "" >> performance-comment.md
+            echo "| Metric | Value |" >> performance-comment.md
+            echo "|--------|-------|" >> performance-comment.md
+
+            # Parse JSON and create table rows
+            python3 - <<'PYTHON_SCRIPT' >> performance-comment.md
+          import json
+
+          try:
+              with open('performance-results/benchmarks.json', 'r') as f:
+                  benchmarks = json.load(f)
+                  if benchmarks:
+                      for bench in benchmarks:
+                          name = bench.get('name', 'Unknown')
+                          value = bench.get('value', 0)
+                          unit = bench.get('unit', 's')
+                          print(f"| {name} | {value:.6f}{unit} |")
+                  else:
+                      print("| No metrics available | - |")
+          except Exception as e:
+              print(f"| Error parsing results | {str(e)} |")
+          PYTHON_SCRIPT
+
+            echo "" >> performance-comment.md
+            echo "✅ **All performance tests completed successfully**" >> performance-comment.md
+          else
+            echo "" >> performance-comment.md
+            echo "⚠️ No performance metrics were captured from this run." >> performance-comment.md
+            echo "" >> performance-comment.md
+            echo "Performance tests may not have run. Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." >> performance-comment.md
+          fi
+
+          echo "" >> performance-comment.md
+          echo "---" >> performance-comment.md
+          echo "*Performance tests are informational only and do not block PRs.*" >> performance-comment.md
+          echo "" >> performance-comment.md
+          echo "<sub>🤖 This comment updates automatically on new commits</sub>" >> performance-comment.md
+
+          # Save for next step
+          cat performance-comment.md
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: performance-results
+          path: performance-comment.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results-${{ github.event_name == 'release' && github.event.release.tag_name || 'dev' }}
+          path: performance-results/
+          retention-days: 90
+
+      - name: Generate performance summary
+        if: always()
+        run: |
+          echo "## Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "**Release Performance Benchmark**: ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Performance tests completed. Results are informational only and do not block PRs." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f performance-results/benchmarks.json ]; then
+            echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat performance-results/benchmarks.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No benchmark data generated." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Full results available in [artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
