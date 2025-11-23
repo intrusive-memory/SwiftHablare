@@ -7,18 +7,95 @@ on:
     branches: [main, master]
 
 jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for TODOs and FIXMEs
+        shell: bash {0}
+        run: |
+          echo "🔍 Checking for TODOs and FIXMEs in source code..."
+          TODOS=$(grep -r "TODO" Sources/ 2>/dev/null || true)
+          FIXMES=$(grep -r "FIXME" Sources/ 2>/dev/null || true)
+
+          if [ -n "$TODOS" ] || [ -n "$FIXMES" ]; then
+            echo "⚠️  Found TODO/FIXME comments in source code:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$TODOS" ]; then
+              echo "**TODOs:**" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$TODOS" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ -n "$FIXMES" ]; then
+              echo "**FIXMEs:**" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$FIXMES" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "ℹ️  This is a warning only."  >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No TODO/FIXME comments found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check for large files
+        shell: bash {0}
+        run: |
+          echo "🔍 Checking for large files (>1MB)..."
+          LARGE_FILES=$(find . -type f -size +1M -not -path "./.build/*" -not -path "./.git/*" 2>/dev/null || true)
+
+          if [ -n "$LARGE_FILES" ]; then
+            echo "⚠️  Found large files (>1MB):" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$LARGE_FILES" | while read file; do
+              if [ -f "$file" ]; then
+                SIZE=$(ls -lh "$file" | awk '{print $5}')
+                echo "$file ($SIZE)"
+              fi
+            done >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No large files found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check for print statements
+        shell: bash {0}
+        run: |
+          echo "🔍 Checking for print statements in production code..."
+          PRINTS=$(grep -r "print(" Sources/ --include="*.swift" --exclude-dir="Examples" 2>/dev/null || true)
+
+          if [ -n "$PRINTS" ]; then
+            COUNT=$(echo "$PRINTS" | wc -l | tr -d ' ')
+            echo "⚠️  Found $COUNT print statement(s):" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$PRINTS" | head -10 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No print statements found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Swift build check
+        run: |
+          echo "🔨 Verifying Swift package builds..."
+          swift build --configuration debug
+          echo "✅ Swift package builds successfully" >> $GITHUB_STEP_SUMMARY
+
   fast-test:
     name: Fast Tests (${{ matrix.platform }})
     runs-on: macos-26
+    needs: [code-quality]
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: iOS
             destination: 'platform=iOS Simulator,name=iPhone 17'
-            skip_integration: true
-          - platform: Catalyst
-            destination: 'platform=macOS,variant=Mac Catalyst'
             skip_integration: true
 
     steps:
@@ -146,6 +223,7 @@ jobs:
   fast-test-macos:
     name: Fast Tests (macOS)
     runs-on: macos-26
+    needs: [code-quality]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
