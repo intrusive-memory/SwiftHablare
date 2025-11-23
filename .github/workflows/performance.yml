@@ -1,38 +1,25 @@
 name: Performance Tests
 
 on:
-  # Run after fast tests complete successfully
-  workflow_run:
-    workflows: ["Fast Tests (PR)"]
-    types: [completed]
-    branches: [main, master, development]
-  # Manual trigger for testing
+  pull_request:
+    branches: [main, development]
+  push:
+    branches: [main, development]
+  release:
+    types: [published, created]
   workflow_dispatch:
-  # Run performance tests weekly on Sundays at 00:00 UTC
   schedule:
+    # Run performance tests weekly on Sundays at 00:00 UTC
     - cron: '0 0 * * 0'
 
 jobs:
   performance:
     name: Swift Performance Tests
     runs-on: macos-26
-    # Only run if fast tests succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     # Performance tests are informational only - don't block PRs
     continue-on-error: true
 
     steps:
-      - name: Display dependency status
-        if: github.event_name == 'workflow_run'
-        run: |
-          echo "## Performance Tests - Dependency Check" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Unit tests passed** - proceeding with performance tests" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Trigger:** Fast Tests (PR) workflow completed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "**Workflow Run:** ${{ github.event.workflow_run.html_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -40,112 +27,6 @@ jobs:
 
       - name: Show Swift version
         run: swift --version
-
-      - name: Find latest release tag
-        id: latest_release
-        run: |
-          # Get the latest release tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No release tags found - using main branch as baseline"
-            echo "baseline_ref=main" >> $GITHUB_OUTPUT
-            echo "baseline_label=main branch" >> $GITHUB_OUTPUT
-          else
-            echo "Found latest release: $LATEST_TAG"
-            echo "baseline_ref=$LATEST_TAG" >> $GITHUB_OUTPUT
-            echo "baseline_label=$LATEST_TAG" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run baseline performance tests
-        if: github.event_name == 'pull_request'
-        id: baseline_tests
-        run: |
-          echo "Running baseline performance tests on ${{ steps.latest_release.outputs.baseline_label }}..."
-
-          # Save current commit SHA (not branch, since we might be in detached HEAD)
-          CURRENT_SHA=$(git rev-parse HEAD)
-
-          # Checkout baseline ref
-          git checkout ${{ steps.latest_release.outputs.baseline_ref }}
-
-          # Create baseline output directory
-          mkdir -p performance-results/baseline
-
-          # Build and test baseline
-          set +e
-          swift test -c release --filter PerformanceTests > performance-results/baseline/output.txt 2>&1
-
-          # Extract baseline metrics
-          grep -E "measured\[" performance-results/baseline/output.txt > performance-results/baseline/metrics.txt || true
-
-          # Convert to JSON
-          python3 - <<'PYTHON_SCRIPT' > performance-results/baseline.json
-          import json
-          import re
-
-          metrics = {}
-
-          try:
-              with open('performance-results/baseline/output.txt', 'r') as f:
-                  content = f.read()
-
-                  # Look for baseline output
-                  baseline_section = re.search(
-                      r'PERFORMANCE BASELINE RECORDED.*?={10,}',
-                      content,
-                      re.DOTALL
-                  )
-
-                  if baseline_section:
-                      section_text = baseline_section.group(0)
-
-                      for line in section_text.split('\n'):
-                          match = re.search(r'([^:]+):\s+(\d+\.\d+)s', line)
-                          if match:
-                              name = match.group(1).strip()
-                              value = float(match.group(2))
-                              metrics[name] = {
-                                  'name': name,
-                                  'unit': 's',
-                                  'value': value
-                              }
-
-              # If no baseline metrics, look for XCTest measure() results
-              if not metrics:
-                  with open('performance-results/baseline/metrics.txt', 'r') as f:
-                      for line in f:
-                          match = re.search(r'measured\[([^\]]+)\]\s+average:\s+(\d+\.\d+)', line)
-                          if match:
-                              name = match.group(1).strip()
-                              value = float(match.group(2))
-                              metrics[name] = {
-                                  'name': name,
-                                  'unit': 's',
-                                  'value': value
-                              }
-          except FileNotFoundError:
-              pass
-
-          benchmarks = [
-              {
-                  'name': v['name'],
-                  'unit': v['unit'],
-                  'value': v['value']
-              }
-              for v in metrics.values()
-          ]
-
-          print(json.dumps(benchmarks, indent=2))
-          PYTHON_SCRIPT
-
-          echo "=== Baseline metrics ==="
-          cat performance-results/baseline.json
-
-          # Return to PR commit SHA
-          git checkout $CURRENT_SHA
-
-          exit 0
 
       - name: Build in Release mode
         run: |
@@ -254,124 +135,53 @@ jobs:
         run: |
           echo "Formatting performance results for PR comment..."
 
-          # Compare PR results with baseline and create markdown comment
-          python3 - > performance-comment.md <<'PYTHON_SCRIPT'
+          # Create markdown comment
+          cat > performance-comment.md <<'EOF_COMMENT'
+          ## 📊 Performance Test Results
+
+          **SwiftHablare** performance metrics from this PR:
+
+          EOF_COMMENT
+
+          # Add metrics table if we have results
+          if [ -f performance-results/benchmarks.json ] && [ -s performance-results/benchmarks.json ]; then
+            echo "" >> performance-comment.md
+            echo "| Metric | Value |" >> performance-comment.md
+            echo "|--------|-------|" >> performance-comment.md
+
+            # Parse JSON and create table rows
+            python3 - <<'PYTHON_SCRIPT' >> performance-comment.md
           import json
 
-          # Load PR results
-          pr_results = {}
           try:
               with open('performance-results/benchmarks.json', 'r') as f:
-                  pr_data = json.load(f)
-                  pr_results = {item['name']: item['value'] for item in pr_data}
-          except (FileNotFoundError, json.JSONDecodeError):
-              pr_results = {}
-
-          # Load baseline results
-          baseline_results = {}
-          baseline_label = "${{ steps.latest_release.outputs.baseline_label }}"
-          try:
-              with open('performance-results/baseline.json', 'r') as f:
-                  baseline_data = json.load(f)
-                  baseline_results = {item['name']: item['value'] for item in baseline_data}
-          except (FileNotFoundError, json.JSONDecodeError):
-              baseline_label = None
-
-          # Header
-          print("## 📊 Performance Test Results")
-          print()
-          print("**SwiftHablare** performance comparison:")
-          print()
-
-          if not pr_results:
-              print("⚠️ No performance metrics were captured from this PR.")
-              print()
-              print("---")
-              print("*Performance tests are informational only and do not block PRs.*")
-              print()
-              print("<sub>🤖 This comment updates automatically on new commits</sub>")
-          elif not baseline_results:
-              # No baseline - just show PR results
-              print(f"**Baseline**: No release found - showing PR results only")
-              print()
-              print("| Metric | This PR |")
-              print("|--------|---------|")
-              for name, value in sorted(pr_results.items()):
-                  print(f"| {name} | {value:.6f}s |")
-              print()
-              print("*Baseline comparison will be available after first release.*")
-              print()
-              print("---")
-              print("*Performance tests are informational only and do not block PRs.*")
-              print()
-              print("<sub>🤖 This comment updates automatically on new commits</sub>")
-          else:
-              # Compare results
-              improvements = 0
-              regressions = 0
-              unchanged = 0
-
-              comparisons = []
-
-              for name in sorted(set(pr_results.keys()) | set(baseline_results.keys())):
-                  pr_value = pr_results.get(name)
-                  baseline_value = baseline_results.get(name)
-
-                  if pr_value is None:
-                      comparisons.append((name, None, baseline_value, "removed", 0))
-                  elif baseline_value is None:
-                      comparisons.append((name, pr_value, None, "new", 0))
+                  benchmarks = json.load(f)
+                  if benchmarks:
+                      for bench in benchmarks:
+                          name = bench.get('name', 'Unknown')
+                          value = bench.get('value', 0)
+                          unit = bench.get('unit', 's')
+                          print(f"| {name} | {value:.6f}{unit} |")
                   else:
-                      diff_pct = ((pr_value - baseline_value) / baseline_value) * 100
-
-                      # For time metrics, lower is better
-                      if abs(diff_pct) < 1:  # Less than 1% change
-                          status = "unchanged"
-                          unchanged += 1
-                      elif diff_pct < 0:  # PR is faster
-                          status = "improved"
-                          improvements += 1
-                      else:  # PR is slower
-                          status = "regressed"
-                          regressions += 1
-
-                      comparisons.append((name, pr_value, baseline_value, status, diff_pct))
-
-              # Overall verdict
-              if regressions == 0 and improvements > 0:
-                  verdict = f"✅ **Faster** - {improvements} metric(s) improved"
-              elif regressions > 0 and improvements == 0:
-                  verdict = f"⚠️ **Slower** - {regressions} metric(s) regressed"
-              elif regressions > 0 and improvements > 0:
-                  verdict = f"⚖️ **Mixed** - {improvements} improved, {regressions} regressed"
-              else:
-                  verdict = "➡️ **Unchanged** - No significant performance changes"
-
-              print(f"**Baseline**: {baseline_label}")
-              print()
-              print(verdict)
-              print()
-              print("| Metric | This PR | Baseline | Change | Status |")
-              print("|--------|---------|----------|--------|--------|")
-
-              for name, pr_val, baseline_val, status, diff_pct in comparisons:
-                  if status == "new":
-                      print(f"| {name} | {pr_val:.6f}s | - | - | 🆕 New |")
-                  elif status == "removed":
-                      print(f"| {name} | - | {baseline_val:.6f}s | - | ❌ Removed |")
-                  elif status == "unchanged":
-                      print(f"| {name} | {pr_val:.6f}s | {baseline_val:.6f}s | {diff_pct:+.1f}% | ➡️ No change |")
-                  elif status == "improved":
-                      print(f"| {name} | {pr_val:.6f}s | {baseline_val:.6f}s | {diff_pct:+.1f}% | ✅ Faster |")
-                  else:  # regressed
-                      print(f"| {name} | {pr_val:.6f}s | {baseline_val:.6f}s | {diff_pct:+.1f}% | ⚠️ Slower |")
-
-              print()
-              print("---")
-              print("*Performance tests are informational only and do not block PRs.*")
-              print()
-              print("<sub>🤖 This comment updates automatically on new commits</sub>")
+                      print("| No metrics available | - |")
+          except Exception as e:
+              print(f"| Error parsing results | {str(e)} |")
           PYTHON_SCRIPT
+
+            echo "" >> performance-comment.md
+            echo "✅ **All performance tests completed successfully**" >> performance-comment.md
+          else
+            echo "" >> performance-comment.md
+            echo "⚠️ No performance metrics were captured from this run." >> performance-comment.md
+            echo "" >> performance-comment.md
+            echo "Performance tests may not have run. Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." >> performance-comment.md
+          fi
+
+          echo "" >> performance-comment.md
+          echo "---" >> performance-comment.md
+          echo "*Performance tests are informational only and do not block PRs.*" >> performance-comment.md
+          echo "" >> performance-comment.md
+          echo "<sub>🤖 This comment updates automatically on new commits</sub>" >> performance-comment.md
 
           # Save for next step
           cat performance-comment.md
