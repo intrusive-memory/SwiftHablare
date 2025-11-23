@@ -155,19 +155,11 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Voice Filtering Performance
 
-    func testVoiceFilteringPerformance() throws {
+    func testVoiceFilteringPerformance() async throws {
         let provider = AppleVoiceProvider()
 
         // Fetch voices once
-        let expectation = self.expectation(description: "Fetch voices for filtering test")
-        var voices: [Voice] = []
-
-        Task {
-            voices = try await provider.fetchVoices(languageCode: "en")
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 10.0)
+        let voices = try await provider.fetchVoices(languageCode: "en")
 
         XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
 
@@ -290,7 +282,7 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Baseline Recording & Comparison
 
-    func testRecordPerformanceBaseline() throws {
+    func testRecordPerformanceBaseline() async throws {
         // This test records current performance metrics for comparison
         let provider = AppleVoiceProvider()
 
@@ -298,16 +290,8 @@ final class PerformanceTests: XCTestCase {
 
         // Measure voice fetching
         let fetchStart = Date()
-        let fetchExpectation = self.expectation(description: "Fetch")
-        var voiceFetchTime: TimeInterval = 0
-        Task {
-            _ = try await provider.fetchVoices(languageCode: "en")
-            await MainActor.run {
-                voiceFetchTime = Date().timeIntervalSince(fetchStart)
-                fetchExpectation.fulfill()
-            }
-        }
-        wait(for: [fetchExpectation], timeout: 10.0)
+        _ = try await provider.fetchVoices(languageCode: "en")
+        let voiceFetchTime = Date().timeIntervalSince(fetchStart)
 
         // Measure provider init
         let initStart = Date()
@@ -315,21 +299,13 @@ final class PerformanceTests: XCTestCase {
         let providerInitTime = Date().timeIntervalSince(initStart)
 
         // Measure filtering
-        let filterExpectation = self.expectation(description: "Filter")
-        var filterTime: TimeInterval = 0
-        Task {
-            let voices = try await provider.fetchVoices(languageCode: "en")
-            let filterStart = Date()
-            _ = voices.filter { voice in
-                guard let quality = voice.quality else { return false }
-                return quality == "enhanced" || quality == "premium"
-            }
-            await MainActor.run {
-                filterTime = Date().timeIntervalSince(filterStart)
-                filterExpectation.fulfill()
-            }
+        let voices = try await provider.fetchVoices(languageCode: "en")
+        let filterStart = Date()
+        _ = voices.filter { voice in
+            guard let quality = voice.quality else { return false }
+            return quality == "enhanced" || quality == "premium"
         }
-        wait(for: [filterExpectation], timeout: 10.0)
+        let filterTime = Date().timeIntervalSince(filterStart)
 
         // Create baseline record
         let baseline = PerformanceBaseline(
@@ -368,7 +344,7 @@ final class PerformanceTests: XCTestCase {
         }
     }
 
-    func testCompareWithBaseline() throws {
+    func testCompareWithBaseline() async throws {
         // Load previous baseline if it exists
         let tempDir = FileManager.default.temporaryDirectory
         let baselineFile = tempDir.appendingPathComponent("performance_baseline.json")
@@ -384,16 +360,8 @@ final class PerformanceTests: XCTestCase {
 
         // Measure voice fetching
         let fetchStart = Date()
-        let fetchExpectation = self.expectation(description: "Current fetch")
-        var currentVoiceFetchTime: TimeInterval = 0
-        Task {
-            _ = try await provider.fetchVoices(languageCode: "en")
-            await MainActor.run {
-                currentVoiceFetchTime = Date().timeIntervalSince(fetchStart)
-                fetchExpectation.fulfill()
-            }
-        }
-        wait(for: [fetchExpectation], timeout: 10.0)
+        _ = try await provider.fetchVoices(languageCode: "en")
+        let currentVoiceFetchTime = Date().timeIntervalSince(fetchStart)
 
         // Measure provider init
         let initStart = Date()
@@ -401,26 +369,18 @@ final class PerformanceTests: XCTestCase {
         let currentProviderInitTime = Date().timeIntervalSince(initStart)
 
         // Measure filtering
-        let filterExpectation = self.expectation(description: "Current filter")
-        var currentFilterTime: TimeInterval = 0
-        Task {
-            let voices = try await provider.fetchVoices(languageCode: "en")
-            let filterStart = Date()
-            _ = voices.filter { voice in
-                guard let quality = voice.quality else { return false }
-                return quality == "enhanced" || quality == "premium"
-            }
-            await MainActor.run {
-                currentFilterTime = Date().timeIntervalSince(filterStart)
-                filterExpectation.fulfill()
-            }
+        let voices = try await provider.fetchVoices(languageCode: "en")
+        let filterStart = Date()
+        _ = voices.filter { voice in
+            guard let quality = voice.quality else { return false }
+            return quality == "enhanced" || quality == "premium"
         }
-        wait(for: [filterExpectation], timeout: 10.0)
+        let filterTime = Date().timeIntervalSince(filterStart)
 
         // Calculate improvements
         let fetchImprovement = ((baseline.voiceFetchTime - currentVoiceFetchTime) / baseline.voiceFetchTime) * 100
         let initImprovement = ((baseline.providerInitTime - currentProviderInitTime) / baseline.providerInitTime) * 100
-        let filterImprovement = ((baseline.voiceFilterTime - currentFilterTime) / baseline.voiceFilterTime) * 100
+        let filterImprovement = ((baseline.voiceFilterTime - filterTime) / baseline.voiceFilterTime) * 100
 
         // Print comparison
         print("""
@@ -443,7 +403,7 @@ final class PerformanceTests: XCTestCase {
 
         Filter Time:
           Baseline: \(String(format: "%.6f", baseline.voiceFilterTime))s
-          Current:  \(String(format: "%.6f", currentFilterTime))s
+          Current:  \(String(format: "%.6f", filterTime))s
           Change:   \(String(format: "%+.1f", filterImprovement))%
 
         Overall: \(fetchImprovement > 0 && initImprovement > 0 ? "✅ IMPROVED" : "⚠️  REGRESSION")
@@ -525,8 +485,6 @@ final class PerformanceTests: XCTestCase {
     // MARK: - GenerationService Performance
 
     func testGenerationServiceBatchOperationPerformance() {
-        let service = GenerationService()
-
         let testItems = (0..<20).map { i in
             (text: "Test dialogue \(i)", voiceId: "test-voice-\(i)")
         }
@@ -550,18 +508,10 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Voice Filtering and Sorting Performance
 
-    func testVoiceSortingPerformance() throws {
+    func testVoiceSortingPerformance() async throws {
         let provider = AppleVoiceProvider()
 
-        let expectation = self.expectation(description: "Fetch for sorting")
-        var voices: [Voice] = []
-
-        Task {
-            voices = try await provider.fetchVoices(languageCode: "en")
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 10.0)
+        let voices = try await provider.fetchVoices(languageCode: "en")
 
         XCTAssertFalse(voices.isEmpty, "Need voices to test sorting")
 
@@ -569,23 +519,15 @@ final class PerformanceTests: XCTestCase {
             for _ in 0..<1000 {
                 _ = voices.sorted { $0.name < $1.name }
                 _ = voices.sorted { ($0.quality ?? "") > ($1.quality ?? "") }
-                _ = voices.sorted { $0.languageCode < $1.languageCode }
+                _ = voices.sorted { ($0.language ?? "") < ($1.language ?? "") }
             }
         }
     }
 
-    func testComplexVoiceFilteringPerformance() throws {
+    func testComplexVoiceFilteringPerformance() async throws {
         let provider = AppleVoiceProvider()
 
-        let expectation = self.expectation(description: "Fetch for complex filtering")
-        var voices: [Voice] = []
-
-        Task {
-            voices = try await provider.fetchVoices(languageCode: "en")
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 10.0)
+        let voices = try await provider.fetchVoices(languageCode: "en")
 
         XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
 
@@ -594,7 +536,7 @@ final class PerformanceTests: XCTestCase {
                 // Complex filter: high quality, English, name starts with certain letters
                 _ = voices.filter { voice in
                     let isHighQuality = voice.quality == "enhanced" || voice.quality == "premium"
-                    let isEnglish = voice.languageCode.hasPrefix("en")
+                    let isEnglish = (voice.language ?? "").hasPrefix("en")
                     let nameFilter = voice.name.first.map { $0 >= "A" && $0 <= "M" } ?? false
                     return isHighQuality && isEnglish && nameFilter
                 }
