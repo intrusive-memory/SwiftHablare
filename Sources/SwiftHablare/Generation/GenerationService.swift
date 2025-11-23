@@ -542,10 +542,12 @@ public actor GenerationService {
         }
 
         let cachedModels = try modelContext.fetch(descriptor)
-        for model in cachedModels {
-            modelContext.delete(model)
-        }
+
+        // Optimize deletion by batching in a single transaction
+        modelContext.autosaveEnabled = false
+        cachedModels.forEach { modelContext.delete($0) }
         try modelContext.save()
+        modelContext.autosaveEnabled = true
     }
 
     /// Clear all voice caches
@@ -558,10 +560,12 @@ public actor GenerationService {
     public func clearAllVoiceCaches(using modelContext: ModelContext) throws {
         let descriptor = FetchDescriptor<VoiceCacheModel>()
         let allCached = try modelContext.fetch(descriptor)
-        for model in allCached {
-            modelContext.delete(model)
-        }
+
+        // Optimize deletion by batching in a single transaction
+        modelContext.autosaveEnabled = false
+        allCached.forEach { modelContext.delete($0) }
         try modelContext.save()
+        modelContext.autosaveEnabled = true
     }
 
     /// Check if a provider's voice cache is valid
