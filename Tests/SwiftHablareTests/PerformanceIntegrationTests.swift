@@ -6,19 +6,16 @@
 //  These tests establish baselines and measure optimization improvements.
 //  Runs weekly on integration test schedule (long-running benchmarks).
 //
-//  IMPORTANT: These tests only run on Apple Silicon for consistent performance metrics.
-//
 
 import XCTest
 @testable import SwiftHablare
 
-#if arch(arm64)
 final class PerformanceIntegrationTests: XCTestCase {
 
     // MARK: - Test Configuration
 
     /// Number of iterations for repeated operations
-    let iterationCount = 10
+    let iterationCount = 100
 
     /// Baseline metrics to track (stored in test bundle for comparison)
     struct PerformanceBaseline: Codable {
@@ -30,6 +27,78 @@ final class PerformanceIntegrationTests: XCTestCase {
         var xcodeBuildNumber: String?
     }
 
+    // MARK: - Voice Fetching Performance
+
+    func testVoiceFetchingPerformance() throws {
+        let provider = AppleVoiceProvider()
+
+        let metrics: [XCTMetric] = [
+            XCTClockMetric(),           // Wall clock time
+            XCTCPUMetric(),             // CPU usage
+            XCTMemoryMetric(),          // Memory allocations
+            XCTStorageMetric()          // Disk I/O
+        ]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 10
+
+        measure(metrics: metrics, options: options) {
+            let expectation = self.expectation(description: "Fetch voices")
+
+            Task {
+                _ = try await provider.fetchVoices(languageCode: "en")
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 10.0)
+        }
+    }
+
+    func testVoiceFetchingWithFilterPerformance() throws {
+        // Enable filter
+        UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
+        }
+
+        let provider = AppleVoiceProvider()
+
+        let metrics: [XCTMetric] = [
+            XCTClockMetric(),
+            XCTCPUMetric(),
+            XCTMemoryMetric()
+        ]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 10
+
+        measure(metrics: metrics, options: options) {
+            let expectation = self.expectation(description: "Fetch filtered voices")
+
+            Task {
+                _ = try await provider.fetchVoices(languageCode: "en")
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 10.0)
+        }
+    }
+
+    func testRepeatedVoiceFetchingPerformance() throws {
+        let provider = AppleVoiceProvider()
+        let count = iterationCount
+
+        measure(metrics: [XCTClockMetric()]) {
+            let semaphore = DispatchSemaphore(value: 0)
+            Task {
+                for _ in 0..<count {
+                    _ = try await provider.fetchVoices(languageCode: "en")
+                }
+                semaphore.signal()
+            }
+            semaphore.wait()
+        }
+    }
 
     // MARK: - Audio Generation Performance
 
@@ -51,25 +120,19 @@ final class PerformanceIntegrationTests: XCTestCase {
             let expectation = self.expectation(description: "Generate audio")
 
             Task {
-                do {
-                    let voices = try await provider.fetchVoices(languageCode: "en")
-                    guard let firstVoice = voices.first else {
-                        XCTFail("No voices available")
-                        expectation.fulfill()
-                        return
-                    }
-
-                    _ = try await provider.generateAudio(
-                        text: testText,
-                        voiceId: firstVoice.id,
-                        languageCode: "en"
-                    )
-
-                    expectation.fulfill()
-                } catch {
-                    XCTFail("Failed to generate audio: \(error)")
-                    expectation.fulfill()
+                let voices = try await provider.fetchVoices(languageCode: "en")
+                guard let firstVoice = voices.first else {
+                    XCTFail("No voices available")
+                    return
                 }
+
+                _ = try await provider.generateAudio(
+                    text: testText,
+                    voiceId: firstVoice.id,
+                    languageCode: "en"
+                )
+
+                expectation.fulfill()
             }
 
             wait(for: [expectation], timeout: 30.0)
@@ -103,7 +166,7 @@ final class PerformanceIntegrationTests: XCTestCase {
 
         // Measure filtering operation
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<1000 {
                 _ = voices.filter { voice in
                     guard let quality = voice.quality else { return false }
                     return quality == "enhanced" || quality == "premium"
@@ -112,6 +175,54 @@ final class PerformanceIntegrationTests: XCTestCase {
         }
     }
 
+    // MARK: - Concurrent Operations Performance
+
+    func testConcurrentVoiceFetchingPerformance() throws {
+        let provider = AppleVoiceProvider()
+
+        measure(metrics: [XCTClockMetric(), XCTCPUMetric()]) {
+            let expectation = self.expectation(description: "Concurrent voice fetching")
+            expectation.expectedFulfillmentCount = 10
+
+            Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for _ in 0..<10 {
+                        group.addTask {
+                            do {
+                                _ = try await provider.fetchVoices(languageCode: "en")
+                                expectation.fulfill()
+                            } catch {
+                                XCTFail("Failed to fetch voices: \(error)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            wait(for: [expectation], timeout: 30.0)
+        }
+    }
+
+    // MARK: - Memory Usage Tests
+
+    func testVoiceFetchingMemoryFootprint() throws {
+        let provider = AppleVoiceProvider()
+
+        // Measure peak memory during voice fetching
+        measure(metrics: [XCTMemoryMetric()]) {
+            let expectation = self.expectation(description: "Memory test")
+
+            Task {
+                // Fetch voices multiple times to see memory growth
+                for _ in 0..<10 {
+                    _ = try await provider.fetchVoices(languageCode: "en")
+                }
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 30.0)
+        }
+    }
 
     // MARK: - String Operations Performance
 
@@ -127,7 +238,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         let pattern = "\\{\\{[^}]*\\}\\}"
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<1000 {
                 for text in sampleTexts {
                     _ = text.replacingOccurrences(
                         of: pattern,
@@ -152,7 +263,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         ]
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<10000 {
                 for (name, identifier) in testNames {
                     let lowercasedName = name.lowercased()
                     let lowercasedIdentifier = identifier.lowercased()
@@ -308,6 +419,69 @@ final class PerformanceIntegrationTests: XCTestCase {
                          "Provider init regressed by more than 10%")
     }
 
+    // MARK: - Multi-Language Performance
+
+    func testMultiLanguageVoiceFetchingPerformance() throws {
+        let provider = AppleVoiceProvider()
+        let languages = ["en", "es", "fr", "de", "it", "ja", "zh"]
+
+        let metrics: [XCTMetric] = [
+            XCTClockMetric(),
+            XCTMemoryMetric()
+        ]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 5
+
+        measure(metrics: metrics, options: options) {
+            let expectation = self.expectation(description: "Multi-language fetch")
+            expectation.expectedFulfillmentCount = languages.count
+
+            Task {
+                for language in languages {
+                    _ = try await provider.fetchVoices(languageCode: language)
+                    expectation.fulfill()
+                }
+            }
+
+            wait(for: [expectation], timeout: 30.0)
+        }
+    }
+
+    func testConcurrentMultiLanguageVoiceFetchingPerformance() throws {
+        let provider = AppleVoiceProvider()
+        let languages = ["en", "es", "fr", "de", "it"]
+
+        let metrics: [XCTMetric] = [
+            XCTClockMetric(),
+            XCTCPUMetric()
+        ]
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 5
+
+        measure(metrics: metrics, options: options) {
+            let expectation = self.expectation(description: "Concurrent multi-language")
+            expectation.expectedFulfillmentCount = languages.count
+
+            Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for language in languages {
+                        group.addTask {
+                            do {
+                                _ = try await provider.fetchVoices(languageCode: language)
+                                expectation.fulfill()
+                            } catch {
+                                XCTFail("Failed to fetch \(language) voices: \(error)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            wait(for: [expectation], timeout: 30.0)
+        }
+    }
 
     // MARK: - GenerationService Performance
 
@@ -343,7 +517,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         XCTAssertFalse(voices.isEmpty, "Need voices to test sorting")
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<1000 {
                 _ = voices.sorted { $0.name < $1.name }
                 _ = voices.sorted { ($0.quality ?? "") > ($1.quality ?? "") }
                 _ = voices.sorted { ($0.language ?? "") < ($1.language ?? "") }
@@ -359,7 +533,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<500 {
                 // Complex filter: high quality, English, name starts with certain letters
                 _ = voices.filter { voice in
                     let isHighQuality = voice.quality == "enhanced" || voice.quality == "premium"
@@ -376,7 +550,7 @@ final class PerformanceIntegrationTests: XCTestCase {
     #if canImport(SwiftData)
     func testProviderRegistryAccessPerformance() {
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<1000 {
                 // Simulate registry access pattern
                 _ = AppleVoiceProvider()
                 // Would test other providers here if available
@@ -395,7 +569,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         let pattern = "\\{\\{[^}]*\\}\\}"
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<100 {
                 _ = largeText.replacingOccurrences(
                     of: pattern,
                     with: "",
@@ -416,7 +590,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         """
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
+            for _ in 0..<1000 {
                 _ = longDialogue.split(separator: ".")
                 _ = longDialogue.split(separator: "\n")
                 _ = longDialogue.components(separatedBy: .newlines)
@@ -424,4 +598,3 @@ final class PerformanceIntegrationTests: XCTestCase {
         }
     }
 }
-#endif // arch(arm64)
