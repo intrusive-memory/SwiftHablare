@@ -1908,6 +1908,52 @@ This project follows a **strict branch-based workflow**:
 - Version numbering (semver)
 - Emergency hotfix procedures
 
+### Branch Protection Configuration
+
+**⚠️ IMPORTANT: When tests are changed or renamed, branch protections must be evaluated.**
+
+The `main` branch has required status checks that must pass before PRs can be merged. These checks are configured in GitHub repository settings and must match the actual CI workflow job names.
+
+**Current Required Checks (as of v3.11.0):**
+- `Code Quality Checks` - Runs first (build, linting, code quality)
+- `Fast Tests (iOS)` - Unit tests on iOS Simulator
+- `Fast Tests (macOS)` - Unit tests on macOS
+
+**When to Update Branch Protections:**
+- ✅ When CI workflow job names change
+- ✅ When test jobs are added or removed
+- ✅ When platforms are added or removed (iOS, macOS, Catalyst)
+- ✅ When test structure is reorganized
+
+**How to Update Branch Protections:**
+
+View current protections:
+```bash
+gh api repos/intrusive-memory/SwiftHablare/branches/main/protection/required_status_checks
+```
+
+Update required checks:
+```bash
+gh api --method PATCH repos/intrusive-memory/SwiftHablare/branches/main/protection/required_status_checks \
+  -H "Accept: application/vnd.github.v3+json" \
+  --input - <<'EOF'
+{
+  "strict": true,
+  "contexts": [
+    "Code Quality Checks",
+    "Fast Tests (iOS)",
+    "Fast Tests (macOS)"
+  ]
+}
+EOF
+```
+
+**Best Practices:**
+- Keep branch protection checks minimal but essential
+- Align check names exactly with CI workflow job names
+- Document protection changes in PR descriptions
+- Test protection changes by creating a test PR
+
 ### Development Best Practices
 
 **For New Features:**
