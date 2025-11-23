@@ -168,14 +168,53 @@ Follow **Semantic Versioning** (semver):
 
 ## CI/CD Requirements
 
+### Test Pipeline Structure
+
+SwiftHablare uses a **sequential test pipeline**:
+
+```
+Pull Request/Push
+    ↓
+┌────────────────────────────┐
+│  Fast Tests (PR)           │  ← Unit tests (required)
+│  - iOS Simulator           │
+│  - macOS                   │
+│  - Catalyst                │
+└────────────┬───────────────┘
+             ↓
+        ✅ Success?
+             ↓
+┌────────────────────────────┐
+│  Performance Tests         │  ← Performance benchmarks (informational)
+│  - Runs ONLY after         │
+│    unit tests succeed      │
+└────────────────────────────┘
+```
+
+**Key Points:**
+- **Unit tests run first** - Fast Tests (PR) workflow
+- **Performance tests run second** - Only if unit tests pass
+- **Performance tests don't block PRs** - `continue-on-error: true`
+- **Both workflows must complete** for full CI success
+
 ### Before Merging PR
 
 ALL of the following MUST pass:
-- ✅ All unit tests pass
+- ✅ All unit tests pass (Fast Tests - required)
+- ✅ Performance tests complete (informational only)
 - ✅ Code quality checks pass
 - ✅ Build succeeds on all platforms
 - ✅ No new warnings introduced
 - ✅ Test coverage maintains or improves
+
+### Branch Protection Rules
+
+Configure the following **required status checks** on `main`:
+
+1. **Fast Tests (PR) / fast-test (iOS)**
+2. **Fast Tests (PR) / fast-test (Catalyst)**
+3. **Fast Tests (PR) / fast-test-macos**
+4. **Performance Tests / performance** (optional - informational)
 
 ### If CI Fails
 
@@ -183,6 +222,14 @@ ALL of the following MUST pass:
 2. Commit and push the fix
 3. Wait for CI to re-run on the PR
 4. Only merge when green
+
+### Performance Test Failures
+
+Performance tests are **informational only** and will not block PRs even if they fail:
+- They provide baseline comparisons
+- They track performance regressions
+- They update PR comments with metrics
+- Failures are warnings, not blockers
 
 ## Emergency Hotfixes
 
