@@ -1795,39 +1795,40 @@ try await service.clearVoiceCache(for: "apple", using: context) // Clears all la
 
 ## Development Workflow
 
-### For New Features
+**⚠️ CRITICAL: See [`.claude/WORKFLOW.md`](.claude/WORKFLOW.md) for complete development workflow.**
 
-1. **Read Documentation**:
-   - This file (CLAUDE.md)
-   - README.md for API overview
-   - Test files for usage examples
+This project follows a **strict branch-based workflow**:
 
-2. **Plan with Todos**:
-   - Use TodoWrite tool for complex tasks
-   - Break down into manageable steps
-   - Track progress throughout implementation
+### Quick Reference
 
-3. **Write Tests First** (TDD approach):
-   - Unit tests for core logic
-   - Integration tests for end-to-end workflows
-   - Aim for 95%+ coverage
+- **Development branch**: `development` (all work happens here)
+- **Main branch**: `main` (protected, PR-only)
+- **Workflow**: `development` → PR → CI passes → Merge → Tag → Release
+- **NEVER** commit directly to `main`
+- **NEVER** delete the `development` branch
 
-4. **Implement Features**:
-   - Follow existing patterns
-   - Use actors for thread safety
-   - Ensure Swift 6 concurrency compliance
+**See [`.claude/WORKFLOW.md`](.claude/WORKFLOW.md) for:**
+- Complete branch strategy
+- Commit message conventions
+- PR creation templates
+- Tagging and release process
+- Version numbering (semver)
+- Emergency hotfix procedures
 
-5. **Verify Coverage**:
-   - Run tests: `swift test --enable-code-coverage`
-   - Check coverage: `xcrun llvm-cov report`
-   - Aim for 95%+ on all new code
+### Development Best Practices
 
-### For Bug Fixes
+**For New Features:**
+1. Read documentation (this file, README.md, test files)
+2. Plan with TodoWrite tool for complex tasks
+3. Write tests first (TDD approach, aim for 95%+ coverage)
+4. Implement features following existing patterns
+5. Verify coverage: `swift test --enable-code-coverage`
 
-1. **Write Failing Test**: Create a test that reproduces the bug
-2. **Fix the Bug**: Implement the fix
-3. **Verify**: Ensure the test passes and existing tests still work
-4. **Document**: Update comments and docs as needed
+**For Bug Fixes:**
+1. Write failing test to reproduce the bug
+2. Fix the bug
+3. Verify test passes and existing tests still work
+4. Document changes as needed
 
 ## Code Style
 

@@ -1145,13 +1145,42 @@ let audioRecord = result.toTypedDataStorage()
 modelContext.insert(audioRecord)
 ```
 
+## Development Workflow
+
+This project follows a **strict branch-based workflow**. All development happens on the `development` branch, with PRs to `main` for releases.
+
+### Quick Start for Contributors
+
+1. **Fork and clone** the repository
+2. **Switch to development branch**: `git checkout development`
+3. **Make your changes** on the `development` branch
+4. **Run tests**: `swift test`
+5. **Create a PR** to `main` when ready
+6. **Wait for CI** to pass before merging
+
+### Detailed Workflow
+
+See [`.claude/WORKFLOW.md`](.claude/WORKFLOW.md) for complete details on:
+- Branch strategy (`development` → `main`)
+- Commit message conventions (conventional commits)
+- PR creation and merging process
+- Tagging and release procedures
+- Version numbering (semantic versioning)
+
+### Key Rules
+
+- ✅ **Always work on `development` branch**
+- ✅ **Never commit directly to `main`**
+- ✅ **All changes require PR approval from CI**
+- ✅ **Never delete the `development` branch**
+
 ## License
 
 MIT License - see LICENSE file for details.
 
 ## Contributing
 
-Contributions welcome! Please see CONTRIBUTING.md for guidelines.
+Contributions welcome! Please see CONTRIBUTING.md for guidelines on the development workflow and coding standards.
 
 ## Support
 
