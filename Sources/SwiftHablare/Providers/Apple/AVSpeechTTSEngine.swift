@@ -63,6 +63,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     // Extract gender from voice name or identifier patterns
                     let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
 
+                    // Store quality as string for filtering
+                    let qualityString = self.qualityString(for: avVoice.quality)
+
                     // Split language code on dash or underscore
                     let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
 
@@ -83,7 +86,8 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         providerId: "apple",
                         language: language,
                         locality: locality,
-                        gender: gender
+                        gender: gender,
+                        quality: qualityString
                     )
                 }
 
@@ -159,14 +163,18 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                 bufferCount += 1
                             }
                         } catch {
+                            #if DEBUG
                             print("Error writing audio buffer: \(error)")
+                            #endif
                         }
                     }
 
                     // If no buffers were generated, fall back to placeholder
                     if bufferCount == 0 {
                         try? FileManager.default.removeItem(at: tempURL)
+                        #if DEBUG
                         print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
+                        #endif
                         let placeholderData = try await self.generatePlaceholderAudio(text: text)
                         continuation.resume(returning: placeholderData)
                         return
@@ -234,8 +242,10 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     let data = try Data(contentsOf: tempURL)
                     try? FileManager.default.removeItem(at: tempURL)
 
+                    #if DEBUG
                     print("⚠️  Generated placeholder silent audio (\(data.count) bytes, duration: \(String(format: "%.2f", estimatedDuration))s)")
                     print("   Note: Real TTS audio generation is not supported in iOS Simulator.")
+                    #endif
                     continuation.resume(returning: data)
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
@@ -256,6 +266,19 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
             return "Premium Quality"
         @unknown default:
             return "Unknown Quality"
+        }
+    }
+
+    private func qualityString(for quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .default:
+            return "default"
+        case .enhanced:
+            return "enhanced"
+        case .premium:
+            return "premium"
+        @unknown default:
+            return "default"
         }
     }
 

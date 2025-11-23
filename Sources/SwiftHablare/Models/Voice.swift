@@ -16,6 +16,7 @@ public struct Voice: Identifiable, Codable, Sendable {
     public var language: String?
     public var locality: String?
     public var gender: String?
+    public var quality: String? // For Apple voices: "default", "enhanced", "premium"
 
     enum CodingKeys: String, CodingKey {
         case id = "voice_id"
@@ -24,9 +25,10 @@ public struct Voice: Identifiable, Codable, Sendable {
         case language
         case locality
         case gender
+        case quality
     }
 
-    public init(id: String, name: String, description: String?, providerId: String = "elevenlabs", language: String? = nil, locality: String? = nil, gender: String? = nil) {
+    public init(id: String, name: String, description: String?, providerId: String = "elevenlabs", language: String? = nil, locality: String? = nil, gender: String? = nil, quality: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -34,6 +36,7 @@ public struct Voice: Identifiable, Codable, Sendable {
         self.language = language
         self.locality = locality
         self.gender = gender
+        self.quality = quality
     }
 
     public init(from decoder: Decoder) throws {
@@ -44,6 +47,7 @@ public struct Voice: Identifiable, Codable, Sendable {
         self.language = try container.decodeIfPresent(String.self, forKey: .language)
         self.gender = try container.decodeIfPresent(String.self, forKey: .gender)
         self.locality = try container.decodeIfPresent(String.self, forKey: .locality)
+        self.quality = try container.decodeIfPresent(String.self, forKey: .quality)
         self.providerId = "elevenlabs" // Default for decoded voices
     }
 }

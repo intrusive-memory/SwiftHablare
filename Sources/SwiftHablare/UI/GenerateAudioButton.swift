@@ -388,7 +388,9 @@ public struct GenerateAudioButton: View {
                 do {
                     try modelContext.save()
                 } catch {
+                    #if DEBUG
                     print("Error saving audio to SwiftData: \(error.localizedDescription)")
+                    #endif
                     throw error
                 }
 

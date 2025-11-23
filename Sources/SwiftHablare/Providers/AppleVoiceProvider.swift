@@ -31,7 +31,11 @@ public final class AppleVoiceProvider: VoiceProvider {
 
     // Engine boundary adapter for platform-specific implementations
     private let engine: AppleTTSEngineBoundary
-    private let configuration = AppleTTSConfiguration()
+    private var configuration: AppleTTSConfiguration {
+        // Load filter setting from UserDefaults
+        let filterEnabled = UserDefaults.standard.bool(forKey: "appleVoiceFilterHighQualityOnly")
+        return AppleTTSConfiguration(filterToHighQualityOnly: filterEnabled)
+    }
 
     public init() {
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -81,24 +85,57 @@ private struct AppleVoiceProviderConfigurationView: View {
     let provider: AppleVoiceProvider
     let onConfigured: (Bool) -> Void
 
+    @AppStorage("appleVoiceFilterHighQualityOnly") private var filterHighQualityOnly: Bool = false
+
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "waveform")
-                .font(.largeTitle)
-                .foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "waveform")
+                    .font(.largeTitle)
+                    .foregroundStyle(Color.accentColor)
+
+                Spacer()
+            }
 
             Text("\(provider.displayName) is ready to use.")
-                .multilineTextAlignment(.center)
+                .font(.headline)
 
             Text("This provider uses on-device speech synthesis and does not require additional configuration.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
 
-            Button("Continue") {
-                onConfigured(true)
+            Divider()
+
+            // Quality filter toggle
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Voice Quality Filter")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Toggle(isOn: $filterHighQualityOnly) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Show only Enhanced and Premium voices")
+                            .font(.body)
+
+                        Text("Filters out Standard Quality voices to show only higher quality options. Note: Some languages may have limited high-quality voices available.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: filterHighQualityOnly) { _, _ in
+                    // Notify that configuration changed (triggers voice list refresh)
+                    onConfigured(true)
+                }
             }
-            .buttonStyle(.borderedProminent)
+            .padding()
+            .background {
+                #if os(macOS)
+                Color(nsColor: .controlBackgroundColor)
+                #else
+                Color(uiColor: .secondarySystemGroupedBackground)
+                #endif
+            }
+            .cornerRadius(8)
         }
         .padding()
     }

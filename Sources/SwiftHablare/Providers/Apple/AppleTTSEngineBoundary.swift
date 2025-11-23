@@ -8,7 +8,12 @@
 import Foundation
 
 struct AppleTTSConfiguration: Sendable {
-    init() {}
+    /// If true, only show Enhanced and Premium quality voices. Default: false (show all voices)
+    var filterToHighQualityOnly: Bool
+
+    init(filterToHighQualityOnly: Bool = false) {
+        self.filterToHighQualityOnly = filterToHighQualityOnly
+    }
 }
 
 /// Adapter that exposes AppleTTSEngine implementations through the engine boundary.
@@ -29,7 +34,17 @@ struct AppleTTSEngineBoundary: VoiceEngine {
     }
 
     func fetchVoices(languageCode: String, configuration: AppleTTSConfiguration) async throws -> [Voice] {
-        try await underlying.fetchVoices(languageCode: languageCode)
+        let voices = try await underlying.fetchVoices(languageCode: languageCode)
+
+        // Apply quality filter if enabled
+        if configuration.filterToHighQualityOnly {
+            return voices.filter { voice in
+                guard let quality = voice.quality else { return false }
+                return quality == "enhanced" || quality == "premium"
+            }
+        }
+
+        return voices
     }
 
     func generateAudio(
