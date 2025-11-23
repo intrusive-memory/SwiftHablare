@@ -63,6 +63,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     // Extract gender from voice name or identifier patterns
                     let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
 
+                    // Store quality as string for filtering
+                    let qualityString = self.qualityString(for: avVoice.quality)
+
                     // Split language code on dash or underscore
                     let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
 
@@ -83,7 +86,8 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         providerId: "apple",
                         language: language,
                         locality: locality,
-                        gender: gender
+                        gender: gender,
+                        quality: qualityString
                     )
                 }
 
@@ -262,6 +266,19 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
             return "Premium Quality"
         @unknown default:
             return "Unknown Quality"
+        }
+    }
+
+    private func qualityString(for quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .default:
+            return "default"
+        case .enhanced:
+            return "enhanced"
+        case .premium:
+            return "premium"
+        @unknown default:
+            return "default"
         }
     }
 

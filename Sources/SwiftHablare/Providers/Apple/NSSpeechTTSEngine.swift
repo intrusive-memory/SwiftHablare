@@ -128,6 +128,10 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
                     gender = nil
                 }
 
+                // Extract quality from voice name
+                // macOS voice names often include quality indicators like "Premium" or "Enhanced"
+                let quality = self.extractQuality(from: name, identifier: voiceName.rawValue)
+
                 return Voice(
                     id: voiceName.rawValue,
                     name: name,
@@ -135,7 +139,8 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
                     providerId: "apple",
                     language: language,
                     locality: locality,
-                    gender: gender
+                    gender: gender,
+                    quality: quality
                 )
             }
 
@@ -163,6 +168,25 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
 
         // Add small buffer for pauses and punctuation
         return max(1.0, estimatedSeconds * 1.1)
+    }
+
+    // MARK: - Helper Methods
+
+    /// Extract quality level from voice name or identifier
+    /// macOS NSSpeechSynthesizer doesn't expose quality directly, so we parse it from the name
+    private func extractQuality(from name: String, identifier: String) -> String {
+        let lowercasedName = name.lowercased()
+        let lowercasedIdentifier = identifier.lowercased()
+
+        // Check for quality indicators in name or identifier
+        if lowercasedName.contains("premium") || lowercasedIdentifier.contains("premium") {
+            return "premium"
+        } else if lowercasedName.contains("enhanced") || lowercasedIdentifier.contains("enhanced") {
+            return "enhanced"
+        } else {
+            // Default to "default" quality if no indicator found
+            return "default"
+        }
     }
 }
 
