@@ -134,8 +134,8 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "3.9.0"),
-    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "3.9.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "3.11.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "3.11.0")
 ]
 ```
 
