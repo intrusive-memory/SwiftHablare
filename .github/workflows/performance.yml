@@ -1,25 +1,38 @@
 name: Performance Tests
 
 on:
-  pull_request:
-    branches: [main, development]
-  push:
-    branches: [main, development]
-  release:
-    types: [published, created]
+  # Run after fast tests complete successfully
+  workflow_run:
+    workflows: ["Fast Tests (PR)"]
+    types: [completed]
+    branches: [main, master, development]
+  # Manual trigger for testing
   workflow_dispatch:
+  # Run performance tests weekly on Sundays at 00:00 UTC
   schedule:
-    # Run performance tests weekly on Sundays at 00:00 UTC
     - cron: '0 0 * * 0'
 
 jobs:
   performance:
     name: Swift Performance Tests
     runs-on: macos-26
+    # Only run if fast tests succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     # Performance tests are informational only - don't block PRs
     continue-on-error: true
 
     steps:
+      - name: Display dependency status
+        if: github.event_name == 'workflow_run'
+        run: |
+          echo "## Performance Tests - Dependency Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Unit tests passed** - proceeding with performance tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** Fast Tests (PR) workflow completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.event.workflow_run.html_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
