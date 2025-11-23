@@ -78,49 +78,6 @@ extension VoiceProvider {
     }
 }
 
-/// Voice provider types
-///
-/// - Note: This enum is deprecated for extensibility. New providers should be registered
-///   dynamically using `VoiceProviderManager.registerProvider(_:)` without modifying this enum.
-///   The enum is kept for backward compatibility with existing code.
-@available(*, deprecated, message: "Use dynamic provider registration instead. Register providers using VoiceProviderManager.registerProvider(_:)")
-public enum VoiceProviderType: String, CaseIterable, Codable, Sendable {
-    case elevenlabs = "elevenlabs"
-    case apple = "apple"
-
-    public var displayName: String {
-        switch self {
-        case .elevenlabs:
-            return "ElevenLabs"
-        case .apple:
-            return "Apple Text-to-Speech"
-        }
-    }
-}
-
-/// Represents metadata about a registered voice provider
-public struct VoiceProviderInfo: Identifiable, Sendable {
-    public let id: String
-    public let displayName: String
-    public let requiresAPIKey: Bool
-    public let isConfigured: Bool
-
-    public init(id: String, displayName: String, requiresAPIKey: Bool, isConfigured: Bool) {
-        self.id = id
-        self.displayName = displayName
-        self.requiresAPIKey = requiresAPIKey
-        self.isConfigured = isConfigured
-    }
-
-    /// Create provider info from a VoiceProvider instance
-    public init(from provider: VoiceProvider) {
-        self.id = provider.providerId
-        self.displayName = provider.displayName
-        self.requiresAPIKey = provider.requiresAPIKey
-        self.isConfigured = provider.isConfigured()
-    }
-}
-
 /// Voice provider errors
 public enum VoiceProviderError: LocalizedError, Sendable {
     case notConfigured
