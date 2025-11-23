@@ -75,7 +75,8 @@ extension VoiceProvider {
 
     /// Generate audio using system language code as default
     public func generateAudio(text: String, voiceId: String) async throws -> Data {
-        return try await generateAudio(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
+        let languageCode = Locale.current.language.languageCode?.identifier ?? "en"
+        return try await generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
     }
 }
 
