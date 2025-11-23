@@ -1004,6 +1004,7 @@ final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable {
     let providerId = "mock-unconfigured"
     let displayName = "Mock Unconfigured"
     let requiresAPIKey = true
+    let mimeType = "audio/mpeg"
 
     func isConfigured() -> Bool {
         return false
@@ -1036,6 +1037,7 @@ final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
     let providerId: String
     let displayName: String
     let requiresAPIKey = false
+    let mimeType = "audio/mpeg"
 
     init(id: String) {
         self.providerId = id
@@ -1083,6 +1085,7 @@ final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
     let providerId = "mock-error"
     let displayName = "Mock Error Provider"
     let requiresAPIKey = false
+    let mimeType = "audio/mpeg"
 
     func isConfigured() -> Bool {
         return true
