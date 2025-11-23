@@ -28,6 +28,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     public let providerId = "apple"
     public let displayName = "Apple Text-to-Speech"
     public let requiresAPIKey = false
+    public let mimeType = "audio/x-aiff"
 
     // Engine boundary adapter for platform-specific implementations
     private let engine: AppleTTSEngineBoundary

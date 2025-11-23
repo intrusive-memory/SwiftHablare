@@ -165,19 +165,7 @@ public actor GenerationService {
         let audioData = try await provider.generateAudio(text: text, voiceId: voiceId, languageCode: finalLanguageCode)
 
         // Determine MIME type from provider if not specified
-        let finalMimeType: String
-        if let mimeType {
-            finalMimeType = mimeType
-        } else {
-            switch providerId {
-            case "apple":
-                finalMimeType = "audio/x-aiff"
-            case "elevenlabs":
-                finalMimeType = "audio/mpeg"
-            default:
-                finalMimeType = "audio/mpeg"
-            }
-        }
+        let finalMimeType = mimeType ?? provider.mimeType
 
         // Create result (Sendable, can be transferred to main thread)
         return GenerationResult(
@@ -683,23 +671,12 @@ public actor GenerationService {
                     voiceId: voiceId
                 )
 
-                // Determine MIME type
-                let mimeType: String
-                switch providerId {
-                case "apple":
-                    mimeType = "audio/x-aiff"
-                case "elevenlabs":
-                    mimeType = "audio/mpeg"
-                default:
-                    mimeType = "audio/mpeg"
-                }
-
                 // Create TypedDataStorage record (already on main thread)
                 let storage = TypedDataStorage(
                     id: UUID(),
                     providerId: providerId,
                     requestorID: "\(providerId).audio.tts",
-                    mimeType: mimeType,
+                    mimeType: provider.mimeType,
                     textValue: nil,
                     binaryValue: audioData,
                     prompt: text,

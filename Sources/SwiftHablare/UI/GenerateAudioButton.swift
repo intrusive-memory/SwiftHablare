@@ -348,23 +348,12 @@ public struct GenerateAudioButton: View {
                 // Update progress
                 progress = 0.9
 
-                // Determine MIME type
-                let mimeType: String
-                switch providerId {
-                case "apple":
-                    mimeType = "audio/x-aiff"
-                case "elevenlabs":
-                    mimeType = "audio/mpeg"
-                default:
-                    mimeType = "audio/mpeg"
-                }
-
                 // Create TypedDataStorage record (on main thread)
                 let storage = TypedDataStorage(
                     id: UUID(),
                     providerId: providerId,
                     requestorID: "\(providerId).audio.tts",
-                    mimeType: mimeType,
+                    mimeType: provider.mimeType,
                     textValue: nil,
                     binaryValue: audioData,
                     prompt: text,
