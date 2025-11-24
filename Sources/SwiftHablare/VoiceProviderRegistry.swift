@@ -104,7 +104,7 @@ public enum VoiceProviderRegistryError: Error, LocalizedError, Sendable {
 public actor VoiceProviderRegistry {
     public static let shared = VoiceProviderRegistry()
 
-    nonisolated(unsafe) private let userDefaults: UserDefaults
+    private let userDefaults: UserDefaults
     private var descriptors: [String: VoiceProviderDescriptor]
 
     internal init(userDefaults: UserDefaults = .standard) {

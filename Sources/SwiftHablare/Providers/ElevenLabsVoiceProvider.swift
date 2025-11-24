@@ -15,6 +15,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     public let providerId = "elevenlabs"
     public let displayName = "ElevenLabs"
     public let requiresAPIKey = true
+    public let mimeType = "audio/mpeg"
 
     private let keychainManager = KeychainManager.shared
     private let apiKeyAccount = "elevenlabs-api-key"
@@ -66,7 +67,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
         let configuration = ElevenLabsEngineConfiguration(apiKey: (try? getAPIKey()) ?? "", userAgent: userAgent)
-        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: Locale.current.language.languageCode?.identifier ?? "en", options: [
+        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode, options: [
             "stability": "0.5"
         ])
         return engine.estimateDuration(request: request, configuration: configuration)

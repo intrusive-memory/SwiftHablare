@@ -112,6 +112,23 @@ public struct GenerateAudioButton: View {
         case failed(Error)
     }
 
+    // MARK: - Computed Properties
+
+    /// Fetch descriptor for querying existing audio for this item
+    private var audioFetchDescriptor: FetchDescriptor<TypedDataStorage> {
+        let providerId = item.voiceProvider.providerId
+        let voiceId = item.voiceId
+        let prompt = item.textToSpeak
+
+        return FetchDescriptor<TypedDataStorage>(
+            predicate: #Predicate { storage in
+                storage.providerId == providerId &&
+                storage.voiceID == voiceId &&
+                storage.prompt == prompt
+            }
+        )
+    }
+
     // MARK: - Initialization
 
     /// Create a generate audio button
@@ -245,21 +262,8 @@ public struct GenerateAudioButton: View {
 
     /// Check if audio already exists in SwiftData
     private func checkForExistingAudio() async {
-        // Query TypedDataStorage for matching audio
-        let providerId = item.voiceProvider.providerId
-        let voiceId = item.voiceId
-        let prompt = item.textToSpeak
-
-        let descriptor = FetchDescriptor<TypedDataStorage>(
-            predicate: #Predicate { storage in
-                storage.providerId == providerId &&
-                storage.voiceID == voiceId &&
-                storage.prompt == prompt
-            }
-        )
-
         do {
-            let results = try modelContext.fetch(descriptor)
+            let results = try modelContext.fetch(audioFetchDescriptor)
 
             // Only update state if we're still checking (not generating/cancelled)
             guard case .checking = audioState else { return }
@@ -301,15 +305,7 @@ public struct GenerateAudioButton: View {
 
                 // Re-check for existing audio to prevent race condition
                 // Another process might have created it between our initial check and now
-                let existingDescriptor = FetchDescriptor<TypedDataStorage>(
-                    predicate: #Predicate { storage in
-                        storage.providerId == providerId &&
-                        storage.voiceID == voiceId &&
-                        storage.prompt == text
-                    }
-                )
-
-                if let existingRecord = try? modelContext.fetch(existingDescriptor).first {
+                if let existingRecord = try? modelContext.fetch(audioFetchDescriptor).first {
                     // Audio was created by another process - use it
                     audioState = .completed(existingRecord)
                     progress = 1.0
@@ -348,23 +344,12 @@ public struct GenerateAudioButton: View {
                 // Update progress
                 progress = 0.9
 
-                // Determine MIME type
-                let mimeType: String
-                switch providerId {
-                case "apple":
-                    mimeType = "audio/x-aiff"
-                case "elevenlabs":
-                    mimeType = "audio/mpeg"
-                default:
-                    mimeType = "audio/mpeg"
-                }
-
                 // Create TypedDataStorage record (on main thread)
                 let storage = TypedDataStorage(
                     id: UUID(),
                     providerId: providerId,
                     requestorID: "\(providerId).audio.tts",
-                    mimeType: mimeType,
+                    mimeType: provider.mimeType,
                     textValue: nil,
                     binaryValue: audioData,
                     prompt: text,

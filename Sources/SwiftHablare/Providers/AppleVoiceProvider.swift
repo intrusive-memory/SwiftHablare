@@ -28,6 +28,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     public let providerId = "apple"
     public let displayName = "Apple Text-to-Speech"
     public let requiresAPIKey = false
+    public let mimeType = "audio/x-aiff"
 
     // Engine boundary adapter for platform-specific implementations
     private let engine: AppleTTSEngineBoundary
@@ -63,7 +64,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: Locale.current.language.languageCode?.identifier ?? "en")
+        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
         return engine.estimateDuration(request: request, configuration: configuration)
     }
 

@@ -286,6 +286,7 @@ struct GenerateAudioButtonTests {
             var providerId: String { "unconfigured" }
             var displayName: String { "Unconfigured" }
             var requiresAPIKey: Bool { true }
+            var mimeType: String { "audio/mpeg" }
 
             func isConfigured() -> Bool { false }
 
