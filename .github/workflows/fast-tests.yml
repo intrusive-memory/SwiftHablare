@@ -336,8 +336,8 @@ jobs:
   performance-tests:
     name: Performance Tests (macOS)
     runs-on: macos-26
-    needs: [fast-test, fast-test-macos]  # Wait for BOTH iOS and macOS unit tests to pass
-    if: success()  # Only run if BOTH unit tests succeeded
+    needs: [fast-test-macos]  # Wait for unit tests to pass first
+    if: success()  # Only run if unit tests succeeded
 
     steps:
       - name: Checkout code
