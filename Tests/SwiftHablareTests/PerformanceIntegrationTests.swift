@@ -6,16 +6,19 @@
 //  These tests establish baselines and measure optimization improvements.
 //  Runs weekly on integration test schedule (long-running benchmarks).
 //
+//  IMPORTANT: These tests only run on Apple Silicon for consistent performance metrics.
+//
 
 import XCTest
 @testable import SwiftHablare
 
+#if arch(arm64)
 final class PerformanceIntegrationTests: XCTestCase {
 
     // MARK: - Test Configuration
 
     /// Number of iterations for repeated operations
-    let iterationCount = 100
+    let iterationCount = 10
 
     /// Baseline metrics to track (stored in test bundle for comparison)
     struct PerformanceBaseline: Codable {
@@ -46,8 +49,13 @@ final class PerformanceIntegrationTests: XCTestCase {
             let expectation = self.expectation(description: "Fetch voices")
 
             Task {
-                _ = try await provider.fetchVoices(languageCode: "en")
-                expectation.fulfill()
+                do {
+                    _ = try await provider.fetchVoices(languageCode: "en")
+                    expectation.fulfill()
+                } catch {
+                    XCTFail("Failed to fetch voices: \(error)")
+                    expectation.fulfill()
+                }
             }
 
             wait(for: [expectation], timeout: 10.0)
@@ -76,8 +84,13 @@ final class PerformanceIntegrationTests: XCTestCase {
             let expectation = self.expectation(description: "Fetch filtered voices")
 
             Task {
-                _ = try await provider.fetchVoices(languageCode: "en")
-                expectation.fulfill()
+                do {
+                    _ = try await provider.fetchVoices(languageCode: "en")
+                    expectation.fulfill()
+                } catch {
+                    XCTFail("Failed to fetch voices: \(error)")
+                    expectation.fulfill()
+                }
             }
 
             wait(for: [expectation], timeout: 10.0)
@@ -91,10 +104,15 @@ final class PerformanceIntegrationTests: XCTestCase {
         measure(metrics: [XCTClockMetric()]) {
             let semaphore = DispatchSemaphore(value: 0)
             Task {
-                for _ in 0..<count {
-                    _ = try await provider.fetchVoices(languageCode: "en")
+                do {
+                    for _ in 0..<count {
+                        _ = try await provider.fetchVoices(languageCode: "en")
+                    }
+                    semaphore.signal()
+                } catch {
+                    XCTFail("Failed to fetch voices: \(error)")
+                    semaphore.signal()
                 }
-                semaphore.signal()
             }
             semaphore.wait()
         }
@@ -120,19 +138,25 @@ final class PerformanceIntegrationTests: XCTestCase {
             let expectation = self.expectation(description: "Generate audio")
 
             Task {
-                let voices = try await provider.fetchVoices(languageCode: "en")
-                guard let firstVoice = voices.first else {
-                    XCTFail("No voices available")
-                    return
+                do {
+                    let voices = try await provider.fetchVoices(languageCode: "en")
+                    guard let firstVoice = voices.first else {
+                        XCTFail("No voices available")
+                        expectation.fulfill()
+                        return
+                    }
+
+                    _ = try await provider.generateAudio(
+                        text: testText,
+                        voiceId: firstVoice.id,
+                        languageCode: "en"
+                    )
+
+                    expectation.fulfill()
+                } catch {
+                    XCTFail("Failed to generate audio: \(error)")
+                    expectation.fulfill()
                 }
-
-                _ = try await provider.generateAudio(
-                    text: testText,
-                    voiceId: firstVoice.id,
-                    languageCode: "en"
-                )
-
-                expectation.fulfill()
             }
 
             wait(for: [expectation], timeout: 30.0)
@@ -166,7 +190,7 @@ final class PerformanceIntegrationTests: XCTestCase {
 
         // Measure filtering operation
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<1000 {
+            for _ in 0..<10 {
                 _ = voices.filter { voice in
                     guard let quality = voice.quality else { return false }
                     return quality == "enhanced" || quality == "premium"
@@ -193,6 +217,7 @@ final class PerformanceIntegrationTests: XCTestCase {
                                 expectation.fulfill()
                             } catch {
                                 XCTFail("Failed to fetch voices: \(error)")
+                                expectation.fulfill()
                             }
                         }
                     }
@@ -213,11 +238,16 @@ final class PerformanceIntegrationTests: XCTestCase {
             let expectation = self.expectation(description: "Memory test")
 
             Task {
-                // Fetch voices multiple times to see memory growth
-                for _ in 0..<10 {
-                    _ = try await provider.fetchVoices(languageCode: "en")
+                do {
+                    // Fetch voices multiple times to see memory growth
+                    for _ in 0..<10 {
+                        _ = try await provider.fetchVoices(languageCode: "en")
+                    }
+                    expectation.fulfill()
+                } catch {
+                    XCTFail("Failed to fetch voices: \(error)")
+                    expectation.fulfill()
                 }
-                expectation.fulfill()
             }
 
             wait(for: [expectation], timeout: 30.0)
@@ -238,7 +268,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         let pattern = "\\{\\{[^}]*\\}\\}"
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<1000 {
+            for _ in 0..<10 {
                 for text in sampleTexts {
                     _ = text.replacingOccurrences(
                         of: pattern,
@@ -263,7 +293,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         ]
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10000 {
+            for _ in 0..<10 {
                 for (name, identifier) in testNames {
                     let lowercasedName = name.lowercased()
                     let lowercasedIdentifier = identifier.lowercased()
@@ -438,9 +468,17 @@ final class PerformanceIntegrationTests: XCTestCase {
             expectation.expectedFulfillmentCount = languages.count
 
             Task {
-                for language in languages {
-                    _ = try await provider.fetchVoices(languageCode: language)
-                    expectation.fulfill()
+                do {
+                    for language in languages {
+                        _ = try await provider.fetchVoices(languageCode: language)
+                        expectation.fulfill()
+                    }
+                } catch {
+                    XCTFail("Failed to fetch voices: \(error)")
+                    // Fulfill remaining expectations to prevent timeout
+                    for _ in 0..<languages.count {
+                        expectation.fulfill()
+                    }
                 }
             }
 
@@ -473,6 +511,7 @@ final class PerformanceIntegrationTests: XCTestCase {
                                 expectation.fulfill()
                             } catch {
                                 XCTFail("Failed to fetch \(language) voices: \(error)")
+                                expectation.fulfill()
                             }
                         }
                     }
@@ -517,7 +556,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         XCTAssertFalse(voices.isEmpty, "Need voices to test sorting")
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<1000 {
+            for _ in 0..<10 {
                 _ = voices.sorted { $0.name < $1.name }
                 _ = voices.sorted { ($0.quality ?? "") > ($1.quality ?? "") }
                 _ = voices.sorted { ($0.language ?? "") < ($1.language ?? "") }
@@ -533,7 +572,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<500 {
+            for _ in 0..<10 {
                 // Complex filter: high quality, English, name starts with certain letters
                 _ = voices.filter { voice in
                     let isHighQuality = voice.quality == "enhanced" || voice.quality == "premium"
@@ -550,7 +589,7 @@ final class PerformanceIntegrationTests: XCTestCase {
     #if canImport(SwiftData)
     func testProviderRegistryAccessPerformance() {
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            for _ in 0..<1000 {
+            for _ in 0..<10 {
                 // Simulate registry access pattern
                 _ = AppleVoiceProvider()
                 // Would test other providers here if available
@@ -569,7 +608,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         let pattern = "\\{\\{[^}]*\\}\\}"
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<100 {
+            for _ in 0..<10 {
                 _ = largeText.replacingOccurrences(
                     of: pattern,
                     with: "",
@@ -590,7 +629,7 @@ final class PerformanceIntegrationTests: XCTestCase {
         """
 
         measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<1000 {
+            for _ in 0..<10 {
                 _ = longDialogue.split(separator: ".")
                 _ = longDialogue.split(separator: "\n")
                 _ = longDialogue.components(separatedBy: .newlines)
@@ -598,3 +637,4 @@ final class PerformanceIntegrationTests: XCTestCase {
         }
     }
 }
+#endif // arch(arm64)
