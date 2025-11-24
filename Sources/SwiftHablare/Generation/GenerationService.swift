@@ -545,9 +545,9 @@ public actor GenerationService {
 
         // Optimize deletion by batching in a single transaction
         modelContext.autosaveEnabled = false
+        defer { modelContext.autosaveEnabled = true }  // Always restore autosave, even on error
         cachedModels.forEach { modelContext.delete($0) }
         try modelContext.save()
-        modelContext.autosaveEnabled = true
     }
 
     /// Clear all voice caches
@@ -563,9 +563,9 @@ public actor GenerationService {
 
         // Optimize deletion by batching in a single transaction
         modelContext.autosaveEnabled = false
+        defer { modelContext.autosaveEnabled = true }  // Always restore autosave, even on error
         allCached.forEach { modelContext.delete($0) }
         try modelContext.save()
-        modelContext.autosaveEnabled = true
     }
 
     /// Check if a provider's voice cache is valid

@@ -726,6 +726,31 @@ final class GenerationServiceTests: XCTestCase {
         XCTAssertTrue(allAfter.isEmpty)
     }
 
+    func testCacheClearingRestoresAutosave() async throws {
+        let service = GenerationService()
+
+        // Populate cache
+        _ = try await service.fetchVoices(from: "apple", using: modelContext)
+        let hasCache = await service.hasValidCache(for: "apple", using: modelContext)
+        XCTAssertTrue(hasCache)
+
+        // Verify autosave is enabled by default
+        XCTAssertTrue(modelContext.autosaveEnabled, "ModelContext autosave should be enabled by default")
+
+        // Clear cache (this temporarily disables autosave)
+        try await service.clearVoiceCache(for: "apple", using: modelContext)
+
+        // Verify autosave was restored after cache clearing
+        XCTAssertTrue(modelContext.autosaveEnabled, "ModelContext autosave should be restored after cache clearing")
+
+        // Test clearAllVoiceCaches as well
+        _ = try await service.fetchVoices(from: "apple", using: modelContext)
+        try await service.clearAllVoiceCaches(using: modelContext)
+
+        // Verify autosave was restored after clearing all caches
+        XCTAssertTrue(modelContext.autosaveEnabled, "ModelContext autosave should be restored after clearing all caches")
+    }
+
     func testCachePerProvider() async throws {
         let service = GenerationService(cacheLifetime: 10.0)
 
