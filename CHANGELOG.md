@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.1] - 2025-11-24
+
+### Fixed
+
+**Critical Bug: Autosave Permanently Disabled on Cache Clearing Errors**
+
+Fixed a critical bug where `modelContext.autosaveEnabled` would be left permanently disabled if `save()` throws during cache clearing operations, potentially causing silent data loss for subsequent operations.
+
+#### Problem
+
+The cache clearing methods (`clearVoiceCache()` and `clearAllVoiceCaches()`) temporarily disabled autosave for performance optimization, but if `modelContext.save()` threw an exception (validation error, I/O failure, disk full, etc.), the autosave re-enabling line would be skipped, leaving autosave permanently disabled.
+
+#### Solution
+
+Use Swift's `defer` statement to guarantee autosave restoration even when exceptions are thrown. The `defer` block executes when leaving scope regardless of how the function exits (normal return, early return, or exception).
+
+#### Changes
+
+- `Sources/SwiftHablare/Generation/GenerationService.swift`:
+  - `clearVoiceCache()`: Added `defer { modelContext.autosaveEnabled = true }`
+  - `clearAllVoiceCaches()`: Added `defer { modelContext.autosaveEnabled = true }`
+- `Tests/SwiftHablareTests/GenerationServiceTests.swift`:
+  - Added `testCacheClearingRestoresAutosave()` test to verify autosave restoration
+
+#### Impact
+
+- **Data Integrity**: Prevents silent data loss from disabled autosave
+- **Reliability**: Ensures proper cleanup even when operations fail
+- **Performance**: Zero performance impact (defer is a zero-cost abstraction)
+- **Test Coverage**: 260 tests (up from 259), 96%+ coverage maintained
+
+**Upgrade Recommendation**: ⚠️ **High Priority** - This patch fixes a data integrity issue. All users of v4.0.0 and v4.1.0 should upgrade immediately.
+
 ## [4.1.0] - 2025-11-24
 
 ### Added
