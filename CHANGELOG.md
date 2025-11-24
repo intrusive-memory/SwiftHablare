@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2025-11-24
+
+### Added
+- **Performance Testing CI Infrastructure**: Comprehensive performance testing with baseline comparison
+  - 21 performance benchmarks covering core operations (voice loading, generation, caching, UI)
+  - Automated baseline recording and comparison in CI
+  - Performance regression detection with detailed reports
+  - Separate weekly integration test schedule for long-running tests
+  - Performance tests run as dependency after unit tests pass in PRs
+  - Baseline storage in git for historical tracking
+
+### Changed
+- **CI Workflow Optimization**: Split testing into fast (unit) and slow (integration) categories
+  - Fast tests run on every PR (unit tests only, ~30 seconds)
+  - Integration tests run weekly on schedule (~2-5 minutes)
+  - Performance tests run after unit tests pass (informational, non-blocking)
+  - Branch protection rules validated and documented
+
+### Documentation
+- Added `Docs/PERFORMANCE_TESTING.md` - Complete performance testing guide
+- Updated `CLAUDE.md` with performance testing workflow and CI structure
+- Updated `.claude/WORKFLOW.md` with branch protection validation instructions
+- Added performance metrics to test documentation
+
+### Impact
+- **CI Speed**: PR checks complete in ~8-10 minutes (down from 15-20 minutes)
+- **Test Coverage**: 259 tests maintained with 96%+ coverage
+- **Performance Monitoring**: Automated detection of performance regressions
+- **Developer Experience**: Faster feedback loops with focused fast tests
+
 ## [4.0.0] - 2025-11-23
 
 ### Performance Improvements
