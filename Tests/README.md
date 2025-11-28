@@ -173,7 +173,7 @@ End-to-end tests with audio generation (always run):
   - Sample percentage analysis
   - Data integrity verification (retrieved audio matches original)
 - **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
-- **Cross-platform** - Runs on native macOS, Mac Catalyst, and iOS
+- **Cross-platform** - Runs on native macOS and iOS
 
 #### ElevenLabsVoiceProviderIntegrationTests.swift
 End-to-end tests with real API calls (conditional execution):

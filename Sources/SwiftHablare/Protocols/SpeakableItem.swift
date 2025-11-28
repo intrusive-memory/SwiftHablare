@@ -68,7 +68,7 @@ public protocol SpeakableItem {
     /// The voice provider to use for speech synthesis
     ///
     /// This can be any implementation of `VoiceProvider`, such as:
-    /// - `AppleVoiceProvider` for iOS/Catalyst TTS
+    /// - `AppleVoiceProvider` for iOS TTS
     /// - `ElevenLabsVoiceProvider` for ElevenLabs API
     /// - Custom providers you implement
     var voiceProvider: VoiceProvider { get }

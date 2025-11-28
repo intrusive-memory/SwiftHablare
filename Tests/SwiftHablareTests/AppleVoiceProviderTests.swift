@@ -7,7 +7,7 @@
 
 import XCTest
 import AVFoundation
-#if os(macOS) && !targetEnvironment(macCatalyst)
+#if os(macOS)
 import AppKit
 #endif
 @testable import SwiftHablare
@@ -69,13 +69,13 @@ final class AppleVoiceProviderTests: XCTestCase {
 
         // Verify that each voice ID can be used to create a platform-specific voice
         for voice in voices {
-            #if os(macOS) && !targetEnvironment(macCatalyst)
+            #if os(macOS)
             // On macOS, verify the voice ID is a valid NSSpeechSynthesizer voice name
             let voiceName = NSSpeechSynthesizer.VoiceName(rawValue: voice.id)
             let availableVoices = NSSpeechSynthesizer.availableVoices
             XCTAssertTrue(availableVoices.contains(voiceName), "Voice ID '\(voice.id)' should be in available voices")
             #else
-            // On iOS/Catalyst, verify the voice ID can create an AVSpeechSynthesisVoice
+            // On iOS, verify the voice ID can create an AVSpeechSynthesisVoice
             let avVoice = AVSpeechSynthesisVoice(identifier: voice.id)
             XCTAssertNotNil(avVoice, "Voice ID '\(voice.id)' should be valid")
             #endif
@@ -281,7 +281,7 @@ final class AppleVoiceProviderTests: XCTestCase {
             case .invalidRequest(let message):
                 XCTAssertTrue(message.contains("empty"), "Error message should mention empty text")
             case .networkError(let message):
-                // On iOS/Catalyst, might get network error if not yet fully implemented
+                // On iOS, might get network error if not yet fully implemented
                 XCTAssertTrue(message.contains("generation") || message.contains("failed"), "Error should indicate generation issue")
             default:
                 XCTFail("Expected invalidRequest or networkError, got \(error)")

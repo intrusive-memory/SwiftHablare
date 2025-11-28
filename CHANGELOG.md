@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING**: Removed Mac Catalyst support
+  - Removed `.macCatalyst(.v26)` from Package.swift platform targets
+  - Removed Catalyst from CI/CD test matrices
+  - Removed Catalyst-specific test cases and platform guards
+  - Updated all documentation to reflect iOS and macOS only
+  - **Migration**: Mac Catalyst users should use the iOS build or macOS build depending on their needs
+
 ## [4.1.2] - 2025-11-24
 
 ### Changed

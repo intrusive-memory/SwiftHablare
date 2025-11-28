@@ -75,7 +75,7 @@ final class VoiceQualityFilterTests: XCTestCase {
 
     // MARK: - macOS Quality Detection Tests
 
-    #if os(macOS) && !targetEnvironment(macCatalyst)
+    #if os(macOS)
     func testMacOSVoicesHaveQualityProperty() async throws {
         let engine = NSSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
@@ -174,7 +174,7 @@ final class VoiceQualityFilterTests: XCTestCase {
     }
     #endif
 
-    #if os(macOS) && !targetEnvironment(macCatalyst)
+    #if os(macOS)
     func testMacOSFilterRemovesDefaultQualityVoices() async throws {
         let engine = NSSpeechTTSEngine()
         let boundary = AppleTTSEngineBoundary(underlying: engine)
@@ -259,7 +259,7 @@ final class VoiceQualityFilterTests: XCTestCase {
     func testVoiceQualityPropertyExistsAcrossPlatforms() async throws {
         #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
-        #elseif os(macOS) && !targetEnvironment(macCatalyst)
+        #elseif os(macOS)
         let engine = NSSpeechTTSEngine()
         #else
         throw XCTSkip("Unsupported platform for Apple TTS")
@@ -277,7 +277,7 @@ final class VoiceQualityFilterTests: XCTestCase {
     func testFilterBehaviorConsistentAcrossPlatforms() async throws {
         #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
-        #elseif os(macOS) && !targetEnvironment(macCatalyst)
+        #elseif os(macOS)
         let engine = NSSpeechTTSEngine()
         #else
         throw XCTSkip("Unsupported platform for Apple TTS")

@@ -39,7 +39,7 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     public init() {
-        #if os(iOS) || targetEnvironment(macCatalyst)
+        #if os(iOS)
         self.engine = AppleTTSEngineBoundary(underlying: AVSpeechTTSEngine())
         #elseif os(macOS)
         self.engine = AppleTTSEngineBoundary(underlying: NSSpeechTTSEngine())
