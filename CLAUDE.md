@@ -10,7 +10,7 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Version Information
 
-- **Current Version**: 4.2.0
+- **Current Version**: 5.1.0
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26, macOS 26
 - **macOS Support**: ✅ **FULLY SUPPORTED** - native macOS support with NSSpeechSynthesizer
