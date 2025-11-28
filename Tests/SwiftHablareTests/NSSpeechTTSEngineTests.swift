@@ -5,7 +5,7 @@
 //  Tests for macOS NSSpeechTTSEngine implementation
 //
 
-#if os(macOS) && !targetEnvironment(macCatalyst)
+#if os(macOS)
 import XCTest
 import AVFoundation
 @testable import SwiftHablare

@@ -198,8 +198,8 @@ SwiftHablare is a Swift package that provides a unified interface for integratin
   - Supported capabilities
   - Required credentials
   - Cost structure (if applicable)
-  - Platform availability (iOS/Catalyst)
-  - Minimum iOS/Catalyst version
+  - Platform availability (iOS)
+  - Minimum iOS version
 - **REQ-6.2.2**: Support plugin documentation and help text
 
 #### 6.3 Configuration Panel Protocol
@@ -238,7 +238,7 @@ SwiftHablare is a Swift package that provides a unified interface for integratin
 
 ### 10. Compatibility
 
-- **REQ-10.1**: Support iOS 26.0+ and Mac Catalyst 15.0+ (or latest SwiftData requirements)
+- **REQ-10.1**: Support iOS 26.0+ and macOS 26.0+ (or latest SwiftData requirements)
 - **REQ-10.2**: Require Swift 6.0+
 - **REQ-10.3**: Ensure strict concurrency checking compliance
 - **REQ-10.4**: Support both Swift Package Manager installation
@@ -413,7 +413,7 @@ SwiftHablare is a Swift package that provides a unified interface for integratin
 - **REQ-14.4.3**: Code coverage reporting on PRs
 - **REQ-14.4.4**: Automated documentation generation and deployment
 - **REQ-14.4.5**: Automated linting and code style checking
-- **REQ-14.4.6**: Matrix testing across supported platforms (iOS, Catalyst)
+- **REQ-14.4.6**: Matrix testing across supported platforms (iOS, macOS)
 - **REQ-14.4.7**: Security scanning for dependencies
 - **REQ-14.4.8**: Automated example app building and testing
 - **REQ-14.4.9**: PR size checking with warnings for large PRs
@@ -490,7 +490,7 @@ The following providers are **required** to be included as default implementatio
 - **Display Name**: Apple Intelligence
 - **Capabilities**: Text generation, text summarization, writing tools integration
 - **API Key Required**: No (system-level integration)
-- **Platform Availability**: iOS 26+, Mac Catalyst 15+
+- **Platform Availability**: iOS 26+, macOS 26+
 - **Settings Panel Requirements**:
   - Model selection (when applicable)
   - Privacy settings (on-device vs cloud)
@@ -502,7 +502,7 @@ The following providers are **required** to be included as default implementatio
 - **Display Name**: OpenAI
 - **Capabilities**: Text generation (GPT-4, GPT-3.5), text-to-speech, speech-to-text, image generation (DALL-E), embeddings, structured outputs
 - **API Key Required**: Yes
-- **Platform Availability**: iOS 26+, Mac Catalyst 15+
+- **Platform Availability**: iOS 26+, macOS 26+
 - **Settings Panel Requirements**:
   - API key management (secure input)
   - Model selection dropdown (GPT-4, GPT-3.5-turbo, etc.)
@@ -516,7 +516,7 @@ The following providers are **required** to be included as default implementatio
 - **Display Name**: Anthropic
 - **Capabilities**: Text generation (Claude models), structured outputs, tool use/function calling, vision
 - **API Key Required**: Yes
-- **Platform Availability**: iOS 26+, Mac Catalyst 15+
+- **Platform Availability**: iOS 26+, macOS 26+
 - **Settings Panel Requirements**:
   - API key management (secure input)
   - Model selection (Claude 3.5 Sonnet, Claude 3 Opus, etc.)
@@ -529,7 +529,7 @@ The following providers are **required** to be included as default implementatio
 - **Display Name**: ElevenLabs
 - **Capabilities**: Text-to-speech, voice cloning, speech-to-speech
 - **API Key Required**: Yes
-- **Platform Availability**: iOS 26+, Mac Catalyst 15+
+- **Platform Availability**: iOS 26+, macOS 26+
 - **Settings Panel Requirements**:
   - API key management (secure input)
   - Voice picker with preview playback

@@ -5,7 +5,7 @@
 //  macOS implementation using NSSpeechSynthesizer
 //
 
-#if os(macOS) && !targetEnvironment(macCatalyst)
+#if os(macOS)
 import AppKit
 import AVFoundation
 import ObjectiveC

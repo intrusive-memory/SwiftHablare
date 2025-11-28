@@ -11,7 +11,7 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 - **Provider registry**: Centralized provider management with configuration panels (v3.5.1)
 - **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
-- **Cross-platform**: iOS 26+, macOS 26+, and Mac Catalyst 26+ (full platform support)
+- **Cross-platform**: iOS 26+ and macOS 26+ (full platform support)
 - **Optional UI components**: SwiftUI pickers and generation buttons (v2.3.0)
 - **Batch generation**: SpeakableGroup protocol for generating groups of items (v2.3.0)
 - **No character mapping**: Voice selection is handled by consuming applications
@@ -77,7 +77,7 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
   │ • Built-in TTS      │         │ • Neural voices     │
   │ • No API key needed │         │ • API key required  │
   │ • AIFF output       │         │ • MP3 output        │
-  │ • iOS/macOS/Catalyst│         │ • Production quality│
+  │ • iOS/macOS         │         │ • Production quality│
   │ • Platform-agnostic │         │ • 11+ voices        │
   │ • Cross-platform    │         │ • Emotional range   │
   │                     │         │                     │
@@ -167,11 +167,11 @@ dependencies: [
 ## Requirements
 
 - Swift 6.0+
-- iOS 26.0+ / macOS 26.0+ / Mac Catalyst 26.0+
+- iOS 26.0+ / macOS 26.0+
 - SwiftCompartido 2.1.0+
-- Cross-platform (iOS, macOS, Catalyst)
+- Cross-platform (iOS, macOS)
 
-**Platform Support**: SwiftHablaré provides first-class support for iOS 26+, macOS 26+, and Mac Catalyst 26+ with platform-specific TTS engines.
+**Platform Support**: SwiftHablaré provides first-class support for iOS 26+ and macOS 26+ with platform-specific TTS engines.
 
 ## Quick Start
 
@@ -262,7 +262,7 @@ SwiftHablare/
 
 ### Apple Voice Provider
 
-Built-in text-to-speech for iOS 26+, macOS 26+, and Mac Catalyst 26+. No API key required.
+Built-in text-to-speech for iOS 26+ and macOS 26+. No API key required.
 
 ```swift
 let provider = AppleVoiceProvider()
@@ -288,7 +288,7 @@ if provider.isConfigured() {
 - Platform-agnostic through Engine Boundary Protocol
 
 **Platform-Specific Implementation:**
-- **iOS 26+ & Catalyst**: Uses AVSpeechSynthesizer.write() (AIFC format)
+- **iOS 26+**: Uses AVSpeechSynthesizer.write() (AIFC format)
 - **macOS 26+**: Uses NSSpeechSynthesizer (AIFF format)
 - Unified interface via VoiceEngine protocol
 
@@ -1009,7 +1009,6 @@ Tests are organized into two categories for optimal CI performance:
 **Platform Support:**
 - ✅ iOS 26+ (tested on iOS Simulator and physical devices)
 - ✅ macOS 26+ (tested natively on macOS)
-- ✅ Mac Catalyst 26+ (tested on simulator)
 
 ### Running Tests Locally
 

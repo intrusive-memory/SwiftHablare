@@ -265,7 +265,7 @@ Verify existing functionality still works:
 
 ## Known Limitations
 
-1. **Cannot Run swift test**: Project is iOS/Catalyst only, requires xcodebuild
+1. **Cannot Run swift test**: Project is iOS only, requires xcodebuild
 2. **Xcode Required**: Full test suite needs Xcode with iOS Simulator
 3. **Voice Provider Config**: ElevenLabs needs API key for full testing
 

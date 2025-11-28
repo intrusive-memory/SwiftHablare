@@ -57,7 +57,7 @@ struct AppleTTSEngineBoundary: VoiceEngine {
             languageCode: request.languageCode
         )
 
-        #if os(iOS) || targetEnvironment(macCatalyst)
+        #if os(iOS)
         let format: VoiceEngineAudioFormat = .aifc
         let fileExtension = "aifc"
         #else

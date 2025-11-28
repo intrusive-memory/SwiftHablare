@@ -9,9 +9,9 @@ This guide summarizes the day-to-day tasks most automations perform when integra
    .package(url: "https://github.com/intrusive-memory/SwiftHablare", from: "1.0.0")
    ```
 2. Add `SwiftHablare` to the target dependencies that need text-to-speech features.
-3. Ensure the host app targets iOS 26+ or macCatalyst 15+ and uses Swift 6.0 or newer with Xcode 15+.
+3. Ensure the host app targets iOS 26+ or macOS 26+ and uses Swift 6.0 or newer with Xcode 15+.
 4. Link SwiftData in the host target (SwiftHablaré persists data through it).
-5. On iOS/Catalyst, entitle the app for microphone/speaker usage when playing audio.
+5. On iOS, entitle the app for microphone/speaker usage when playing audio.
 
 ## 2. Bootstrapping the Manager
 
@@ -94,7 +94,7 @@ try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
 
 ## 6. SwiftUI Widgets Snapshot
 
-SwiftHablaré ships SwiftUI helper views designed for iOS 26+ and Catalyst apps. They bind directly to `VoiceProviderManager` and the SwiftData models:
+SwiftHablaré ships SwiftUI helper views designed for iOS 26+ and macOS apps. They bind directly to `VoiceProviderManager` and the SwiftData models:
 
 - `VoiceProviderWidget` – Picker for switching providers and showing provider status.
 - `VoiceSettingsWidget` – Composite control for configuring providers and selecting voices.
