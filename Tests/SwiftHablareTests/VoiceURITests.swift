@@ -148,6 +148,54 @@ struct VoiceURITests {
         #expect(uri == nil)
     }
 
+    @Test("Handle voice ID with special characters")
+    func testVoiceIdWithSpecialCharacters() {
+        // Voice ID with spaces, question marks, and hash symbols
+        let uri = VoiceURI(
+            providerId: "custom",
+            voiceId: "voice with spaces?and#special",
+            languageCode: "en"
+        )
+
+        let uriString = uri.uriString
+        #expect(uriString.contains("hablare://custom/"))
+        #expect(uriString.contains("lang=en"))
+
+        // Verify roundtrip works
+        let parsed = VoiceURI(uriString: uriString)
+        #expect(parsed != nil)
+        #expect(parsed?.providerId == "custom")
+        #expect(parsed?.voiceId == "voice with spaces?and#special")
+        #expect(parsed?.languageCode == "en")
+    }
+
+    @Test("Default voice detection uses hasSuffix")
+    func testDefaultVoiceDetectionPrecise() {
+        // True default voice
+        let defaultVoice = VoiceURI(
+            providerId: "apple",
+            voiceId: "com.apple.voice.compact.en-US.Default",
+            languageCode: "en"
+        )
+        #expect(defaultVoice.isDefaultVoice == true)
+
+        // False positive with contains(".Default") - should NOT be default
+        let customVoice = VoiceURI(
+            providerId: "apple",
+            voiceId: "com.custom.voice.with.Default.name",
+            languageCode: "en"
+        )
+        #expect(customVoice.isDefaultVoice == false)
+
+        // Non-apple provider
+        let elevenLabsVoice = VoiceURI(
+            providerId: "elevenlabs",
+            voiceId: "voice.Default",
+            languageCode: "en"
+        )
+        #expect(elevenLabsVoice.isDefaultVoice == false)
+    }
+
     // MARK: - URI String Generation Tests
 
     @Test("Generate URI string with language")
@@ -509,4 +557,228 @@ struct CastListPageExtensionsTests {
         #expect(decodedBobURI.providerId == uri2.providerId)
         #expect(decodedBobURI.voiceId == uri2.voiceId)
     }
+
+    // MARK: - Import/Export Tests
+
+    @Test("Export voice mappings to dictionary")
+    func testExportVoiceMappings() {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
+
+        let exported = castList.exportVoiceMappings()
+
+        #expect(exported.count == 2)
+        #expect(exported["ALICE"]?.providerId == "apple")
+        #expect(exported["ALICE"]?.voiceId == "voice-1")
+        #expect(exported["BOB"]?.providerId == "elevenlabs")
+        #expect(exported["BOB"]?.voiceId == "voice-2")
+    }
+
+    @Test("Import voice mappings from dictionary")
+    func testImportVoiceMappings() {
+        let mappings: [String: VoiceURI] = [
+            "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+            "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+        ]
+
+        let castList = CastListPage.importVoiceMappings(mappings, title: "Imported Cast")
+
+        #expect(castList.title == "Imported Cast")
+        #expect(castList.items.count == 2)
+
+        let aliceURI = castList.voiceURI(for: "ALICE")
+        let bobURI = castList.voiceURI(for: "BOB")
+
+        #expect(aliceURI.providerId == "apple")
+        #expect(aliceURI.voiceId == "voice-1")
+        #expect(bobURI.providerId == "elevenlabs")
+        #expect(bobURI.voiceId == "voice-2")
+    }
+
+    @Test("Export and import roundtrip")
+    func testExportImportRoundtrip() {
+        let original: [String: VoiceURI] = [
+            "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+            "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en"),
+            "CHARLIE": VoiceURI(providerId: "apple", voiceId: "voice-3", languageCode: "es")
+        ]
+
+        // Export
+        let castList = CastListPage.importVoiceMappings(original)
+
+        // Import
+        let imported = castList.exportVoiceMappings()
+
+        #expect(imported.count == original.count)
+        #expect(imported["ALICE"]?.voiceId == original["ALICE"]?.voiceId)
+        #expect(imported["BOB"]?.voiceId == original["BOB"]?.voiceId)
+        #expect(imported["CHARLIE"]?.voiceId == original["CHARLIE"]?.voiceId)
+    }
+
+    @Test("Export to JSON file")
+    func testExportToJSONFile() throws {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Voice Cast",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test-cast-list.json")
+
+        try castList.exportToJSON(url: tempURL)
+
+        // Verify file was created
+        #expect(FileManager.default.fileExists(atPath: tempURL.path))
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    @Test("Import from JSON file")
+    func testImportFromJSONFile() throws {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+
+        let original = CastListPage.fromVoiceMapping(
+            title: "Voice Cast",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test-cast-list-import.json")
+
+        // Export
+        try original.exportToJSON(url: tempURL)
+
+        // Import
+        let imported = try CastListPage.importFromJSON(url: tempURL)
+
+        #expect(imported.title == original.title)
+        #expect(imported.items.count == original.items.count)
+
+        let aliceURI = imported.voiceURI(for: "ALICE")
+        let bobURI = imported.voiceURI(for: "BOB")
+
+        #expect(aliceURI.providerId == uri1.providerId)
+        #expect(aliceURI.voiceId == uri1.voiceId)
+        #expect(bobURI.providerId == uri2.providerId)
+        #expect(bobURI.voiceId == uri2.voiceId)
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    @Test("File roundtrip preserves all data")
+    func testFileRoundtrip() throws {
+        let mappings: [String: VoiceURI] = [
+            "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+            "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en"),
+            "CHARLIE": VoiceURI(providerId: "apple", voiceId: "voice-3", languageCode: "es"),
+            "DIANA": VoiceURI(providerId: "elevenlabs", voiceId: "voice-4", languageCode: "fr")
+        ]
+
+        let original = CastListPage.fromVoiceMapping(
+            title: "Multi-Language Cast",
+            mapping: mappings
+        )
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test-roundtrip.json")
+
+        // Export
+        try original.exportToJSON(url: tempURL)
+
+        // Import
+        let imported = try CastListPage.importFromJSON(url: tempURL)
+
+        // Export imported mappings
+        let importedMappings = imported.exportVoiceMappings()
+
+        #expect(importedMappings.count == mappings.count)
+        for (character, uri) in mappings {
+            #expect(importedMappings[character]?.providerId == uri.providerId)
+            #expect(importedMappings[character]?.voiceId == uri.voiceId)
+            #expect(importedMappings[character]?.languageCode == uri.languageCode)
+        }
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    @Test("Get character roles")
+    func testCharacterRoles() {
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: [
+                "CHARLIE": VoiceURI(providerId: "apple", voiceId: "voice-3", languageCode: "en"),
+                "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+                "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+            ]
+        )
+
+        let roles = castList.characterRoles
+
+        #expect(roles.count == 3)
+        #expect(roles == ["ALICE", "BOB", "CHARLIE"])  // Should be sorted
+    }
+
+    @Test("Provider summary")
+    func testProviderSummary() {
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: [
+                "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+                "BOB": VoiceURI(providerId: "apple", voiceId: "voice-2", languageCode: "en"),
+                "CHARLIE": VoiceURI(providerId: "apple", voiceId: "voice-3", languageCode: "en"),
+                "DIANA": VoiceURI(providerId: "elevenlabs", voiceId: "voice-4", languageCode: "en"),
+                "EVE": VoiceURI(providerId: "elevenlabs", voiceId: "voice-5", languageCode: "en")
+            ]
+        )
+
+        let summary = castList.providerSummary()
+
+        #expect(summary["apple"] == 3)
+        #expect(summary["elevenlabs"] == 2)
+    }
+
+    @Test("Export handles empty cast list")
+    func testExportEmptyCastList() {
+        let castList = CastListPage(title: "Empty", position: 0)
+
+        let mappings = castList.exportVoiceMappings()
+
+        #expect(mappings.isEmpty)
+    }
+
+    @Test("Export ignores invalid URIs")
+    func testExportIgnoresInvalidURIs() {
+        var castList = CastListPage(title: "Test", position: 0)
+
+        // Add valid URI
+        castList.addMember(role: "ALICE", name: "hablare://apple/voice-1?lang=en")
+
+        // Add invalid URI
+        castList.addMember(role: "BOB", name: "invalid-uri")
+
+        let mappings = castList.exportVoiceMappings()
+
+        #expect(mappings.count == 1)  // Only ALICE should be exported
+        #expect(mappings["ALICE"] != nil)
+        #expect(mappings["BOB"] == nil)
+    }
 }
+

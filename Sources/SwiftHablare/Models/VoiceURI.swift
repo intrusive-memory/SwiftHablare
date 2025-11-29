@@ -143,27 +143,33 @@ public struct VoiceURI: Codable, Hashable, Sendable {
     ///
     /// - Returns: True if this is a default voice URI
     public var isDefaultVoice: Bool {
-        return providerId == "apple" && voiceId.contains(".Default")
+        return providerId == "apple" && voiceId.hasSuffix(".Default")
     }
 
     // MARK: - String Conversion
 
     /// Convert to URI string
     ///
-    /// Generates the canonical URI string representation.
+    /// Generates the canonical URI string representation using URLComponents
+    /// for proper percent-encoding of special characters.
     ///
     /// ## Format
     ///
     /// - Without language: `hablare://providerId/voiceId`
     /// - With language: `hablare://providerId/voiceId?lang=languageCode`
     ///
-    /// - Returns: URI string
+    /// - Returns: URI string with properly encoded components
     public var uriString: String {
-        var uri = "hablare://\(providerId)/\(voiceId)"
+        var components = URLComponents()
+        components.scheme = "hablare"
+        components.host = providerId
+        components.path = "/\(voiceId)"
+
         if let lang = languageCode {
-            uri += "?lang=\(lang)"
+            components.queryItems = [URLQueryItem(name: "lang", value: lang)]
         }
-        return uri
+
+        return components.string ?? "hablare://\(providerId)/\(voiceId)"
     }
 
     /// CustomStringConvertible conformance
@@ -355,5 +361,143 @@ extension CastListPage {
         }
 
         return results
+    }
+
+    // MARK: - Import/Export Helpers
+
+    /// Export character-to-voice mappings as a dictionary
+    ///
+    /// Extracts all role→VoiceURI mappings from the cast list.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let castList = CastListPage.fromVoiceMapping(...)
+    /// let mappings = castList.exportVoiceMappings()
+    /// // ["ALICE": VoiceURI(...), "BOB": VoiceURI(...)]
+    /// ```
+    ///
+    /// - Returns: Dictionary mapping character roles to VoiceURIs
+    public func exportVoiceMappings() -> [String: VoiceURI] {
+        var mappings: [String: VoiceURI] = [:]
+
+        for member in items {
+            if let uri = VoiceURI(uriString: member.name) {
+                mappings[member.role] = uri
+            }
+        }
+
+        return mappings
+    }
+
+    /// Import character-to-voice mappings from a dictionary
+    ///
+    /// Creates a new CastListPage from a dictionary of role→VoiceURI mappings.
+    /// This is the inverse of `exportVoiceMappings()`.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let mappings: [String: VoiceURI] = [
+    ///     "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+    ///     "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+    /// ]
+    ///
+    /// let castList = CastListPage.importVoiceMappings(mappings, title: "Voice Cast")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - mappings: Dictionary mapping character roles to VoiceURIs
+    ///   - title: Title for the cast list page (default: "Voice Cast")
+    ///   - position: Position in custom pages (default: 0)
+    ///   - printDots: Whether to print dots between role and name (default: true)
+    /// - Returns: CastListPage with voice mappings
+    public static func importVoiceMappings(
+        _ mappings: [String: VoiceURI],
+        title: String = "Voice Cast",
+        position: Int = 0,
+        printDots: Bool = true
+    ) -> CastListPage {
+        return fromVoiceMapping(
+            title: title,
+            position: position,
+            printDots: printDots,
+            mapping: mappings
+        )
+    }
+
+    /// Export to JSON file for custom-pages.json
+    ///
+    /// Encodes the cast list as JSON and writes to a file URL.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let castList = CastListPage.fromVoiceMapping(...)
+    /// let url = URL(fileURLWithPath: "/path/to/custom-pages.json")
+    /// try castList.exportToJSON(url: url)
+    /// ```
+    ///
+    /// - Parameter url: File URL to write JSON to
+    /// - Throws: EncodingError if encoding fails, or file system errors
+    public func exportToJSON(url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(self)
+        try data.write(to: url)
+    }
+
+    /// Import from JSON file (custom-pages.json format)
+    ///
+    /// Decodes a CastListPage from a JSON file.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let url = URL(fileURLWithPath: "/path/to/custom-pages.json")
+    /// let castList = try CastListPage.importFromJSON(url: url)
+    ///
+    /// // Use the imported mappings
+    /// let aliceVoice = castList.voiceURI(for: "ALICE")
+    /// ```
+    ///
+    /// - Parameter url: File URL to read JSON from
+    /// - Returns: Decoded CastListPage
+    /// - Throws: DecodingError if decoding fails, or file system errors
+    public static func importFromJSON(url: URL) throws -> CastListPage {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode(CastListPage.self, from: data)
+    }
+
+    /// Get all character roles in the cast list
+    ///
+    /// - Returns: Array of character role names (sorted alphabetically)
+    public var characterRoles: [String] {
+        return items.map { $0.role }.sorted()
+    }
+
+    /// Get a summary of voice provider distribution
+    ///
+    /// Useful for understanding which providers are being used in the cast.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let summary = castList.providerSummary()
+    /// // ["apple": 5, "elevenlabs": 3]
+    /// ```
+    ///
+    /// - Returns: Dictionary mapping provider IDs to usage count
+    public func providerSummary() -> [String: Int] {
+        var summary: [String: Int] = [:]
+
+        for member in items {
+            if let uri = VoiceURI(uriString: member.name) {
+                summary[uri.providerId, default: 0] += 1
+            }
+        }
+
+        return summary
     }
 }
