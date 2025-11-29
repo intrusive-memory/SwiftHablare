@@ -398,6 +398,171 @@ await MyProviderRegistrar.registerProviders(into: .shared)
 
 **Note**: Swift does not support Objective-C's `+load` method for automatic registration. External packages must call `registerProviders(into:)` during app initialization to make their providers available.
 
+## Voice URI & Cast List Export (v5.1.0)
+
+SwiftHablaré provides a standardized URI scheme for referencing voices across providers, making it easy to export and import character-to-voice mappings for screenplays and other multi-character content.
+
+### VoiceURI
+
+**Format**: `hablare://<providerId>/<voiceId>?lang=<languageCode>`
+
+A portable reference to a voice that works across voice providers and applications.
+
+```swift
+import SwiftHablare
+
+// Create from components
+let uri = VoiceURI(
+    providerId: "apple",
+    voiceId: "com.apple.voice.compact.en-US.Samantha",
+    languageCode: "en"
+)
+
+// Parse from string
+let parsed = VoiceURI(uriString: "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en")
+
+// Create from Voice model
+let voice = try await provider.fetchVoices().first!
+let uri = VoiceURI(from: voice, languageCode: "en")
+
+// Convert to URI string
+print(uri.uriString)
+// => "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en"
+```
+
+**Key Features:**
+- **Provider-agnostic**: Works with Apple, ElevenLabs, or custom providers
+- **Language-aware**: Optional language code parameter
+- **Fallback support**: Returns default voice if specified voice unavailable
+- **Portable**: Can be serialized to JSON, YAML, or plain text
+- **Hashable**: Can be used as Dictionary keys or in Sets
+
+### CastListPage
+
+A structured format for character-to-voice mappings, compatible with SwiftCompartido's screenplay format.
+
+```swift
+// Create cast list
+let castList = CastListPage(entries: [
+    "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+    "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+])
+
+// Export to JSON (for custom-pages.json)
+let jsonData = try castList.toJSON()
+try jsonData.write(to: URL(fileURLWithPath: "cast-list.json"))
+
+// Export to YAML (for Markdown front matter)
+let yamlString = castList.toYAML()
+```
+
+**JSON Format:**
+```json
+{
+  "castList": {
+    "ALICE": "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en",
+    "BOB": "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en"
+  }
+}
+```
+
+**YAML Format:**
+```yaml
+castList:
+  ALICE: hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en
+  BOB: hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en
+```
+
+### Using Cast Lists with Screenplays
+
+```swift
+import SwiftHablare
+import SwiftCompartido
+import SwiftData
+
+@MainActor
+func generateScreenplayAudio() async throws {
+    // 1. Parse screenplay
+    let screenplay = try GuionParsedElementCollection(file: screenplayURL)
+
+    // 2. Import cast list
+    let jsonData = try Data(contentsOf: castListURL)
+    let castList = try CastListPage.fromJSON(jsonData)
+
+    // 3. Set up generation service
+    let service = GenerationService()
+
+    // 4. Generate audio for each dialogue element
+    for element in screenplay.elements where element.elementType == .dialogue {
+        let characterName = element.lastCharacter ?? "NARRATOR"
+        let voiceURI = castList.voiceURI(for: characterName)  // Falls back to default if missing
+
+        // Resolve URI to actual Voice
+        let voice = try await voiceURI.resolve(using: service)
+
+        // Generate audio
+        let result = try await service.generate(
+            text: element.elementText,
+            providerId: voiceURI.providerId,
+            voiceId: voice.id,
+            languageCode: voiceURI.languageCode
+        )
+
+        // Save to SwiftData
+        let storage = result.toTypedDataStorage()
+        modelContext.insert(storage)
+    }
+
+    try modelContext.save()
+}
+```
+
+### Validation & Fallback
+
+VoiceURI provides automatic fallback to default voices when referenced voices are unavailable:
+
+```swift
+// Check if voice is available
+let isAvailable = await voiceURI.isAvailable(using: service)
+
+// Resolve with automatic fallback
+let voice = try await voiceURI.resolve(using: service)
+// If voice not found, returns first available voice from same provider
+
+// Validate entire cast list
+let validation = await castList.validateAvailability(using: service)
+for (character, available) in validation {
+    if !available {
+        print("⚠️ Voice for \(character) not available, will use fallback")
+    }
+}
+```
+
+**Default Voice Behavior:**
+- If a character has no voice assignment, `voiceURI(for:)` returns the default Apple voice
+- If a voice URI cannot be resolved, the first available voice from that provider is used
+- If a provider has no voices, an error is thrown
+
+### Export Formats
+
+**For SwiftCompartido custom-pages.json:**
+```swift
+let castList = CastListPage(entries: characterVoiceMap)
+let jsonData = try castList.toJSON()
+// Write to screenplay bundle's custom-pages.json
+```
+
+**For Markdown front matter:**
+```swift
+let yamlString = castList.toYAML()
+// Prepend to .md file:
+// ---
+// title: My Screenplay
+// castList:
+//   ALICE: hablare://apple/voice-1?lang=en
+// ---
+```
+
 ## UI Components (v2.3.0)
 
 SwiftHablaré provides optional SwiftUI components for voice selection and audio generation:

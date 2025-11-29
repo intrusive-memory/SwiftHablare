@@ -14,12 +14,14 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26, macOS 26
 - **macOS Support**: ✅ **FULLY SUPPORTED** - native macOS support with NSSpeechSynthesizer
-- **Total Tests**: 259 passing
+- **Total Tests**: 305 passing (259 + 46 VoiceURI tests)
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance with strict concurrency enabled
 - **Language Support**: ✨ Multi-language voice generation with language-specific caching (v2.3.0+)
 - **Provider Registry**: ✨ Centralized provider management with configuration panels (v3.5.1+)
 - **Engine Boundary Protocol**: ✨ Platform-agnostic voice engine abstraction (v3.5.1+)
+- **Voice URI**: ✨ **v5.1.0 NEW** - Portable voice references with `hablare://` URI scheme
+- **Cast List Export**: ✨ **v5.1.0 NEW** - Character-to-voice mapping export (JSON & YAML)
 - **Performance**: ⚡ **v4.0.0 OPTIMIZATIONS** - 15-25% faster voice loading, 50% faster UI, 10-20x faster cache clearing
 
 ## Platform Support
@@ -1792,6 +1794,101 @@ let hasEnCache = await service.hasValidCache(for: "apple", languageCode: "en", u
 try await service.clearVoiceCache(for: "apple", languageCode: "en", using: context)
 try await service.clearVoiceCache(for: "apple", using: context) // Clears all languages
 ```
+
+### 7. Voice URI & Cast List Export (v5.1.0)
+
+**Portable Voice References:**
+
+SwiftHablaré provides a standardized URI scheme (`hablare://`) for voice references that can be exported/imported across applications.
+
+**VoiceURI Format:**
+```
+hablare://<providerId>/<voiceId>?lang=<languageCode>
+```
+
+**Usage:**
+```swift
+// Create VoiceURI
+let uri = VoiceURI(
+    providerId: "apple",
+    voiceId: "com.apple.voice.compact.en-US.Samantha",
+    languageCode: "en"
+)
+
+// Parse from string
+let parsed = VoiceURI(uriString: "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en")
+
+// Create from Voice model
+let voice = try await provider.fetchVoices().first!
+let uri = VoiceURI(from: voice, languageCode: "en")
+
+// Convert to string
+print(uri.uriString)
+// => "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en"
+
+// Resolve to Voice (with automatic fallback)
+let voice = try await uri.resolve(using: service)
+
+// Check availability
+let isAvailable = await uri.isAvailable(using: service)
+```
+
+**Cast List Export:**
+
+`CastListPage` provides structured character-to-voice mappings for screenplay export/import.
+
+```swift
+// Create cast list
+let castList = CastListPage(entries: [
+    "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+    "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+])
+
+// Export to JSON (for custom-pages.json)
+let jsonData = try castList.toJSON()
+
+// Export to YAML (for Markdown front matter)
+let yamlString = castList.toYAML()
+
+// Import from JSON
+let imported = try CastListPage.fromJSON(jsonData)
+
+// Import from YAML
+let imported = CastListPage.fromYAML(yamlString)
+
+// Get voice for character (falls back to default if missing)
+let uri = castList.voiceURI(for: "ALICE")
+
+// Validate availability
+let validation = await castList.validateAvailability(using: service)
+```
+
+**JSON Format:**
+```json
+{
+  "castList": {
+    "ALICE": "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en",
+    "BOB": "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en"
+  }
+}
+```
+
+**YAML Format (for Markdown front matter):**
+```yaml
+castList:
+  ALICE: hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en
+  BOB: hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en
+```
+
+**Fallback Behavior:**
+- Missing character → Returns default Apple voice
+- Voice not found → Returns first available voice from same provider
+- No voices in provider → Throws error
+
+**Test Coverage:**
+- 46 tests in `VoiceURITests.swift`
+- 100% coverage on VoiceURI and CastListPage
+- Tests cover parsing, serialization, validation, fallback
 
 ## Development Workflow
 
