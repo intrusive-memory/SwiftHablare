@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftCompartido
 
 /// Voice URI for portable voice references across voice providers
 ///
@@ -15,8 +16,8 @@ import Foundation
 /// ## Examples
 ///
 /// ```swift
-/// // Apple voice with language
-/// let uri1 = VoiceURI(
+/// // Create from components
+/// let uri = VoiceURI(
 ///     providerId: "apple",
 ///     voiceId: "com.apple.voice.compact.en-US.Samantha",
 ///     languageCode: "en"
@@ -242,251 +243,98 @@ public struct VoiceURI: Codable, Hashable, Sendable {
     }
 }
 
-// MARK: - CastListPage
+// MARK: - CastListPage Extensions
 
-/// Cast list page for screenplay character-to-voice mappings
-///
-/// Follows SwiftCompartido's page pattern (similar to TitlePageData).
-/// Used for export/import of character voice assignments.
-///
-/// ## JSON Export (for custom-pages.json)
-///
-/// ```json
-/// {
-///   "castList": {
-///     "ALICE": "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en",
-///     "BOB": "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en"
-///   }
-/// }
-/// ```
-///
-/// ## YAML Export (for Markdown front matter)
-///
-/// ```yaml
-/// castList:
-///   ALICE: hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en
-///   BOB: hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en
-/// ```
-///
-/// ## Usage
-///
-/// ```swift
-/// // Create cast list
-/// let castList = CastListPage(entries: [
-///     "ALICE": VoiceURI(providerId: "apple", voiceId: "voice1", languageCode: "en"),
-///     "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice2", languageCode: "en")
-/// ])
-///
-/// // Export to JSON
-/// let jsonData = try castList.toJSON()
-///
-/// // Export to YAML
-/// let yamlString = castList.toYAML()
-///
-/// // Import from JSON
-/// let imported = try CastListPage.fromJSON(jsonData)
-/// ```
-public struct CastListPage: Codable, Sendable {
+extension CastListPage {
 
-    /// Character name to voice URI mapping
+    /// Create a cast list from character-to-voice mappings
     ///
-    /// Key: Character name (e.g., "ALICE", "BOB")
-    /// Value: Voice URI string (e.g., "hablare://apple/voice-id?lang=en")
-    public let castList: [String: String]
-
-    // MARK: - Initialization
-
-    /// Create a cast list page from URI strings
+    /// Uses the `name` field to store voice URI strings.
     ///
-    /// - Parameter castList: Dictionary mapping character names to voice URI strings
-    public init(castList: [String: String]) {
-        self.castList = castList
+    /// ## Example
+    ///
+    /// ```swift
+    /// let castList = CastListPage.fromVoiceMapping(
+    ///     title: "Voice Cast",
+    ///     mapping: [
+    ///         "ALICE": VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en"),
+    ///         "BOB": VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+    ///     ]
+    /// )
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - title: Title for the cast list page
+    ///   - position: Position in custom pages (default: 0)
+    ///   - printDots: Whether to print dots between role and name (default: true)
+    ///   - mapping: Dictionary mapping character names to VoiceURI
+    /// - Returns: CastListPage with voice URIs stored in the name field
+    public static func fromVoiceMapping(
+        title: String,
+        position: Int = 0,
+        printDots: Bool = true,
+        mapping: [String: VoiceURI]
+    ) -> CastListPage {
+        let members = mapping.enumerated().map { index, entry in
+            CastMember(
+                role: entry.key,
+                name: entry.value.uriString,  // Store URI in name field
+                position: index
+            )
+        }
+
+        return CastListPage(
+            title: title,
+            position: position,
+            printDots: printDots,
+            items: members
+        )
     }
 
-    /// Create a cast list page from VoiceURI objects
-    ///
-    /// - Parameter entries: Dictionary mapping character names to VoiceURI objects
-    public init(entries: [String: VoiceURI]) {
-        self.castList = entries.mapValues { $0.uriString }
-    }
-
-    /// Create an empty cast list
-    public init() {
-        self.castList = [:]
-    }
-
-    // MARK: - Access
-
-    /// Get voice URI for a character
+    /// Get voice URI for a character role
     ///
     /// Returns the default voice URI if character not found.
     ///
-    /// - Parameter characterName: Character name to look up
+    /// - Parameter role: Character role to look up
     /// - Returns: VoiceURI for the character, or default voice if not found
-    public func voiceURI(for characterName: String) -> VoiceURI {
-        guard let uriString = castList[characterName],
-              let uri = VoiceURI(uriString: uriString) else {
+    public func voiceURI(for role: String) -> VoiceURI {
+        // Find cast member for this role (case-insensitive)
+        guard let member = items.first(where: { $0.role.uppercased() == role.uppercased() }),
+              let uri = VoiceURI(uriString: member.name) else {
             return VoiceURI.defaultVoice()
         }
         return uri
     }
 
-    /// Get all character names
-    ///
-    /// - Returns: Array of character names
-    public var characterNames: [String] {
-        return Array(castList.keys).sorted()
-    }
-
-    /// Check if a character has a voice assignment
-    ///
-    /// - Parameter characterName: Character name to check
-    /// - Returns: True if character has voice assignment
-    public func hasVoice(for characterName: String) -> Bool {
-        return castList[characterName] != nil
-    }
-
-    // MARK: - Mutation
-
-    /// Create a new cast list with an added character-voice mapping
+    /// Add a character-to-voice mapping
     ///
     /// - Parameters:
-    ///   - characterName: Character name
-    ///   - voiceURI: Voice URI
-    /// - Returns: New CastListPage with the added entry
-    public func adding(characterName: String, voiceURI: VoiceURI) -> CastListPage {
-        var newCastList = castList
-        newCastList[characterName] = voiceURI.uriString
-        return CastListPage(castList: newCastList)
+    ///   - role: Character role
+    ///   - voiceURI: Voice URI for this character
+    public mutating func addVoiceMapping(role: String, voiceURI: VoiceURI) {
+        addMember(role: role, name: voiceURI.uriString)
     }
 
-    /// Create a new cast list with a removed character
+    /// Update voice mapping for a character
     ///
-    /// - Parameter characterName: Character name to remove
-    /// - Returns: New CastListPage without the character
-    public func removing(characterName: String) -> CastListPage {
-        var newCastList = castList
-        newCastList.removeValue(forKey: characterName)
-        return CastListPage(castList: newCastList)
-    }
-
-    // MARK: - JSON Serialization
-
-    /// Export to JSON data
-    ///
-    /// Produces formatted JSON suitable for custom-pages.json export.
-    ///
-    /// - Returns: JSON data
-    /// - Throws: EncodingError if serialization fails
-    public func toJSON() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(self)
-    }
-
-    /// Import from JSON data
-    ///
-    /// - Parameter data: JSON data to parse
-    /// - Returns: Parsed CastListPage
-    /// - Throws: DecodingError if parsing fails
-    public static func fromJSON(_ data: Data) throws -> CastListPage {
-        let decoder = JSONDecoder()
-        return try decoder.decode(CastListPage.self, from: data)
-    }
-
-    // MARK: - YAML Serialization
-
-    /// Export to YAML string
-    ///
-    /// Produces YAML suitable for Markdown front matter.
-    ///
-    /// ## Format
-    ///
-    /// ```yaml
-    /// castList:
-    ///   ALICE: hablare://apple/voice-id?lang=en
-    ///   BOB: hablare://elevenlabs/voice-id?lang=en
-    /// ```
-    ///
-    /// - Returns: YAML string
-    public func toYAML() -> String {
-        var yaml = "castList:\n"
-
-        // Sort character names for consistent output
-        let sortedNames = characterNames
-
-        for characterName in sortedNames {
-            if let uriString = castList[characterName] {
-                yaml += "  \(characterName): \(uriString)\n"
-            }
+    /// - Parameters:
+    ///   - role: Character role to update
+    ///   - voiceURI: New voice URI
+    public mutating func updateVoiceMapping(role: String, voiceURI: VoiceURI) {
+        guard let member = items.first(where: { $0.role.uppercased() == role.uppercased() }) else {
+            return
         }
-
-        return yaml
+        updateMember(id: member.id, name: voiceURI.uriString)
     }
-
-    /// Import from YAML string
-    ///
-    /// Parses YAML in the format:
-    ///
-    /// ```yaml
-    /// castList:
-    ///   CHARACTER_NAME: hablare://provider/voiceId?lang=code
-    /// ```
-    ///
-    /// - Parameter yaml: YAML string to parse
-    /// - Returns: Parsed CastListPage, or nil if parsing fails
-    public static func fromYAML(_ yaml: String) -> CastListPage? {
-        var castList: [String: String] = [:]
-
-        // Simple YAML parser for castList format
-        let lines = yaml.split(separator: "\n")
-        var inCastList = false
-
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-
-            if trimmed == "castList:" {
-                inCastList = true
-                continue
-            }
-
-            if inCastList {
-                // Parse line: "  CHARACTER_NAME: hablare://..."
-                if trimmed.hasPrefix("---") || trimmed.hasPrefix("...") {
-                    // End of YAML document
-                    break
-                }
-
-                if !trimmed.contains(":") {
-                    continue
-                }
-
-                let parts = trimmed.split(separator: ":", maxSplits: 1)
-                if parts.count == 2 {
-                    let characterName = parts[0].trimmingCharacters(in: .whitespaces)
-                    let uriString = parts[1].trimmingCharacters(in: .whitespaces)
-
-                    // Validate it's a hablare:// URI
-                    if uriString.hasPrefix("hablare://") {
-                        castList[characterName] = uriString
-                    }
-                }
-            }
-        }
-
-        return CastListPage(castList: castList)
-    }
-
-    // MARK: - Validation
 
     /// Validate all voice URIs can be parsed
     ///
-    /// - Returns: Dictionary of character names to validation results (true = valid, false = invalid)
-    public func validate() -> [String: Bool] {
+    /// - Returns: Dictionary of roles to validation results (true = valid, false = invalid)
+    public func validateVoiceURIs() -> [String: Bool] {
         var results: [String: Bool] = [:]
 
-        for (characterName, uriString) in castList {
-            results[characterName] = VoiceURI(uriString: uriString) != nil
+        for member in items {
+            results[member.role] = VoiceURI(uriString: member.name) != nil
         }
 
         return results
@@ -497,13 +345,13 @@ public struct CastListPage: Codable, Sendable {
     /// Checks if each voice URI can be resolved to an actual voice.
     ///
     /// - Parameter service: GenerationService to use for validation
-    /// - Returns: Dictionary of character names to availability (true = available, false = unavailable)
-    public func validateAvailability(using service: GenerationService) async -> [String: Bool] {
+    /// - Returns: Dictionary of roles to availability (true = available, false = unavailable)
+    public func validateVoiceAvailability(using service: GenerationService) async -> [String: Bool] {
         var results: [String: Bool] = [:]
 
-        for characterName in characterNames {
-            let uri = voiceURI(for: characterName)
-            results[characterName] = await uri.isAvailable(using: service)
+        for member in items {
+            let uri = voiceURI(for: member.role)
+            results[member.role] = await uri.isAvailable(using: service)
         }
 
         return results

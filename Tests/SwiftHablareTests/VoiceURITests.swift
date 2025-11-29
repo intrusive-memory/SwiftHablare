@@ -2,12 +2,13 @@
 //  VoiceURITests.swift
 //  SwiftHablare
 //
-//  Tests for VoiceURI and CastListPage
+//  Tests for VoiceURI and CastListPage extensions
 //
 
 import Testing
 import Foundation
 @testable import SwiftHablare
+import SwiftCompartido
 
 @Suite("VoiceURI Tests")
 struct VoiceURITests {
@@ -330,51 +331,37 @@ struct VoiceURITests {
     }
 }
 
-@Suite("CastListPage Tests")
-struct CastListPageTests {
+@Suite("CastListPage Extensions Tests")
+struct CastListPageExtensionsTests {
 
-    // MARK: - Initialization Tests
+    // MARK: - Creation Tests
 
-    @Test("Create empty cast list")
-    func testCreateEmptyCastList() {
-        let castList = CastListPage()
-        #expect(castList.castList.isEmpty)
-        #expect(castList.characterNames.isEmpty)
-    }
-
-    @Test("Create cast list from URI strings")
-    func testCreateFromURIStrings() {
-        let castList = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
-
-        #expect(castList.castList.count == 2)
-        #expect(castList.castList["ALICE"] == "hablare://apple/voice-1?lang=en")
-        #expect(castList.castList["BOB"] == "hablare://elevenlabs/voice-2?lang=en")
-    }
-
-    @Test("Create cast list from VoiceURI objects")
-    func testCreateFromVoiceURIs() {
+    @Test("Create CastListPage from voice mapping")
+    func testFromVoiceMapping() {
         let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
         let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
 
-        let castList = CastListPage(entries: [
-            "ALICE": uri1,
-            "BOB": uri2
-        ])
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Voice Cast",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
 
-        #expect(castList.castList.count == 2)
-        #expect(castList.castList["ALICE"] == uri1.uriString)
-        #expect(castList.castList["BOB"] == uri2.uriString)
+        #expect(castList.title == "Voice Cast")
+        #expect(castList.items.count == 2)
+        #expect(castList.items.contains(where: { $0.role == "ALICE" }))
+        #expect(castList.items.contains(where: { $0.role == "BOB" }))
     }
-
-    // MARK: - Access Tests
 
     @Test("Get voice URI for character")
     func testGetVoiceURI() {
         let uri = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
-        let castList = CastListPage(entries: ["ALICE": uri])
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: ["ALICE": uri]
+        )
 
         let retrievedURI = castList.voiceURI(for: "ALICE")
 
@@ -385,243 +372,141 @@ struct CastListPageTests {
 
     @Test("Get default voice for missing character")
     func testGetDefaultVoiceForMissingCharacter() {
-        let castList = CastListPage()
+        let castList = CastListPage(title: "Empty", position: 0)
 
         let uri = castList.voiceURI(for: "UNKNOWN")
 
         #expect(uri.isDefaultVoice == true)
     }
 
-    @Test("Get character names")
-    func testGetCharacterNames() {
-        let castList = CastListPage(castList: [
-            "CHARLIE": "hablare://apple/voice-3?lang=en",
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
+    @Test("Case-insensitive role lookup")
+    func testCaseInsensitiveRoleLookup() {
+        let uri = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: ["ALICE": uri]
+        )
 
-        let names = castList.characterNames
+        let uri1 = castList.voiceURI(for: "ALICE")
+        let uri2 = castList.voiceURI(for: "alice")
+        let uri3 = castList.voiceURI(for: "Alice")
 
-        #expect(names.count == 3)
-        #expect(names.sorted() == ["ALICE", "BOB", "CHARLIE"])  // Should be sorted
-    }
-
-    @Test("Check if character has voice")
-    func testHasVoice() {
-        let castList = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en"
-        ])
-
-        #expect(castList.hasVoice(for: "ALICE") == true)
-        #expect(castList.hasVoice(for: "BOB") == false)
+        #expect(uri1.voiceId == uri.voiceId)
+        #expect(uri2.voiceId == uri.voiceId)
+        #expect(uri3.voiceId == uri.voiceId)
     }
 
     // MARK: - Mutation Tests
 
-    @Test("Add character to cast list")
-    func testAddCharacter() {
-        let original = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en"
-        ])
+    @Test("Add voice mapping")
+    func testAddVoiceMapping() {
+        var castList = CastListPage(title: "Test", position: 0)
+        let uri = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
 
-        let uri = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
-        let updated = original.adding(characterName: "BOB", voiceURI: uri)
+        castList.addVoiceMapping(role: "ALICE", voiceURI: uri)
 
-        #expect(original.castList.count == 1)  // Original unchanged
-        #expect(updated.castList.count == 2)  // New copy has 2 entries
-        #expect(updated.hasVoice(for: "BOB") == true)
+        #expect(castList.items.count == 1)
+        #expect(castList.items.first?.role == "ALICE")
+        #expect(castList.items.first?.name == uri.uriString)
     }
 
-    @Test("Remove character from cast list")
-    func testRemoveCharacter() {
-        let original = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
+    @Test("Update voice mapping")
+    func testUpdateVoiceMapping() {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
 
-        let updated = original.removing(characterName: "BOB")
+        var castList = CastListPage.fromVoiceMapping(
+            title: "Test",
+            mapping: ["ALICE": uri1]
+        )
 
-        #expect(original.castList.count == 2)  // Original unchanged
-        #expect(updated.castList.count == 1)  // New copy has 1 entry
-        #expect(updated.hasVoice(for: "ALICE") == true)
-        #expect(updated.hasVoice(for: "BOB") == false)
-    }
+        castList.updateVoiceMapping(role: "ALICE", voiceURI: uri2)
 
-    // MARK: - JSON Serialization Tests
-
-    @Test("Export to JSON")
-    func testExportToJSON() throws {
-        let castList = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
-
-        let jsonData = try castList.toJSON()
-        let json = String(data: jsonData, encoding: .utf8)
-
-        #expect(json != nil)
-        #expect(json?.contains("\"castList\"") == true)
-        #expect(json?.contains("\"ALICE\"") == true)
-        #expect(json?.contains("\"BOB\"") == true)
-    }
-
-    @Test("Import from JSON")
-    func testImportFromJSON() throws {
-        let json = """
-        {
-            "castList": {
-                "ALICE": "hablare://apple/voice-1?lang=en",
-                "BOB": "hablare://elevenlabs/voice-2?lang=en"
-            }
-        }
-        """
-
-        let castList = try CastListPage.fromJSON(json.data(using: .utf8)!)
-
-        #expect(castList.castList.count == 2)
-        #expect(castList.castList["ALICE"] == "hablare://apple/voice-1?lang=en")
-        #expect(castList.castList["BOB"] == "hablare://elevenlabs/voice-2?lang=en")
-    }
-
-    @Test("JSON roundtrip")
-    func testJSONRoundtrip() throws {
-        let original = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en",
-            "CHARLIE": "hablare://apple/voice-3?lang=es"
-        ])
-
-        let jsonData = try original.toJSON()
-        let decoded = try CastListPage.fromJSON(jsonData)
-
-        #expect(decoded.castList.count == original.castList.count)
-        #expect(decoded.castList["ALICE"] == original.castList["ALICE"])
-        #expect(decoded.castList["BOB"] == original.castList["BOB"])
-        #expect(decoded.castList["CHARLIE"] == original.castList["CHARLIE"])
-    }
-
-    // MARK: - YAML Serialization Tests
-
-    @Test("Export to YAML")
-    func testExportToYAML() {
-        let castList = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
-
-        let yaml = castList.toYAML()
-
-        #expect(yaml.contains("castList:"))
-        #expect(yaml.contains("ALICE: hablare://apple/voice-1?lang=en"))
-        #expect(yaml.contains("BOB: hablare://elevenlabs/voice-2?lang=en"))
-    }
-
-    @Test("YAML output is sorted by character name")
-    func testYAMLSorted() {
-        let castList = CastListPage(castList: [
-            "CHARLIE": "hablare://apple/voice-3?lang=en",
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
-
-        let yaml = castList.toYAML()
-        let lines = yaml.split(separator: "\n").map(String.init)
-
-        // Characters should appear in sorted order
-        let aliceIndex = lines.firstIndex { $0.contains("ALICE") }
-        let bobIndex = lines.firstIndex { $0.contains("BOB") }
-        let charlieIndex = lines.firstIndex { $0.contains("CHARLIE") }
-
-        #expect(aliceIndex != nil)
-        #expect(bobIndex != nil)
-        #expect(charlieIndex != nil)
-        #expect(aliceIndex! < bobIndex!)
-        #expect(bobIndex! < charlieIndex!)
-    }
-
-    @Test("Import from YAML")
-    func testImportFromYAML() {
-        let yaml = """
-        castList:
-          ALICE: hablare://apple/voice-1?lang=en
-          BOB: hablare://elevenlabs/voice-2?lang=en
-        """
-
-        let castList = CastListPage.fromYAML(yaml)
-
-        #expect(castList != nil)
-        #expect(castList?.castList.count == 2)
-        #expect(castList?.castList["ALICE"] == "hablare://apple/voice-1?lang=en")
-        #expect(castList?.castList["BOB"] == "hablare://elevenlabs/voice-2?lang=en")
-    }
-
-    @Test("Import from YAML with extra whitespace")
-    func testImportFromYAMLWithWhitespace() {
-        let yaml = """
-        castList:
-          ALICE:   hablare://apple/voice-1?lang=en
-          BOB:hablare://elevenlabs/voice-2?lang=en
-        """
-
-        let castList = CastListPage.fromYAML(yaml)
-
-        #expect(castList?.castList.count == 2)
-    }
-
-    @Test("Import from YAML ignores non-hablare URIs")
-    func testImportFromYAMLIgnoresInvalidURIs() {
-        let yaml = """
-        castList:
-          ALICE: hablare://apple/voice-1?lang=en
-          BOB: http://example.com/voice
-          CHARLIE: hablare://elevenlabs/voice-2?lang=en
-        """
-
-        let castList = CastListPage.fromYAML(yaml)
-
-        #expect(castList?.castList.count == 2)  // BOB should be ignored
-        #expect(castList?.hasVoice(for: "ALICE") == true)
-        #expect(castList?.hasVoice(for: "BOB") == false)
-        #expect(castList?.hasVoice(for: "CHARLIE") == true)
-    }
-
-    @Test("YAML roundtrip")
-    func testYAMLRoundtrip() {
-        let original = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "hablare://elevenlabs/voice-2?lang=en"
-        ])
-
-        let yaml = original.toYAML()
-        let decoded = CastListPage.fromYAML(yaml)
-
-        #expect(decoded?.castList.count == original.castList.count)
-        #expect(decoded?.castList["ALICE"] == original.castList["ALICE"])
-        #expect(decoded?.castList["BOB"] == original.castList["BOB"])
+        let updatedURI = castList.voiceURI(for: "ALICE")
+        #expect(updatedURI.providerId == "elevenlabs")
+        #expect(updatedURI.voiceId == "voice-2")
     }
 
     // MARK: - Validation Tests
 
-    @Test("Validate all URIs are parseable")
-    func testValidateURIs() {
-        let castList = CastListPage(castList: [
-            "ALICE": "hablare://apple/voice-1?lang=en",
-            "BOB": "invalid-uri",
-            "CHARLIE": "hablare://elevenlabs/voice-2?lang=en"
-        ])
+    @Test("Validate voice URIs are parseable")
+    func testValidateVoiceURIs() {
+        var castList = CastListPage(title: "Test", position: 0)
 
-        let validation = castList.validate()
+        // Add valid URI
+        castList.addMember(role: "ALICE", name: "hablare://apple/voice-1?lang=en")
+
+        // Add invalid URI
+        castList.addMember(role: "BOB", name: "invalid-uri")
+
+        let validation = castList.validateVoiceURIs()
 
         #expect(validation["ALICE"] == true)
         #expect(validation["BOB"] == false)
-        #expect(validation["CHARLIE"] == true)
     }
 
-    @Test("Empty cast list validates successfully")
-    func testValidateEmptyCastList() {
-        let castList = CastListPage()
-        let validation = castList.validate()
+    // MARK: - JSON Serialization Tests
 
-        #expect(validation.isEmpty)
+    @Test("CastListPage with voice URIs serializes to JSON")
+    func testJSONSerialization() throws {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+
+        let castList = CastListPage.fromVoiceMapping(
+            title: "Voice Cast",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted]
+        let data = try encoder.encode(castList)
+        let json = String(data: data, encoding: .utf8)
+
+        #expect(json != nil)
+        // URIs might be URL-encoded in JSON, so check for both formats
+        let containsApple = json?.contains("hablare://apple/voice-1?lang=en") == true ||
+                          json?.contains("hablare:\\/\\/apple\\/voice-1?lang=en") == true ||
+                          json?.contains("apple\\/voice-1") == true
+        let containsElevenLabs = json?.contains("hablare://elevenlabs/voice-2?lang=en") == true ||
+                                json?.contains("hablare:\\/\\/elevenlabs\\/voice-2?lang=en") == true ||
+                                json?.contains("elevenlabs\\/voice-2") == true
+
+        #expect(containsApple == true)
+        #expect(containsElevenLabs == true)
+        #expect(json?.contains("\"type\" : \"castList\"") == true)
+    }
+
+    @Test("JSON roundtrip preserves voice URIs")
+    func testJSONRoundtrip() throws {
+        let uri1 = VoiceURI(providerId: "apple", voiceId: "voice-1", languageCode: "en")
+        let uri2 = VoiceURI(providerId: "elevenlabs", voiceId: "voice-2", languageCode: "en")
+
+        let original = CastListPage.fromVoiceMapping(
+            title: "Voice Cast",
+            mapping: [
+                "ALICE": uri1,
+                "BOB": uri2
+            ]
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(original)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(CastListPage.self, from: data)
+
+        #expect(decoded.title == original.title)
+        #expect(decoded.items.count == original.items.count)
+
+        let decodedAliceURI = decoded.voiceURI(for: "ALICE")
+        let decodedBobURI = decoded.voiceURI(for: "BOB")
+
+        #expect(decodedAliceURI.providerId == uri1.providerId)
+        #expect(decodedAliceURI.voiceId == uri1.voiceId)
+        #expect(decodedBobURI.providerId == uri2.providerId)
+        #expect(decodedBobURI.voiceId == uri2.voiceId)
     }
 }
