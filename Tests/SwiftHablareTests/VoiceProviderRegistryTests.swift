@@ -170,9 +170,9 @@ struct VoiceProviderRegistryTests {
 
         do {
             _ = try await registry.configuredProvider(for: "elevenlabs")
-            #expect(Bool(false), "Expected error for unconfigured provider")
+            Issue.record("Expected error for unconfigured provider")
         } catch {
-            // Expected
+            // Expected - should throw VoiceProviderRegistryError.providerNotConfigured
         }
     }
 
