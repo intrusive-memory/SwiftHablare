@@ -10,7 +10,6 @@ import Testing
 import AVFoundation
 @testable import SwiftHablare
 
-@available(iOS 13.0, *)
 @Suite("AVSpeechTTSEngine Tests")
 struct AVSpeechTTSEngineTests {
     var engine: AVSpeechTTSEngine

@@ -16,7 +16,6 @@ struct VoiceQualityFilterTests {
 
     #if canImport(UIKit) && !os(macOS)
     @Test("iOS voices have quality property")
-    @available(iOS 13.0, *)
     func iosVoicesHaveQualityProperty() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
@@ -29,7 +28,6 @@ struct VoiceQualityFilterTests {
     }
 
     @Test("iOS voice quality values are valid")
-    @available(iOS 13.0, *)
     func iosVoiceQualityValues() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
@@ -44,7 +42,6 @@ struct VoiceQualityFilterTests {
     }
 
     @Test("iOS high quality voices exist")
-    @available(iOS 13.0, *)
     func iosHighQualityVoicesExist() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
@@ -141,7 +138,6 @@ struct VoiceQualityFilterTests {
 
     #if canImport(UIKit) && !os(macOS)
     @Test("iOS filter removes default quality voices")
-    @available(iOS 13.0, *)
     func iosFilterRemovesDefaultQualityVoices() async throws {
         let engine = AVSpeechTTSEngine()
         let boundary = AppleTTSEngineBoundary(underlying: engine)
