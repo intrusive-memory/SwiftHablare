@@ -46,7 +46,7 @@ struct AppleVoiceProviderIntegrationTests {
     func testEndToEndSpeechGeneration() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        throw Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Testing.Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Starting end-to-end Apple TTS speech generation test...")
@@ -148,7 +148,7 @@ struct AppleVoiceProviderIntegrationTests {
     func testEndToEndWithMultipleVoices() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        throw Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Testing.Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Testing with multiple Apple voices...")
@@ -185,7 +185,7 @@ struct AppleVoiceProviderIntegrationTests {
     func testEndToEndWithLongText() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        throw Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Testing.Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Testing with longer text...")
@@ -228,7 +228,7 @@ struct AppleVoiceProviderIntegrationTests {
     func testEndToEndWithSwiftDataPersistence() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        throw Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Testing.Skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")

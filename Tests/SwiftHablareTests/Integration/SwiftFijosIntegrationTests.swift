@@ -201,7 +201,7 @@ struct SwiftFijosIntegrationTests {
     func batchGenerateAndPersist() async throws {
         // Skip on simulator
         #if targetEnvironment(simulator)
-        throw Skip("Batch generation test requires real audio on physical device")
+        throw Testing.Skip("Batch generation test requires real audio on physical device")
         #endif
 
         // Load and parse fixture

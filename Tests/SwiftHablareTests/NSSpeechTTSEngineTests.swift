@@ -198,7 +198,7 @@ struct NSSpeechTTSEngineTests {
         // Skip header validation if we're on a system without proper audio services
         // (CI runners may generate placeholder audio)
         if headerString.isEmpty || !headerString.contains(where: { $0.isASCII }) {
-            throw Skip("AIFF format validation skipped - audio services may not be fully available")
+            throw Testing.Skip("AIFF format validation skipped - audio services may not be fully available")
         }
 
         #expect(headerString.contains("FORM") || headerString.contains("AIFF") || headerString.contains("AIFC"))
