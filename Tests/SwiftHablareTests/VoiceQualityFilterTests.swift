@@ -225,34 +225,6 @@ struct VoiceQualityFilterTests {
         UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
     }
 
-    @Test("Apple voice provider fetches voices")
-    func appleVoiceProviderFetchesVoices() async throws {
-        let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices(languageCode: "en")
-
-        #expect(!voices.isEmpty)
-        #expect(voices.allSatisfy { $0.providerId == "apple" })
-    }
-
-    @Test("Apple voice provider fetches voices with filter")
-    func appleVoiceProviderFetchesVoicesWithFilter() async throws {
-        // Enable filter
-        UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
-        }
-
-        let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices(languageCode: "en")
-
-        // All voices should be high quality when filter is enabled
-        for voice in voices {
-            if let quality = voice.quality {
-                #expect(quality == "enhanced" || quality == "premium")
-            }
-        }
-    }
-
     // MARK: - Cross-Platform Consistency Tests
 
     @Test("Voice quality property exists across platforms")

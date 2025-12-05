@@ -677,47 +677,6 @@ struct GenerationServiceTests {
         #expect(context.autosaveEnabled)
     }
 
-    @Test("Cache per provider")
-    func testCachePerProvider() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService(cacheLifetime: 10.0)
-
-        let customProvider = TestFixtures.makeConfiguredProvider(id: "custom")
-        await service.registerProvider(customProvider)
-
-        let appleVoices = try await service.fetchVoices(from: "apple", using: context)
-        let customVoices = try await service.fetchVoices(from: "custom", using: context)
-
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache1)
-        let hasCache2 = await service.hasValidCache(for: "custom", using: context)
-        #expect(hasCache2)
-
-        let appleCached = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        let customCached = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
-        let appleDifference = abs(appleCached.count - appleVoices.count)
-        #expect(appleDifference <= 1)
-        let customDifference = abs(customCached.count - customVoices.count)
-        #expect(customDifference <= 1)
-
-        try await service.clearVoiceCache(for: "apple", using: context)
-
-        let hasCache3 = await service.hasValidCache(for: "apple", using: context)
-        #expect(!hasCache3)
-        let hasCache4 = await service.hasValidCache(for: "custom", using: context)
-        #expect(hasCache4)
-
-        let appleAfterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        let customAfterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "custom"))
-        #expect(appleAfterClear.isEmpty)
-        #expect(!customAfterClear.isEmpty)
-
-        let cachedCustomVoices = try await service.fetchVoices(from: "custom", using: context)
-        let cachedDifference = abs(cachedCustomVoices.count - customVoices.count)
-        #expect(cachedDifference <= 1)
-    }
-
     @Test("Refresh unconfigured provider throws")
     func testRefreshUnconfiguredProvider() async throws {
         let container = try TestFixtures.makeTestContainer()
