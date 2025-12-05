@@ -4,6 +4,10 @@ on:
   # Only run manually - replaced by fast-tests.yml (PR) and integration-tests.yml (weekly)
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Full Test Suite (${{ matrix.platform }})

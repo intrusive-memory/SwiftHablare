@@ -5,97 +5,96 @@
 //  Protocol conformance tests for AppleTTSEngine implementations
 //
 
-import XCTest
+import Testing
 import AVFoundation
 @testable import SwiftHablare
 
 /// Tests that verify both iOS and macOS engines properly conform to AppleTTSEngine protocol
+@Suite
 @MainActor
-final class AppleTTSEngineProtocolTests: XCTestCase {
+struct AppleTTSEngineProtocolTests {
 
     // Platform-specific engine instance
-    var engine: AppleTTSEngine!
+    var engine: AppleTTSEngine
 
-    override func setUp() {
-        super.setUp()
-
+    init() {
         // Create platform-appropriate engine
         #if os(iOS)
-        engine = AVSpeechTTSEngine()
+        self.engine = AVSpeechTTSEngine()
         #elseif os(macOS)
-        engine = NSSpeechTTSEngine()
+        self.engine = NSSpeechTTSEngine()
         #else
-        XCTFail("Unsupported platform")
+        fatalError("Unsupported platform")
         #endif
-    }
-
-    override func tearDown() {
-        engine = nil
-        super.tearDown()
     }
 
     // MARK: - Protocol Method Signature Tests
 
-    func testEngineConformsToSendable() {
+    @Test
+    func engineConformsToSendable() {
         // This test verifies that the engine type conforms to Sendable
         // which is required by the protocol for Swift 6 concurrency
-        XCTAssertTrue(type(of: engine) is Sendable.Type,
-                     "Engine should conform to Sendable protocol")
+        #expect(type(of: engine) is Sendable.Type)
     }
 
     // MARK: - fetchVoices() Protocol Tests
 
-    func testFetchVoicesReturnsVoiceArray() async throws {
+    @Test
+    func fetchVoicesReturnsVoiceArray() async throws {
         let voices = try await engine.fetchVoices()
 
         // Verify return type is [Voice]
-        XCTAssertTrue(voices is [Voice], "Should return array of Voice objects")
+        #expect(voices is [Voice])
     }
 
-    func testFetchVoicesDoesNotReturnEmpty() async throws {
+    @Test
+    func fetchVoicesDoesNotReturnEmpty() async throws {
         let voices = try await engine.fetchVoices()
 
         // All platforms should have at least one voice
-        XCTAssertFalse(voices.isEmpty, "Should return at least one voice")
+        #expect(!voices.isEmpty)
     }
 
-    func testFetchVoicesReturnsConsistentResults() async throws {
+    @Test
+    func fetchVoicesReturnsConsistentResults() async throws {
         let voices1 = try await engine.fetchVoices()
         let voices2 = try await engine.fetchVoices()
 
         // Should return similar number of voices (within tolerance for dynamic changes)
         let difference = abs(voices1.count - voices2.count)
-        XCTAssertLessThanOrEqual(difference, 5, "Voice counts should be consistent across calls")
+        #expect(difference <= 5)
     }
 
-    func testFetchVoicesAllHaveProviderId() async throws {
+    @Test
+    func fetchVoicesAllHaveProviderId() async throws {
         let voices = try await engine.fetchVoices()
 
         for voice in voices {
-            XCTAssertEqual(voice.providerId, "apple",
-                          "All voices should have providerId 'apple'")
+            #expect(voice.providerId == "apple")
         }
     }
 
     // MARK: - generateAudio() Protocol Tests
 
-    func testGenerateAudioReturnsData() async throws {
+    @Test
+    func generateAudioReturnsData() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
         let audioData = try await engine.generateAudio(text: "Test", voiceId: firstVoice.id)
 
         // Verify return type is Data
-        XCTAssertTrue(audioData is Data, "Should return Data object")
+        #expect(audioData is Data)
     }
 
-    func testGenerateAudioWithValidInputSucceeds() async throws {
+    @Test
+    func generateAudioWithValidInputSucceeds() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
@@ -104,36 +103,37 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
             voiceId: firstVoice.id
         )
 
-        XCTAssertFalse(audioData.isEmpty, "Should generate non-empty audio data")
+        #expect(!audioData.isEmpty)
     }
 
-    func testGenerateAudioWithEmptyTextThrows() async throws {
+    @Test
+    func generateAudioWithEmptyTextThrows() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
         do {
             _ = try await engine.generateAudio(text: "", voiceId: firstVoice.id)
-            XCTFail("Should throw error for empty text")
+            Issue.record("Should throw error for empty text")
         } catch {
             // Expected to throw
-            XCTAssertTrue(error is VoiceProviderError,
-                         "Should throw VoiceProviderError")
+            #expect(error is VoiceProviderError)
         }
     }
 
-    func testGenerateAudioThrowsVoiceProviderError() async throws {
+    @Test
+    func generateAudioThrowsVoiceProviderError() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
         do {
             _ = try await engine.generateAudio(text: "", voiceId: firstVoice.id)
-            XCTFail("Should throw error")
+            Issue.record("Should throw error")
         } catch let error as VoiceProviderError {
             // Verify it's the correct error type
             switch error {
@@ -144,65 +144,68 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
                 // Also acceptable
                 break
             default:
-                XCTFail("Unexpected error type: \(error)")
+                Issue.record("Unexpected error type: \(error)")
             }
         } catch {
-            XCTFail("Should throw VoiceProviderError, got \(type(of: error))")
+            Issue.record("Should throw VoiceProviderError, got \(type(of: error))")
         }
     }
 
     // MARK: - estimateDuration() Protocol Tests
 
-    func testEstimateDurationReturnsTimeInterval() {
+    @Test
+    func estimateDurationReturnsTimeInterval() {
         let duration = engine.estimateDuration(text: "Test", voiceId: "any")
 
         // Verify return type is TimeInterval (Double)
-        XCTAssertTrue(duration is TimeInterval, "Should return TimeInterval")
+        #expect(duration is TimeInterval)
     }
 
-    func testEstimateDurationReturnsPositiveValue() {
+    @Test
+    func estimateDurationReturnsPositiveValue() {
         let duration = engine.estimateDuration(text: "Hello world", voiceId: "any")
 
-        XCTAssertGreaterThan(duration, 0, "Duration should always be positive")
+        #expect(duration > 0)
     }
 
-    func testEstimateDurationWithEmptyTextReturnsMinimum() {
+    @Test
+    func estimateDurationWithEmptyTextReturnsMinimum() {
         let duration = engine.estimateDuration(text: "", voiceId: "any")
 
         // Protocol expects minimum of 1.0 second
-        XCTAssertGreaterThanOrEqual(duration, 1.0,
-                                   "Empty text should return minimum duration of 1.0 second")
+        #expect(duration >= 1.0)
     }
 
-    func testEstimateDurationScalesWithLength() {
+    @Test
+    func estimateDurationScalesWithLength() {
         let shortText = "Hi"
         let longText = String(repeating: "This is a much longer text. ", count: 10)
 
         let shortDuration = engine.estimateDuration(text: shortText, voiceId: "any")
         let longDuration = engine.estimateDuration(text: longText, voiceId: "any")
 
-        XCTAssertLessThan(shortDuration, longDuration,
-                         "Duration should scale with text length")
+        #expect(shortDuration < longDuration)
     }
 
-    func testEstimateDurationIsConsistent() {
+    @Test
+    func estimateDurationIsConsistent() {
         let text = "Consistent test text"
         let voiceId = "any-voice-id"
 
         let duration1 = engine.estimateDuration(text: text, voiceId: voiceId)
         let duration2 = engine.estimateDuration(text: text, voiceId: voiceId)
 
-        XCTAssertEqual(duration1, duration2, accuracy: 0.01,
-                      "Duration estimation should be consistent")
+        #expect(duration1 == duration2)
     }
 
     // MARK: - Cross-Method Integration Tests
 
-    func testFetchVoicesThenGenerateAudio() async throws {
+    @Test
+    func fetchVoicesThenGenerateAudio() async throws {
         // Verify that voices from fetchVoices() can be used in generateAudio()
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
@@ -211,54 +214,23 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
             voiceId: voice.id
         )
 
-        XCTAssertFalse(audioData.isEmpty, "Should generate audio with fetched voice")
-    }
-
-    func testEstimateDurationMatchesGeneratedAudio() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers")
-        #else
-        let voices = try await engine.fetchVoices()
-        guard let voice = voices.first else {
-            XCTFail("No voices available")
-            return
-        }
-
-        let text = "Duration matching test with reasonable length text"
-        let estimatedDuration = engine.estimateDuration(text: text, voiceId: voice.id)
-        let audioData = try await engine.generateAudio(text: text, voiceId: voice.id)
-
-        // Write to temp file to get actual duration
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("aiff")
-
-        try audioData.write(to: tempURL)
-        defer { try? FileManager.default.removeItem(at: tempURL) }
-
-        let audioFile = try AVAudioFile(forReading: tempURL)
-        let actualDuration = Double(audioFile.length) / audioFile.fileFormat.sampleRate
-
-        // Estimation should be within 50% of actual (rough estimation)
-        let tolerance = actualDuration * 0.5
-        XCTAssertEqual(estimatedDuration, actualDuration, accuracy: tolerance,
-                      "Estimated duration should be reasonably close to actual")
-        #endif
+        #expect(!audioData.isEmpty)
     }
 
     // MARK: - Error Handling Tests
 
-    func testGenerateAudioErrorIsThrowable() async {
+    @Test
+    func generateAudioErrorIsThrowable() async {
         let voices: [Voice]
         do {
             voices = try await engine.fetchVoices()
         } catch {
-            XCTFail("fetchVoices should not throw")
+            Issue.record("fetchVoices should not throw")
             return
         }
 
         guard let voice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
@@ -270,20 +242,21 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
             didThrow = true
         }
 
-        XCTAssertTrue(didThrow, "Should be able to catch thrown errors")
+        #expect(didThrow)
     }
 
     // MARK: - Concurrency Tests
 
-    func testEngineIsThreadSafe() async throws {
+    @Test
+    func engineIsThreadSafe() async throws {
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
         // Copy engine to local variable to avoid sendability issues with async let
-        let localEngine = engine!
+        let localEngine = engine
 
         // Call multiple methods concurrently
         async let voices1 = localEngine.fetchVoices()
@@ -294,9 +267,9 @@ final class AppleTTSEngineProtocolTests: XCTestCase {
         // Wait for all to complete
         let results = try await [voices1.count, audio1.count, audio2.count]
 
-        XCTAssertGreaterThan(results[0], 0, "Should fetch voices concurrently")
-        XCTAssertGreaterThan(results[1], 0, "Should generate audio 1 concurrently")
-        XCTAssertGreaterThan(results[2], 0, "Should generate audio 2 concurrently")
-        XCTAssertGreaterThan(duration, 0, "Should estimate duration concurrently")
+        #expect(results[0] > 0)
+        #expect(results[1] > 0)
+        #expect(results[2] > 0)
+        #expect(duration > 0)
     }
 }

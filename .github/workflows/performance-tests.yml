@@ -15,6 +15,10 @@ on:
         required: false
         default: 'Manual historical tracking run'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # First run unit tests to ensure baseline functionality
   unit-tests:

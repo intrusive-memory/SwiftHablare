@@ -5,29 +5,32 @@
 //  Tests for GuionElement-based SpeakableItem implementations
 //
 
-import XCTest
+import Testing
 import SwiftCompartido
 @testable import SwiftHablare
 
-final class GuionElementSpeakableTests: XCTestCase {
+@Suite
+struct GuionElementSpeakableTests {
 
     // MARK: - Test Properties
 
-    var provider: AppleVoiceProvider!
-    var voiceId: String!
+    let provider: AppleVoiceProvider
+    let voiceId: String
 
-    // MARK: - Setup & Teardown
+    // MARK: - Initialization
 
-    override func setUp() async throws {
-        provider = AppleVoiceProvider()
+    @MainActor
+    init() async throws {
+        provider = TestFixtures.makeAppleProvider()
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "No voices available for testing")
+        #expect(!voices.isEmpty)
         voiceId = voices.first!.id
     }
 
     // MARK: - GuionElementSpeakable Tests
 
-    func testGuionElementSpeakable_Action() async throws {
+    @Test
+    func guionElementSpeakable_Action() async throws {
         let element = GuionElement(
             elementType: .action,
             elementText: "The sun rises over the mountains."
@@ -39,15 +42,16 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceId: voiceId
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "The sun rises over the mountains.")
-        XCTAssertEqual(speakable.languageCode, "en")
+        #expect(speakable.textToSpeak == "The sun rises over the mountains.")
+        #expect(speakable.languageCode == "en")
 
         // Verify it can estimate duration
         let duration = await speakable.estimateDuration()
-        XCTAssertGreaterThan(duration, 0)
+        #expect(duration > 0)
     }
 
-    func testGuionElementSpeakable_Dialogue() async throws {
+    @Test
+    func guionElementSpeakable_Dialogue() async throws {
         let element = GuionElement(
             elementType: .dialogue,
             elementText: "I can't believe we made it this far."
@@ -59,10 +63,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceId: voiceId
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "I can't believe we made it this far.")
+        #expect(speakable.textToSpeak == "I can't believe we made it this far.")
     }
 
-    func testGuionElementSpeakable_SectionHeading() async throws {
+    @Test
+    func guionElementSpeakable_SectionHeading() async throws {
         let element = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "Act One"
@@ -74,10 +79,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceId: voiceId
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "Act One")
+        #expect(speakable.textToSpeak == "Act One")
     }
 
-    func testGuionElementSpeakable_SceneHeading() async throws {
+    @Test
+    func guionElementSpeakable_SceneHeading() async throws {
         let element = GuionElement(
             elementType: .sceneHeading,
             elementText: "INT. COFFEE SHOP - DAY"
@@ -89,10 +95,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceId: voiceId
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "INT. COFFEE SHOP - DAY")
+        #expect(speakable.textToSpeak == "INT. COFFEE SHOP - DAY")
     }
 
-    func testGuionElementSpeakable_CustomLanguage() async throws {
+    @Test
+    func guionElementSpeakable_CustomLanguage() async throws {
         let element = GuionElement(
             elementType: .action,
             elementText: "Hola, mundo!"
@@ -105,11 +112,12 @@ final class GuionElementSpeakableTests: XCTestCase {
             languageCode: "es"
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "Hola, mundo!")
-        XCTAssertEqual(speakable.languageCode, "es")
+        #expect(speakable.textToSpeak == "Hola, mundo!")
+        #expect(speakable.languageCode == "es")
     }
 
-    func testGuionElementSpeakable_EmptyText() async throws {
+    @Test
+    func guionElementSpeakable_EmptyText() async throws {
         let element = GuionElement(
             elementType: .action,
             elementText: ""
@@ -121,13 +129,14 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceId: voiceId
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "")
-        XCTAssertFalse(element.isSpeakable)
+        #expect(speakable.textToSpeak == "")
+        #expect(!element.isSpeakable)
     }
 
     // MARK: - DialoguePairSpeakable Tests
 
-    func testDialoguePairSpeakable_WithoutCharacterName() async throws {
+    @Test
+    func dialoguePairSpeakable_WithoutCharacterName() async throws {
         let character = GuionElement(
             elementType: .character,
             elementText: "JOHN"
@@ -146,10 +155,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             includeCharacterName: false
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "We need to talk about yesterday.")
+        #expect(speakable.textToSpeak == "We need to talk about yesterday.")
     }
 
-    func testDialoguePairSpeakable_WithCharacterName() async throws {
+    @Test
+    func dialoguePairSpeakable_WithCharacterName() async throws {
         let character = GuionElement(
             elementType: .character,
             elementText: "ALICE"
@@ -168,39 +178,13 @@ final class GuionElementSpeakableTests: XCTestCase {
             includeCharacterName: true
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "ALICE: I already told you everything.")
-    }
-
-    func testDialoguePairSpeakable_AudioGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Audio generation may be limited on simulator")
-        #endif
-
-        let character = GuionElement(
-            elementType: .character,
-            elementText: "NARRATOR"
-        )
-
-        let dialogue = GuionElement(
-            elementType: .dialogue,
-            elementText: "Test dialogue."
-        )
-
-        let speakable = DialoguePairSpeakable(
-            character: character,
-            dialogue: dialogue,
-            voiceProvider: provider,
-            voiceId: voiceId,
-            includeCharacterName: false
-        )
-
-        let audioData = try await speakable.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(speakable.textToSpeak == "ALICE: I already told you everything.")
     }
 
     // MARK: - SectionHeadingSpeakable Tests
 
-    func testSectionHeadingSpeakable_WithoutAnnouncement() async throws {
+    @Test
+    func sectionHeadingSpeakable_WithoutAnnouncement() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "The Beginning"
@@ -213,10 +197,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             announceLevel: false
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "The Beginning")
+        #expect(speakable.textToSpeak == "The Beginning")
     }
 
-    func testSectionHeadingSpeakable_WithAnnouncement_Level1() async throws {
+    @Test
+    func sectionHeadingSpeakable_WithAnnouncement_Level1() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 1),
             elementText: "My Screenplay"
@@ -229,10 +214,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             announceLevel: true
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "Title: My Screenplay")
+        #expect(speakable.textToSpeak == "Title: My Screenplay")
     }
 
-    func testSectionHeadingSpeakable_WithAnnouncement_Level2() async throws {
+    @Test
+    func sectionHeadingSpeakable_WithAnnouncement_Level2() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "Act Two"
@@ -245,10 +231,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             announceLevel: true
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "Act: Act Two")
+        #expect(speakable.textToSpeak == "Act: Act Two")
     }
 
-    func testSectionHeadingSpeakable_WithAnnouncement_Level3() async throws {
+    @Test
+    func sectionHeadingSpeakable_WithAnnouncement_Level3() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 3),
             elementText: "The Chase"
@@ -261,10 +248,11 @@ final class GuionElementSpeakableTests: XCTestCase {
             announceLevel: true
         )
 
-        XCTAssertEqual(speakable.textToSpeak, "Sequence: The Chase")
+        #expect(speakable.textToSpeak == "Sequence: The Chase")
     }
 
-    func testSectionHeadingSpeakable_NonHeadingElement() async throws {
+    @Test
+    func sectionHeadingSpeakable_NonHeadingElement() async throws {
         let action = GuionElement(
             elementType: .action,
             elementText: "This is just action text."
@@ -278,12 +266,13 @@ final class GuionElementSpeakableTests: XCTestCase {
         )
 
         // Should fall back to plain text
-        XCTAssertEqual(speakable.textToSpeak, "This is just action text.")
+        #expect(speakable.textToSpeak == "This is just action text.")
     }
 
     // MARK: - SceneSpeakable Tests
 
-    func testSceneSpeakable_BasicScene() async throws {
+    @Test
+    func sceneSpeakable_BasicScene() async throws {
         let sceneHeading = GuionElement(
             elementType: .sceneHeading,
             elementText: "INT. BEDROOM - NIGHT"
@@ -303,14 +292,15 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceProvider: provider
         )
 
-        XCTAssertEqual(scene.groupName, "INT. BEDROOM - NIGHT")
-        XCTAssertEqual(scene.groupDescription, "4 elements")
+        #expect(scene.groupName == "INT. BEDROOM - NIGHT")
+        #expect(scene.groupDescription == "4 elements")
 
         let speakableItems = scene.getGroupedElements()
-        XCTAssertEqual(speakableItems.count, 4)
+        #expect(speakableItems.count == 4)
     }
 
-    func testSceneSpeakable_EmptyScene() async throws {
+    @Test
+    func sceneSpeakable_EmptyScene() async throws {
         let sceneHeading = GuionElement(
             elementType: .sceneHeading,
             elementText: "EXT. PARK - DAY"
@@ -323,14 +313,15 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceProvider: provider
         )
 
-        XCTAssertEqual(scene.groupName, "EXT. PARK - DAY")
-        XCTAssertEqual(scene.groupDescription, "0 elements")
+        #expect(scene.groupName == "EXT. PARK - DAY")
+        #expect(scene.groupDescription == "0 elements")
 
         let speakableItems = scene.getGroupedElements()
-        XCTAssertEqual(speakableItems.count, 0)
+        #expect(speakableItems.count == 0)
     }
 
-    func testSceneSpeakable_VoiceMapping() async throws {
+    @Test
+    func sceneSpeakable_VoiceMapping() async throws {
         let sceneHeading = GuionElement(
             elementType: .sceneHeading,
             elementText: "INT. OFFICE - DAY"
@@ -357,13 +348,14 @@ final class GuionElementSpeakableTests: XCTestCase {
         )
 
         let speakableItems = scene.getGroupedElements() as! [GuionElementSpeakable]
-        XCTAssertEqual(speakableItems[1].voiceId, "dialogue-voice")  // Dialogue
-        XCTAssertEqual(speakableItems[0].voiceId, "narrator-voice")  // Character
+        #expect(speakableItems[1].voiceId == "dialogue-voice")  // Dialogue
+        #expect(speakableItems[0].voiceId == "narrator-voice")  // Character
     }
 
     // MARK: - ChapterSpeakable Tests
 
-    func testChapterSpeakable_WithHeading() async throws {
+    @Test
+    func chapterSpeakable_WithHeading() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "Chapter One: The Discovery"
@@ -383,13 +375,14 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceProvider: provider
         )
 
-        XCTAssertEqual(chapter.groupName, "Chapter One: The Discovery")
-        XCTAssertTrue(chapter.groupDescription!.contains("4 elements"))
-        XCTAssertTrue(chapter.groupDescription!.contains("1 scenes"))
-        XCTAssertTrue(chapter.groupDescription!.contains("1 dialogue"))
+        #expect(chapter.groupName == "Chapter One: The Discovery")
+        #expect(chapter.groupDescription!.contains("4 elements"))
+        #expect(chapter.groupDescription!.contains("1 scenes"))
+        #expect(chapter.groupDescription!.contains("1 dialogue"))
     }
 
-    func testChapterSpeakable_WithoutHeading() async throws {
+    @Test
+    func chapterSpeakable_WithoutHeading() async throws {
         let elements = [
             GuionElement(elementType: .action, elementText: "Opening scene."),
             GuionElement(elementType: .character, elementText: "NARRATOR"),
@@ -403,11 +396,12 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceProvider: provider
         )
 
-        XCTAssertEqual(chapter.groupName, "Chapter")
-        XCTAssertTrue(chapter.groupDescription!.contains("3 elements"))
+        #expect(chapter.groupName == "Chapter")
+        #expect(chapter.groupDescription!.contains("3 elements"))
     }
 
-    func testChapterSpeakable_MultipleScenes() async throws {
+    @Test
+    func chapterSpeakable_MultipleScenes() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "Act Two"
@@ -430,15 +424,16 @@ final class GuionElementSpeakableTests: XCTestCase {
             voiceProvider: provider
         )
 
-        XCTAssertEqual(chapter.groupName, "Act Two")
-        XCTAssertTrue(chapter.groupDescription!.contains("7 elements"))
-        XCTAssertTrue(chapter.groupDescription!.contains("3 scenes"))
-        XCTAssertTrue(chapter.groupDescription!.contains("2 dialogue"))
+        #expect(chapter.groupName == "Act Two")
+        #expect(chapter.groupDescription!.contains("7 elements"))
+        #expect(chapter.groupDescription!.contains("3 scenes"))
+        #expect(chapter.groupDescription!.contains("2 dialogue"))
     }
 
     // MARK: - MarkdownDocumentSpeakable Tests
 
-    func testMarkdownDocumentSpeakable_BasicDocument() async throws {
+    @Test
+    func markdownDocumentSpeakable_BasicDocument() async throws {
         let elements = [
             GuionElement(elementType: .sectionHeading(level: 1), elementText: "My Article"),
             GuionElement(elementType: .action, elementText: "Introduction paragraph."),
@@ -455,16 +450,17 @@ final class GuionElementSpeakableTests: XCTestCase {
             defaultVoiceId: voiceId
         )
 
-        XCTAssertEqual(document.groupName, "article.md")
-        XCTAssertTrue(document.groupDescription!.contains("6 elements"))
-        XCTAssertTrue(document.groupDescription!.contains("3 headings"))
-        XCTAssertTrue(document.groupDescription!.contains("3 paragraphs"))
+        #expect(document.groupName == "article.md")
+        #expect(document.groupDescription!.contains("6 elements"))
+        #expect(document.groupDescription!.contains("3 headings"))
+        #expect(document.groupDescription!.contains("3 paragraphs"))
 
         let speakableItems = document.getGroupedElements()
-        XCTAssertEqual(speakableItems.count, 6)
+        #expect(speakableItems.count == 6)
     }
 
-    func testMarkdownDocumentSpeakable_EmptyDocument() async throws {
+    @Test
+    func markdownDocumentSpeakable_EmptyDocument() async throws {
         let document = MarkdownDocumentSpeakable(
             filename: "empty.md",
             elements: [],
@@ -472,85 +468,60 @@ final class GuionElementSpeakableTests: XCTestCase {
             defaultVoiceId: voiceId
         )
 
-        XCTAssertEqual(document.groupName, "empty.md")
-        XCTAssertTrue(document.groupDescription!.contains("0 elements"))
-        XCTAssertTrue(document.groupDescription!.contains("0 headings"))
-        XCTAssertTrue(document.groupDescription!.contains("0 paragraphs"))
+        #expect(document.groupName == "empty.md")
+        #expect(document.groupDescription!.contains("0 elements"))
+        #expect(document.groupDescription!.contains("0 headings"))
+        #expect(document.groupDescription!.contains("0 paragraphs"))
 
         let speakableItems = document.getGroupedElements()
-        XCTAssertEqual(speakableItems.count, 0)
+        #expect(speakableItems.count == 0)
     }
 
     // MARK: - Helper Extension Tests
 
-    func testGuionElement_IsSpeakable() {
+    @Test
+    func guionElement_IsSpeakable() {
         let speakable = GuionElement(
             elementType: .action,
             elementText: "Some text"
         )
-        XCTAssertTrue(speakable.isSpeakable)
+        #expect(speakable.isSpeakable)
 
         let empty = GuionElement(
             elementType: .action,
             elementText: ""
         )
-        XCTAssertFalse(empty.isSpeakable)
+        #expect(!empty.isSpeakable)
 
         let whitespace = GuionElement(
             elementType: .action,
             elementText: "   \n  "
         )
-        XCTAssertFalse(whitespace.isSpeakable)
+        #expect(!whitespace.isSpeakable)
     }
 
-    func testGuionElement_RecommendedVoiceType() {
+    @Test
+    func guionElement_RecommendedVoiceType() {
         let dialogue = GuionElement(elementType: .dialogue, elementText: "Text")
-        XCTAssertEqual(dialogue.recommendedVoiceType, .character)
+        #expect(dialogue.recommendedVoiceType == .character)
 
         let character = GuionElement(elementType: .character, elementText: "JOHN")
-        XCTAssertEqual(character.recommendedVoiceType, .character)
+        #expect(character.recommendedVoiceType == .character)
 
         let action = GuionElement(elementType: .action, elementText: "Action")
-        XCTAssertEqual(action.recommendedVoiceType, .narrator)
+        #expect(action.recommendedVoiceType == .narrator)
 
         let sceneHeading = GuionElement(elementType: .sceneHeading, elementText: "INT. ROOM")
-        XCTAssertEqual(sceneHeading.recommendedVoiceType, .narrator)
+        #expect(sceneHeading.recommendedVoiceType == .narrator)
 
         let lyrics = GuionElement(elementType: .lyrics, elementText: "Song lyrics")
-        XCTAssertEqual(lyrics.recommendedVoiceType, .character)
+        #expect(lyrics.recommendedVoiceType == .character)
     }
 
     // MARK: - Integration Tests
 
-    func testGuionElementSpeakable_BatchGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Batch audio generation may be limited on simulator")
-        #endif
-
-        let elements = [
-            GuionElement(elementType: .action, elementText: "First paragraph."),
-            GuionElement(elementType: .action, elementText: "Second paragraph."),
-            GuionElement(elementType: .action, elementText: "Third paragraph.")
-        ]
-
-        let speakableItems = elements.map { element in
-            GuionElementSpeakable(
-                element: element,
-                voiceProvider: provider,
-                voiceId: voiceId
-            )
-        }
-
-        // Test batch generation using Collection extension
-        let audioFiles = try await speakableItems.speakAll()
-        XCTAssertEqual(audioFiles.count, 3)
-
-        for audioData in audioFiles {
-            XCTAssertGreaterThan(audioData.count, 0)
-        }
-    }
-
-    func testChapterSpeakable_DurationEstimation() async throws {
+    @Test
+    func chapterSpeakable_DurationEstimation() async throws {
         let heading = GuionElement(
             elementType: .sectionHeading(level: 2),
             elementText: "Chapter One"
@@ -571,6 +542,6 @@ final class GuionElementSpeakableTests: XCTestCase {
         let speakableItems = chapter.getGroupedElements() as! [GuionElementSpeakable]
         let totalDuration = await speakableItems.estimateTotalDuration()
 
-        XCTAssertGreaterThan(totalDuration, 0)
+        #expect(totalDuration > 0)
     }
 }

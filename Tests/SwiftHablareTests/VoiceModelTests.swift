@@ -5,14 +5,17 @@
 //  Comprehensive tests for Voice model
 //
 
-import XCTest
+import Testing
+import Foundation
 @testable import SwiftHablare
 
-final class VoiceModelTests: XCTestCase {
+@Suite("Voice Model Tests")
+struct VoiceModelTests {
 
     // MARK: - Initialization Tests
 
-    func testVoiceInitializationWithAllParameters() {
+    @Test("Voice initialization with all parameters")
+    func initializationWithAllParameters() {
         let voice = Voice(
             id: "voice123",
             name: "Rachel",
@@ -23,32 +26,34 @@ final class VoiceModelTests: XCTestCase {
             gender: "female"
         )
 
-        XCTAssertEqual(voice.id, "voice123")
-        XCTAssertEqual(voice.name, "Rachel")
-        XCTAssertEqual(voice.description, "A friendly voice")
-        XCTAssertEqual(voice.providerId, "elevenlabs")
-        XCTAssertEqual(voice.language, "en")
-        XCTAssertEqual(voice.locality, "US")
-        XCTAssertEqual(voice.gender, "female")
+        #expect(voice.id == "voice123")
+        #expect(voice.name == "Rachel")
+        #expect(voice.description == "A friendly voice")
+        #expect(voice.providerId == "elevenlabs")
+        #expect(voice.language == "en")
+        #expect(voice.locality == "US")
+        #expect(voice.gender == "female")
     }
 
-    func testVoiceInitializationWithMinimalParameters() {
+    @Test("Voice initialization with minimal parameters")
+    func initializationWithMinimalParameters() {
         let voice = Voice(
             id: "voice123",
             name: "Rachel",
             description: nil
         )
 
-        XCTAssertEqual(voice.id, "voice123")
-        XCTAssertEqual(voice.name, "Rachel")
-        XCTAssertNil(voice.description)
-        XCTAssertEqual(voice.providerId, "elevenlabs", "Default provider should be elevenlabs")
-        XCTAssertNil(voice.language)
-        XCTAssertNil(voice.locality)
-        XCTAssertNil(voice.gender)
+        #expect(voice.id == "voice123")
+        #expect(voice.name == "Rachel")
+        #expect(voice.description == nil)
+        #expect(voice.providerId == "elevenlabs")
+        #expect(voice.language == nil)
+        #expect(voice.locality == nil)
+        #expect(voice.gender == nil)
     }
 
-    func testVoiceInitializationWithCustomProvider() {
+    @Test("Voice initialization with custom provider")
+    func initializationWithCustomProvider() {
         let voice = Voice(
             id: "voice123",
             name: "Samantha",
@@ -56,36 +61,40 @@ final class VoiceModelTests: XCTestCase {
             providerId: "apple"
         )
 
-        XCTAssertEqual(voice.providerId, "apple")
+        #expect(voice.providerId == "apple")
     }
 
     // MARK: - Identifiable Protocol Tests
 
-    func testVoiceConformsToIdentifiable() {
+    @Test("Voice conforms to Identifiable")
+    func conformsToIdentifiable() {
         let voice = Voice(id: "voice123", name: "Test", description: nil)
 
         // Identifiable protocol provides id property
-        XCTAssertEqual(voice.id, "voice123")
+        #expect(voice.id == "voice123")
     }
 
-    func testVoicesWithSameIdAreEqual() {
+    @Test("Voices with same id have same identifier")
+    func voicesWithSameIdAreEqual() {
         let voice1 = Voice(id: "voice123", name: "Rachel", description: nil)
         let voice2 = Voice(id: "voice123", name: "Different Name", description: nil)
 
         // For Identifiable, id is the unique identifier
-        XCTAssertEqual(voice1.id, voice2.id)
+        #expect(voice1.id == voice2.id)
     }
 
-    func testVoicesWithDifferentIdsAreNotEqual() {
+    @Test("Voices with different ids have different identifiers")
+    func voicesWithDifferentIdsAreNotEqual() {
         let voice1 = Voice(id: "voice1", name: "Rachel", description: nil)
         let voice2 = Voice(id: "voice2", name: "Rachel", description: nil)
 
-        XCTAssertNotEqual(voice1.id, voice2.id)
+        #expect(voice1.id != voice2.id)
     }
 
     // MARK: - Codable Tests
 
-    func testVoiceEncodingWithAllProperties() throws {
+    @Test("Voice encoding with all properties")
+    func encodingWithAllProperties() throws {
         let voice = Voice(
             id: "voice123",
             name: "Rachel",
@@ -103,15 +112,16 @@ final class VoiceModelTests: XCTestCase {
         let json = String(data: data, encoding: .utf8)!
 
         // Verify JSON contains expected fields (using voice_id instead of id)
-        XCTAssertTrue(json.contains("\"voice_id\":\"voice123\""))
-        XCTAssertTrue(json.contains("\"name\":\"Rachel\""))
-        XCTAssertTrue(json.contains("\"description\":\"A friendly voice\""))
-        XCTAssertTrue(json.contains("\"language\":\"en\""))
-        XCTAssertTrue(json.contains("\"locality\":\"US\""))
-        XCTAssertTrue(json.contains("\"gender\":\"female\""))
+        #expect(json.contains("\"voice_id\":\"voice123\""))
+        #expect(json.contains("\"name\":\"Rachel\""))
+        #expect(json.contains("\"description\":\"A friendly voice\""))
+        #expect(json.contains("\"language\":\"en\""))
+        #expect(json.contains("\"locality\":\"US\""))
+        #expect(json.contains("\"gender\":\"female\""))
     }
 
-    func testVoiceDecodingWithAllProperties() throws {
+    @Test("Voice decoding with all properties")
+    func decodingWithAllProperties() throws {
         let json = """
         {
             "voice_id": "voice123",
@@ -126,16 +136,17 @@ final class VoiceModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let voice = try decoder.decode(Voice.self, from: json)
 
-        XCTAssertEqual(voice.id, "voice123")
-        XCTAssertEqual(voice.name, "Rachel")
-        XCTAssertEqual(voice.description, "A friendly voice")
-        XCTAssertEqual(voice.providerId, "elevenlabs", "Decoded voices should default to elevenlabs")
-        XCTAssertEqual(voice.language, "en")
-        XCTAssertEqual(voice.locality, "US")
-        XCTAssertEqual(voice.gender, "female")
+        #expect(voice.id == "voice123")
+        #expect(voice.name == "Rachel")
+        #expect(voice.description == "A friendly voice")
+        #expect(voice.providerId == "elevenlabs")
+        #expect(voice.language == "en")
+        #expect(voice.locality == "US")
+        #expect(voice.gender == "female")
     }
 
-    func testVoiceDecodingWithMinimalProperties() throws {
+    @Test("Voice decoding with minimal properties")
+    func decodingWithMinimalProperties() throws {
         let json = """
         {
             "voice_id": "voice123",
@@ -146,15 +157,16 @@ final class VoiceModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let voice = try decoder.decode(Voice.self, from: json)
 
-        XCTAssertEqual(voice.id, "voice123")
-        XCTAssertEqual(voice.name, "Rachel")
-        XCTAssertNil(voice.description)
-        XCTAssertNil(voice.language)
-        XCTAssertNil(voice.locality)
-        XCTAssertNil(voice.gender)
+        #expect(voice.id == "voice123")
+        #expect(voice.name == "Rachel")
+        #expect(voice.description == nil)
+        #expect(voice.language == nil)
+        #expect(voice.locality == nil)
+        #expect(voice.gender == nil)
     }
 
-    func testVoiceEncodingAndDecodingRoundTrip() throws {
+    @Test("Voice encoding and decoding round trip")
+    func encodingAndDecodingRoundTrip() throws {
         let originalVoice = Voice(
             id: "voice123",
             name: "Rachel",
@@ -171,15 +183,16 @@ final class VoiceModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let decodedVoice = try decoder.decode(Voice.self, from: data)
 
-        XCTAssertEqual(decodedVoice.id, originalVoice.id)
-        XCTAssertEqual(decodedVoice.name, originalVoice.name)
-        XCTAssertEqual(decodedVoice.description, originalVoice.description)
-        XCTAssertEqual(decodedVoice.language, originalVoice.language)
-        XCTAssertEqual(decodedVoice.locality, originalVoice.locality)
-        XCTAssertEqual(decodedVoice.gender, originalVoice.gender)
+        #expect(decodedVoice.id == originalVoice.id)
+        #expect(decodedVoice.name == originalVoice.name)
+        #expect(decodedVoice.description == originalVoice.description)
+        #expect(decodedVoice.language == originalVoice.language)
+        #expect(decodedVoice.locality == originalVoice.locality)
+        #expect(decodedVoice.gender == originalVoice.gender)
     }
 
-    func testVoiceArrayEncoding() throws {
+    @Test("Voice array encoding and decoding")
+    func arrayEncoding() throws {
         let voices = [
             Voice(id: "voice1", name: "Rachel", description: "Voice 1"),
             Voice(id: "voice2", name: "Adam", description: "Voice 2"),
@@ -192,15 +205,16 @@ final class VoiceModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let decodedVoices = try decoder.decode([Voice].self, from: data)
 
-        XCTAssertEqual(decodedVoices.count, 3)
-        XCTAssertEqual(decodedVoices[0].id, "voice1")
-        XCTAssertEqual(decodedVoices[1].id, "voice2")
-        XCTAssertEqual(decodedVoices[2].id, "voice3")
+        #expect(decodedVoices.count == 3)
+        #expect(decodedVoices[0].id == "voice1")
+        #expect(decodedVoices[1].id == "voice2")
+        #expect(decodedVoices[2].id == "voice3")
     }
 
     // MARK: - Sendable Protocol Tests
 
-    func testVoiceIsSendable() {
+    @Test("Voice is Sendable")
+    func isSendable() {
         // Voice should be Sendable for thread-safe passing
         let voice = Voice(id: "voice123", name: "Test", description: nil)
 
@@ -212,7 +226,8 @@ final class VoiceModelTests: XCTestCase {
 
     // MARK: - Coding Keys Tests
 
-    func testCodingKeysMapping() throws {
+    @Test("Coding keys mapping from voice_id to id")
+    func codingKeysMapping() throws {
         // Verify that voice_id is properly mapped to id
         let json = """
         {
@@ -223,22 +238,24 @@ final class VoiceModelTests: XCTestCase {
 
         let voice = try JSONDecoder().decode(Voice.self, from: json)
 
-        XCTAssertEqual(voice.id, "test123")
+        #expect(voice.id == "test123")
     }
 
-    func testEncodingUsesVoiceIdKey() throws {
+    @Test("Encoding uses voice_id key")
+    func encodingUsesVoiceIdKey() throws {
         let voice = Voice(id: "test123", name: "Test Voice", description: nil)
 
         let data = try JSONEncoder().encode(voice)
         let json = String(data: data, encoding: .utf8)!
 
-        XCTAssertTrue(json.contains("\"voice_id\""), "Should encode id as voice_id")
-        XCTAssertFalse(json.contains("\"id\""), "Should not encode id as id")
+        #expect(json.contains("\"voice_id\""))
+        #expect(!json.contains("\"id\""))
     }
 
     // MARK: - Edge Case Tests
 
-    func testVoiceWithEmptyStrings() {
+    @Test("Voice with empty strings")
+    func withEmptyStrings() {
         let voice = Voice(
             id: "",
             name: "",
@@ -249,16 +266,17 @@ final class VoiceModelTests: XCTestCase {
             gender: ""
         )
 
-        XCTAssertEqual(voice.id, "")
-        XCTAssertEqual(voice.name, "")
-        XCTAssertEqual(voice.description, "")
-        XCTAssertEqual(voice.providerId, "")
-        XCTAssertEqual(voice.language, "")
-        XCTAssertEqual(voice.locality, "")
-        XCTAssertEqual(voice.gender, "")
+        #expect(voice.id == "")
+        #expect(voice.name == "")
+        #expect(voice.description == "")
+        #expect(voice.providerId == "")
+        #expect(voice.language == "")
+        #expect(voice.locality == "")
+        #expect(voice.gender == "")
     }
 
-    func testVoiceWithVeryLongStrings() {
+    @Test("Voice with very long strings")
+    func withVeryLongStrings() {
         let longString = String(repeating: "a", count: 1000)
 
         let voice = Voice(
@@ -271,12 +289,13 @@ final class VoiceModelTests: XCTestCase {
             gender: longString
         )
 
-        XCTAssertEqual(voice.id.count, 1000)
-        XCTAssertEqual(voice.name.count, 1000)
-        XCTAssertEqual(voice.description?.count, 1000)
+        #expect(voice.id.count == 1000)
+        #expect(voice.name.count == 1000)
+        #expect(voice.description?.count == 1000)
     }
 
-    func testVoiceWithSpecialCharacters() {
+    @Test("Voice with special characters")
+    func withSpecialCharacters() {
         let voice = Voice(
             id: "voice-123_test",
             name: "Rachel's Voice",
@@ -287,12 +306,13 @@ final class VoiceModelTests: XCTestCase {
             gender: "female/neutral"
         )
 
-        XCTAssertEqual(voice.id, "voice-123_test")
-        XCTAssertEqual(voice.name, "Rachel's Voice")
-        XCTAssertTrue(voice.description!.contains("@#$%"))
+        #expect(voice.id == "voice-123_test")
+        #expect(voice.name == "Rachel's Voice")
+        #expect(voice.description?.contains("@#$%") == true)
     }
 
-    func testVoiceWithUnicodeCharacters() {
+    @Test("Voice with Unicode characters")
+    func withUnicodeCharacters() {
         let voice = Voice(
             id: "voice123",
             name: "María José 🎤",
@@ -303,55 +323,60 @@ final class VoiceModelTests: XCTestCase {
             gender: "female"
         )
 
-        XCTAssertEqual(voice.name, "María José 🎤")
-        XCTAssertEqual(voice.description, "Una voz amigable")
+        #expect(voice.name == "María José 🎤")
+        #expect(voice.description == "Una voz amigable")
     }
 
     // MARK: - Property Mutation Tests
 
-    func testProviderIdCanBeMutated() {
+    @Test("Provider ID can be mutated")
+    func providerIdCanBeMutated() {
         var voice = Voice(id: "voice123", name: "Test", description: nil)
 
-        XCTAssertEqual(voice.providerId, "elevenlabs")
+        #expect(voice.providerId == "elevenlabs")
 
         voice.providerId = "apple"
 
-        XCTAssertEqual(voice.providerId, "apple")
+        #expect(voice.providerId == "apple")
     }
 
-    func testLanguageCanBeMutated() {
+    @Test("Language can be mutated")
+    func languageCanBeMutated() {
         var voice = Voice(id: "voice123", name: "Test", description: nil)
 
-        XCTAssertNil(voice.language)
+        #expect(voice.language == nil)
 
         voice.language = "en"
 
-        XCTAssertEqual(voice.language, "en")
+        #expect(voice.language == "en")
     }
 
-    func testLocalityCanBeMutated() {
+    @Test("Locality can be mutated")
+    func localityCanBeMutated() {
         var voice = Voice(id: "voice123", name: "Test", description: nil)
 
-        XCTAssertNil(voice.locality)
+        #expect(voice.locality == nil)
 
         voice.locality = "US"
 
-        XCTAssertEqual(voice.locality, "US")
+        #expect(voice.locality == "US")
     }
 
-    func testGenderCanBeMutated() {
+    @Test("Gender can be mutated")
+    func genderCanBeMutated() {
         var voice = Voice(id: "voice123", name: "Test", description: nil)
 
-        XCTAssertNil(voice.gender)
+        #expect(voice.gender == nil)
 
         voice.gender = "female"
 
-        XCTAssertEqual(voice.gender, "female")
+        #expect(voice.gender == "female")
     }
 
     // MARK: - Collection Operations Tests
 
-    func testFilteringVoicesByGender() {
+    @Test("Filtering voices by gender")
+    func filteringVoicesByGender() {
         let voices = [
             Voice(id: "v1", name: "Rachel", description: nil, gender: "female"),
             Voice(id: "v2", name: "Adam", description: nil, gender: "male"),
@@ -361,11 +386,12 @@ final class VoiceModelTests: XCTestCase {
 
         let femaleVoices = voices.filter { $0.gender == "female" }
 
-        XCTAssertEqual(femaleVoices.count, 2)
-        XCTAssertTrue(femaleVoices.allSatisfy { $0.gender == "female" })
+        #expect(femaleVoices.count == 2)
+        #expect(femaleVoices.allSatisfy { $0.gender == "female" })
     }
 
-    func testFilteringVoicesByLanguage() {
+    @Test("Filtering voices by language")
+    func filteringVoicesByLanguage() {
         let voices = [
             Voice(id: "v1", name: "Rachel", description: nil, language: "en"),
             Voice(id: "v2", name: "Maria", description: nil, language: "es"),
@@ -375,10 +401,11 @@ final class VoiceModelTests: XCTestCase {
 
         let englishVoices = voices.filter { $0.language == "en" }
 
-        XCTAssertEqual(englishVoices.count, 2)
+        #expect(englishVoices.count == 2)
     }
 
-    func testSortingVoicesByName() {
+    @Test("Sorting voices by name")
+    func sortingVoicesByName() {
         let voices = [
             Voice(id: "v1", name: "Zoe", description: nil),
             Voice(id: "v2", name: "Adam", description: nil),
@@ -387,12 +414,13 @@ final class VoiceModelTests: XCTestCase {
 
         let sortedVoices = voices.sorted { $0.name < $1.name }
 
-        XCTAssertEqual(sortedVoices[0].name, "Adam")
-        XCTAssertEqual(sortedVoices[1].name, "Maria")
-        XCTAssertEqual(sortedVoices[2].name, "Zoe")
+        #expect(sortedVoices[0].name == "Adam")
+        #expect(sortedVoices[1].name == "Maria")
+        #expect(sortedVoices[2].name == "Zoe")
     }
 
-    func testGroupingVoicesByProvider() {
+    @Test("Grouping voices by provider")
+    func groupingVoicesByProvider() {
         let voices = [
             Voice(id: "v1", name: "Rachel", description: nil, providerId: "elevenlabs"),
             Voice(id: "v2", name: "Samantha", description: nil, providerId: "apple"),
@@ -402,14 +430,15 @@ final class VoiceModelTests: XCTestCase {
 
         let grouped = Dictionary(grouping: voices, by: { $0.providerId })
 
-        XCTAssertEqual(grouped.keys.count, 2)
-        XCTAssertEqual(grouped["elevenlabs"]?.count, 2)
-        XCTAssertEqual(grouped["apple"]?.count, 2)
+        #expect(grouped.keys.count == 2)
+        #expect(grouped["elevenlabs"]?.count == 2)
+        #expect(grouped["apple"]?.count == 2)
     }
 
     // MARK: - JSON Compatibility Tests
 
-    func testDecodingElevenLabsAPIResponse() throws {
+    @Test("Decoding ElevenLabs API response")
+    func decodingElevenLabsAPIResponse() throws {
         // Simulate actual ElevenLabs API response format
         let json = """
         {
@@ -421,12 +450,13 @@ final class VoiceModelTests: XCTestCase {
 
         let voice = try JSONDecoder().decode(Voice.self, from: json)
 
-        XCTAssertEqual(voice.id, "21m00Tcm4TlvDq8ikWAM")
-        XCTAssertEqual(voice.name, "Rachel")
-        XCTAssertNotNil(voice.description)
+        #expect(voice.id == "21m00Tcm4TlvDq8ikWAM")
+        #expect(voice.name == "Rachel")
+        #expect(voice.description != nil)
     }
 
-    func testDecodingArrayOfVoices() throws {
+    @Test("Decoding array of voices")
+    func decodingArrayOfVoices() throws {
         let json = """
         [
             {
@@ -443,9 +473,9 @@ final class VoiceModelTests: XCTestCase {
 
         let voices = try JSONDecoder().decode([Voice].self, from: json)
 
-        XCTAssertEqual(voices.count, 2)
-        XCTAssertEqual(voices[0].id, "voice1")
-        XCTAssertEqual(voices[1].id, "voice2")
-        XCTAssertEqual(voices[1].gender, "male")
+        #expect(voices.count == 2)
+        #expect(voices[0].id == "voice1")
+        #expect(voices[1].id == "voice2")
+        #expect(voices[1].gender == "male")
     }
 }

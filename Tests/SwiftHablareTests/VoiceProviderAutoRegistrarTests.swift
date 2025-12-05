@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 @testable import SwiftHablare
 
-final class VoiceProviderAutoRegistrarTests: XCTestCase {
-    func testRegisterProvidersAddsDescriptors() async throws {
+@Suite struct VoiceProviderAutoRegistrarTests {
+    @Test func registerProvidersAddsDescriptors() async throws {
         let setup = makeTestUserDefaults(suiteName: "VoiceProviderAutoRegistrarTests")
         let defaults = setup.defaults
         defer { setup.cleanup() }
@@ -27,6 +27,6 @@ final class VoiceProviderAutoRegistrarTests: XCTestCase {
 
         let providers = await registry.availableProviders()
         let identifiers = providers.map { $0.descriptor.id }
-        XCTAssertTrue(identifiers.contains("sample"))
+        #expect(identifiers.contains("sample"))
     }
 }
