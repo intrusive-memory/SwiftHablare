@@ -579,7 +579,7 @@ struct GenerationServiceTests {
     @Test("Voice cache expiration", .disabled("Skipped on simulator due to timing variations"))
     func testVoiceCacheExpiration() async throws {
         #if targetEnvironment(simulator)
-        throw TestSkipError()
+        throw Skip("Skipped on simulator due to timing variations")
         #endif
 
         let container = try TestFixtures.makeTestContainer()
@@ -900,7 +900,3 @@ struct GenerationServiceTests {
         #expect(a1)
     }
 }
-
-// MARK: - TestSkipError
-
-struct TestSkipError: Error {}

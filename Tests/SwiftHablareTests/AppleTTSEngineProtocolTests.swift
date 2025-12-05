@@ -220,7 +220,7 @@ struct AppleTTSEngineProtocolTests {
     @Test
     func estimateDurationMatchesGeneratedAudio() async throws {
         #if targetEnvironment(simulator)
-        throw SkipAll("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers")
+        throw Skip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers")
         #else
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {
