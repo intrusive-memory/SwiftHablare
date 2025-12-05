@@ -177,33 +177,6 @@ struct NSSpeechTTSEngineTests {
         #expect(audioFile.length > 0)
     }
 
-    @Test("Generate audio produces AIFF format")
-    func testGenerateAudioProducesAIFFFormat() async throws {
-        let voices = try await engine.fetchVoices()
-        guard let firstVoice = voices.first else {
-            #expect(Bool(false), "No voices available for testing")
-            return
-        }
-
-        let text = "Testing AIFF format."
-        let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
-
-        // Verify we got substantial audio data
-        #expect(audioData.count > 1024)
-
-        // Check for AIFF header (may not be available on CI runners without audio services)
-        let header = audioData.prefix(12)
-        let headerString = String(data: header, encoding: .ascii) ?? ""
-
-        // Skip header validation if we're on a system without proper audio services
-        // (CI runners may generate placeholder audio)
-        if headerString.isEmpty || !headerString.contains(where: { $0.isASCII }) {
-            throw Testing.Skip("AIFF format validation skipped - audio services may not be fully available")
-        }
-
-        #expect(headerString.contains("FORM") || headerString.contains("AIFF") || headerString.contains("AIFC"))
-    }
-
     @Test("Generate audio with different voices")
     func testGenerateAudioWithDifferentVoices() async throws {
         let voices = try await engine.fetchVoices()

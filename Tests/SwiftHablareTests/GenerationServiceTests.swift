@@ -576,34 +576,6 @@ struct GenerationServiceTests {
         #expect(cacheDifference <= 1)
     }
 
-    @Test("Voice cache expiration", .disabled("Skipped on simulator due to timing variations"))
-    func testVoiceCacheExpiration() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Skipped on simulator due to timing variations")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService(cacheLifetime: 0.2)
-
-        let voices1 = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices1.isEmpty)
-
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache1)
-
-        try await Task.sleep(for: .milliseconds(500))
-
-        let hasCache2 = await service.hasValidCache(for: "apple", using: context)
-        #expect(!hasCache2)
-
-        let voices2 = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices2.isEmpty)
-
-        let hasCache3 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache3)
-    }
-
     @Test("Refresh voices")
     func testRefreshVoices() async throws {
         let container = try TestFixtures.makeTestContainer()

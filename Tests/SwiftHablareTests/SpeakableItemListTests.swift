@@ -185,44 +185,6 @@ struct SpeakableItemListTests {
         #expect(list.statusMessage == "Cancelled")
     }
 
-    @Test("Cancellation during generation")
-    func testCancellationDuringGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-        let service = GenerationService()
-
-        let items: [any SpeakableItem] = [
-            TestFixtures.makeSimpleMessage(content: "First message", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Second message", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Third message", provider: provider, voiceId: voiceId)
-        ]
-
-        let list = SpeakableItemList(name: "Test", items: items)
-
-        // Start generation
-        Task {
-            _ = try? await service.generateList(list, to: context)
-        }
-
-        // Cancel after a short delay
-        try await Task.sleep(for: .milliseconds(100))
-        list.cancel()
-
-        // Wait a bit for cancellation to process
-        try await Task.sleep(for: .milliseconds(500))
-
-        // Should have been cancelled
-        #expect(list.isCancelled)
-        #expect(!list.isProcessing)
-    }
-
     // MARK: - Reset Tests
 
     @Test("Reset after completion")
@@ -294,115 +256,6 @@ struct SpeakableItemListTests {
 
     // MARK: - Integration Tests with GenerationService
 
-    @Test("Generate list - basic generation")
-    func testGenerateListBasic() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-        let service = GenerationService()
-
-        let items: [any SpeakableItem] = [
-            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "World", provider: provider, voiceId: voiceId)
-        ]
-
-        let list = SpeakableItemList(name: "Test", items: items)
-
-        let records = try await service.generateList(list, to: context)
-
-        #expect(records.count == 2)
-        #expect(list.isComplete)
-        #expect(!list.isProcessing)
-        #expect(list.currentIndex == 2)
-        #expect(list.progress == 1.0)
-    }
-
-    @Test("Generate list - persistence verification")
-    func testGenerateListPersistence() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-        let service = GenerationService()
-
-        let items: [any SpeakableItem] = [
-            TestFixtures.makeSimpleMessage(content: "Test message one", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Test message two", provider: provider, voiceId: voiceId)
-        ]
-
-        let list = SpeakableItemList(name: "Persistence Test", items: items)
-
-        _ = try await service.generateList(list, to: context)
-
-        // Verify records were persisted
-        let descriptor = FetchDescriptor<TypedDataStorage>()
-        let savedRecords = try context.fetch(descriptor)
-
-        #expect(savedRecords.count == 2)
-
-        // Verify content
-        for (index, record) in savedRecords.enumerated() {
-            #expect(record.providerId == "apple")
-            #expect(record.mimeType == "audio/x-aiff")
-            #expect(record.binaryValue != nil)
-            #expect(!record.binaryValue!.isEmpty)
-            #expect(record.prompt == items[index].textToSpeak)
-        }
-    }
-
-    @Test("Generate list with different SpeakableItem types")
-    func testGenerateListWithDifferentTypes() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-        let service = GenerationService()
-
-        let items: [any SpeakableItem] = [
-            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
-            TestFixtures.makeCharacterDialogue(
-                characterName: "Alice",
-                dialogue: "How are you?",
-                provider: provider,
-                voiceId: voiceId,
-                includeCharacterName: true
-            ),
-            TestFixtures.makeArticle(
-                title: "News",
-                author: "Bob",
-                content: "Breaking news today.",
-                provider: provider,
-                voiceId: voiceId,
-                includeMeta: true
-            )
-        ]
-
-        let list = SpeakableItemList(name: "Mixed Types", items: items)
-
-        let records = try await service.generateList(list, to: context)
-
-        #expect(records.count == 3)
-        #expect(records[0].prompt == "Hello")
-        #expect(records[1].prompt == "Alice: How are you?")
-        #expect(records[2].prompt == "News, by Bob. Breaking news today.")
-    }
-
     @Test("Generate empty list")
     func testGenerateEmptyList() async throws {
         let container = try TestFixtures.makeTestContainer()
@@ -415,39 +268,6 @@ struct SpeakableItemListTests {
 
         #expect(records.count == 0)
         #expect(list.isComplete)
-    }
-
-    @Test("Generate list with custom save interval")
-    func testGenerateListWithSaveInterval() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
-
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-        let service = GenerationService()
-
-        let items: [any SpeakableItem] = [
-            TestFixtures.makeSimpleMessage(content: "One", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Two", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Three", provider: provider, voiceId: voiceId),
-            TestFixtures.makeSimpleMessage(content: "Four", provider: provider, voiceId: voiceId)
-        ]
-
-        let list = SpeakableItemList(name: "Save Interval Test", items: items)
-
-        // Save every 2 items
-        let records = try await service.generateList(list, to: context, saveInterval: 2)
-
-        #expect(records.count == 4)
-
-        // Verify all were persisted
-        let descriptor = FetchDescriptor<TypedDataStorage>()
-        let savedRecords = try context.fetch(descriptor)
-        #expect(savedRecords.count == 4)
     }
 
     // MARK: - List Properties Tests

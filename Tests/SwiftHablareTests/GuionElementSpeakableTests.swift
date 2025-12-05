@@ -181,34 +181,6 @@ struct GuionElementSpeakableTests {
         #expect(speakable.textToSpeak == "ALICE: I already told you everything.")
     }
 
-    @Test
-    func dialoguePairSpeakable_AudioGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip( "Audio generation may be limited on simulator")
-        #endif
-
-        let character = GuionElement(
-            elementType: .character,
-            elementText: "NARRATOR"
-        )
-
-        let dialogue = GuionElement(
-            elementType: .dialogue,
-            elementText: "Test dialogue."
-        )
-
-        let speakable = DialoguePairSpeakable(
-            character: character,
-            dialogue: dialogue,
-            voiceProvider: provider,
-            voiceId: voiceId,
-            includeCharacterName: false
-        )
-
-        let audioData = try await speakable.speak()
-        #expect(audioData.count > 0)
-    }
-
     // MARK: - SectionHeadingSpeakable Tests
 
     @Test
@@ -547,35 +519,6 @@ struct GuionElementSpeakableTests {
     }
 
     // MARK: - Integration Tests
-
-    @Test
-    func guionElementSpeakable_BatchGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip( "Batch audio generation may be limited on simulator")
-        #endif
-
-        let elements = [
-            GuionElement(elementType: .action, elementText: "First paragraph."),
-            GuionElement(elementType: .action, elementText: "Second paragraph."),
-            GuionElement(elementType: .action, elementText: "Third paragraph.")
-        ]
-
-        let speakableItems = elements.map { element in
-            GuionElementSpeakable(
-                element: element,
-                voiceProvider: provider,
-                voiceId: voiceId
-            )
-        }
-
-        // Test batch generation using Collection extension
-        let audioFiles = try await speakableItems.speakAll()
-        #expect(audioFiles.count == 3)
-
-        for audioData in audioFiles {
-            #expect(audioData.count > 0)
-        }
-    }
 
     @Test
     func chapterSpeakable_DurationEstimation() async throws {

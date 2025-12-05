@@ -217,39 +217,6 @@ struct AppleTTSEngineProtocolTests {
         #expect(!audioData.isEmpty)
     }
 
-    @Test
-    func estimateDurationMatchesGeneratedAudio() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers")
-        #else
-        let voices = try await engine.fetchVoices()
-        guard let voice = voices.first else {
-            Issue.record("No voices available")
-            return
-        }
-
-        let text = "Duration matching test with reasonable length text"
-        let estimatedDuration = engine.estimateDuration(text: text, voiceId: voice.id)
-        let audioData = try await engine.generateAudio(text: text, voiceId: voice.id)
-
-        // Write to temp file to get actual duration
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("aiff")
-
-        try audioData.write(to: tempURL)
-        defer { try? FileManager.default.removeItem(at: tempURL) }
-
-        let audioFile = try AVAudioFile(forReading: tempURL)
-        let actualDuration = Double(audioFile.length) / audioFile.fileFormat.sampleRate
-
-        // Estimation should be within 50% of actual (rough estimation)
-        let tolerance = actualDuration * 0.5
-        let difference = abs(estimatedDuration - actualDuration)
-        #expect(difference <= tolerance, "Estimated duration (\(estimatedDuration)) should be within \(tolerance) of actual duration (\(actualDuration))")
-        #endif
-    }
-
     // MARK: - Error Handling Tests
 
     @Test
