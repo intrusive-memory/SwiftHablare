@@ -29,11 +29,11 @@ struct ElevenLabsUserAgentTests {
 
         // We can't directly access the private userAgent property, but we can verify
         // the SwiftHablare version constant is correctly set
-        #expect(SwiftHablare.version == "5.1.0")
+        #expect(SwiftHablare.version == "5.1.1")
         #expect(SwiftHablare.name == "SwiftHablare")
 
         // Verify the expected User-Agent format
-        #expect(expectedUserAgent == "SwiftHablare/5.1.0")
+        #expect(expectedUserAgent == "SwiftHablare/5.1.1")
     }
 
     @Test
@@ -45,7 +45,7 @@ struct ElevenLabsUserAgentTests {
         )
 
         #expect(configuration.apiKey == testAPIKey)
-        #expect(configuration.userAgent == "SwiftHablare/5.1.0")
+        #expect(configuration.userAgent == "SwiftHablare/5.1.1")
     }
 
     // MARK: - URLProtocol-based Request Interception Tests
@@ -59,7 +59,7 @@ struct ElevenLabsUserAgentTests {
         )
 
         // Verify the configuration has the correct User-Agent
-        #expect(config.userAgent == "SwiftHablare/5.1.0")
+        #expect(config.userAgent == "SwiftHablare/5.1.1")
         #expect(!config.userAgent.isEmpty)
 
         // Note: Testing actual HTTP header transmission requires URLProtocol mocking
@@ -75,7 +75,7 @@ struct ElevenLabsUserAgentTests {
             userAgent: "SwiftHablare/\(SwiftHablare.version)"
         )
 
-        #expect(configuration.userAgent == "SwiftHablare/5.1.0")
+        #expect(configuration.userAgent == "SwiftHablare/5.1.1")
         #expect(!configuration.userAgent.isEmpty)
     }
 
@@ -87,7 +87,7 @@ struct ElevenLabsUserAgentTests {
             userAgent: "SwiftHablare/\(SwiftHablare.version)"
         )
 
-        #expect(configuration.userAgent == "SwiftHablare/5.1.0")
+        #expect(configuration.userAgent == "SwiftHablare/5.1.1")
     }
 
     // MARK: - Provider Integration Test
@@ -96,7 +96,7 @@ struct ElevenLabsUserAgentTests {
     func providerUsesCorrectUserAgent() async throws {
         // Verify the provider would create the correct User-Agent format
         // when making actual requests
-        let expectedUserAgent = "SwiftHablare/5.1.0"
+        let expectedUserAgent = "SwiftHablare/5.1.1"
 
         // Create configuration as the provider would
         let configuration = ElevenLabsEngineConfiguration(
@@ -119,11 +119,11 @@ struct ElevenLabsUserAgentTests {
         let engine = ElevenLabsEngine()
         let config = ElevenLabsEngineConfiguration(
             apiKey: "test-key",
-            userAgent: "SwiftHablare/5.1.0"
+            userAgent: "SwiftHablare/5.1.1"
         )
 
         // Verify the engine can use the configuration
         #expect(engine.canGenerate(with: config))
-        #expect(config.userAgent == "SwiftHablare/5.1.0")
+        #expect(config.userAgent == "SwiftHablare/5.1.1")
     }
 }

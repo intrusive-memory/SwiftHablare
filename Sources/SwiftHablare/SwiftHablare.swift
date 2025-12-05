@@ -81,7 +81,7 @@ import Foundation
 /// There are NO circular dependencies - SwiftCompartido does not depend on SwiftHablare.
 public struct SwiftHablare {
     /// Library version
-    public static let version = "5.1.0"
+    public static let version = "5.1.1"
 
     /// Library name
     public static let name = "SwiftHablare"
