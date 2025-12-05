@@ -276,8 +276,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndWithSwiftDataPersistence() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
-            return
+            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
