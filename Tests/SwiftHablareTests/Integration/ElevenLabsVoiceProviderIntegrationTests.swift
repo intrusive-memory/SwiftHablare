@@ -130,8 +130,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndWithMultipleVoices() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
-            return
+            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Testing with multiple ElevenLabs voices...")
