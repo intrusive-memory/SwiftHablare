@@ -184,7 +184,7 @@ struct GuionElementSpeakableTests {
     @Test
     func dialoguePairSpeakable_AudioGeneration() async throws {
         #if targetEnvironment(simulator)
-        throw #require(false, "Audio generation may be limited on simulator")
+        throw Skip( "Audio generation may be limited on simulator")
         #endif
 
         let character = GuionElement(
@@ -551,7 +551,7 @@ struct GuionElementSpeakableTests {
     @Test
     func guionElementSpeakable_BatchGeneration() async throws {
         #if targetEnvironment(simulator)
-        throw #require(false, "Batch audio generation may be limited on simulator")
+        throw Skip( "Batch audio generation may be limited on simulator")
         #endif
 
         let elements = [

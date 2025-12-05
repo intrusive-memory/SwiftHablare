@@ -57,7 +57,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndSpeechGeneration() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
+            throw Skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Starting end-to-end ElevenLabs speech generation test...")
@@ -129,7 +129,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndWithMultipleVoices() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
+            throw Skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Testing with multiple ElevenLabs voices...")
@@ -166,7 +166,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndWithLongText() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
+            throw Skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Testing with longer text...")
@@ -215,7 +215,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func userAgentHeaderInRequests() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
+            throw Skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Testing User-Agent header in ElevenLabs requests...")
@@ -272,7 +272,7 @@ struct ElevenLabsVoiceProviderIntegrationTests {
     func endToEndWithSwiftDataPersistence() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw Issue.skip("Skipping test - ELEVENLABS_API_KEY not set")
+            throw Skip("Skipping test - ELEVENLABS_API_KEY not set")
         }
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
