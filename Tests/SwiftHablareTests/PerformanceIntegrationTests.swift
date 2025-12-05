@@ -9,11 +9,14 @@
 //  IMPORTANT: These tests only run on Apple Silicon for consistent performance metrics.
 //
 
-import XCTest
+import Testing
+import Foundation
 @testable import SwiftHablare
 
 #if arch(arm64)
-final class PerformanceIntegrationTests: XCTestCase {
+
+@Suite("Performance Integration Tests")
+struct PerformanceIntegrationTests {
 
     // MARK: - Test Configuration
 
@@ -34,80 +37,53 @@ final class PerformanceIntegrationTests: XCTestCase {
     // MARK: - Audio Generation Performance
 
     #if !targetEnvironment(simulator)
-    func testAudioGenerationPerformance() throws {
+    @Test("Audio generation performance")
+    @MainActor
+    func audioGenerationPerformance() async throws {
         let provider = AppleVoiceProvider()
         let testText = "This is a test of audio generation performance. We need to measure how quickly we can synthesize speech."
 
-        let metrics: [XCTMetric] = [
-            XCTClockMetric(),
-            XCTCPUMetric(),
-            XCTMemoryMetric()
-        ]
+        let voices = try await provider.fetchVoices(languageCode: "en")
+        #expect(!voices.isEmpty, "No voices available")
 
-        let options = XCTMeasureOptions()
-        options.iterationCount = 5  // Fewer iterations as this is slow
+        let firstVoice = voices.first!
 
-        measure(metrics: metrics, options: options) {
-            let expectation = self.expectation(description: "Generate audio")
-
-            Task {
-                do {
-                    let voices = try await provider.fetchVoices(languageCode: "en")
-                    guard let firstVoice = voices.first else {
-                        XCTFail("No voices available")
-                        expectation.fulfill()
-                        return
-                    }
-
-                    _ = try await provider.generateAudio(
-                        text: testText,
-                        voiceId: firstVoice.id,
-                        languageCode: "en"
-                    )
-
-                    expectation.fulfill()
-                } catch {
-                    XCTFail("Failed to generate audio: \(error)")
-                    expectation.fulfill()
-                }
-            }
-
-            wait(for: [expectation], timeout: 30.0)
-        }
+        _ = try await provider.generateAudio(
+            text: testText,
+            voiceId: firstVoice.id,
+            languageCode: "en"
+        )
     }
     #endif
 
     // MARK: - Provider Initialization Performance
 
-    func testProviderInitializationPerformance() {
-        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            _ = AppleVoiceProvider()
-        }
+    @Test("Provider initialization performance")
+    func providerInitializationPerformance() {
+        _ = AppleVoiceProvider()
     }
 
-    func testGenerationServiceInitializationPerformance() {
-        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            _ = GenerationService()
-        }
+    @Test("GenerationService initialization performance")
+    func generationServiceInitializationPerformance() {
+        _ = GenerationService()
     }
 
     // MARK: - Voice Filtering Performance
 
-    func testVoiceFilteringPerformance() async throws {
+    @Test("Voice filtering performance")
+    func voiceFilteringPerformance() async throws {
         let provider = AppleVoiceProvider()
 
         // Fetch voices once
         let voices = try await provider.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
+        #expect(!voices.isEmpty, "Need voices to test filtering")
 
         // Measure filtering operation
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                _ = voices.filter { voice in
-                    guard let quality = voice.quality else { return false }
-                    return quality == "enhanced" || quality == "premium"
-                }
+        for _ in 0..<10 {
+            _ = voices.filter { voice in
+                guard let quality = voice.quality else { return false }
+                return quality == "enhanced" || quality == "premium"
             }
         }
     }
@@ -115,7 +91,8 @@ final class PerformanceIntegrationTests: XCTestCase {
 
     // MARK: - String Operations Performance
 
-    func testBracketFilteringPerformance() {
+    @Test("Bracket filtering performance")
+    func bracketFilteringPerformance() {
         let sampleTexts = [
             "Hello {{stage whisper}} world {{nervously}}",
             "This is a test {{V.O.}} with multiple {{annotations}} here",
@@ -126,15 +103,13 @@ final class PerformanceIntegrationTests: XCTestCase {
 
         let pattern = "\\{\\{[^}]*\\}\\}"
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                for text in sampleTexts {
-                    _ = text.replacingOccurrences(
-                        of: pattern,
-                        with: "",
-                        options: .regularExpression
-                    )
-                }
+        for _ in 0..<10 {
+            for text in sampleTexts {
+                _ = text.replacingOccurrences(
+                    of: pattern,
+                    with: "",
+                    options: .regularExpression
+                )
             }
         }
     }
@@ -142,7 +117,8 @@ final class PerformanceIntegrationTests: XCTestCase {
     // MARK: - Platform-Specific Performance
 
     #if os(macOS)
-    func testMacOSQualityExtractionPerformance() {
+    @Test("macOS quality extraction performance")
+    func macOSQualityExtractionPerformance() {
         let testNames = [
             ("Alex", "com.apple.speech.synthesis.voice.alex"),
             ("Samantha Enhanced", "com.apple.speech.synthesis.voice.samantha.enhanced"),
@@ -151,19 +127,17 @@ final class PerformanceIntegrationTests: XCTestCase {
             ("Fiona Enhanced", "com.apple.speech.synthesis.voice.fiona.enhanced")
         ]
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                for (name, identifier) in testNames {
-                    let lowercasedName = name.lowercased()
-                    let lowercasedIdentifier = identifier.lowercased()
+        for _ in 0..<10 {
+            for (name, identifier) in testNames {
+                let lowercasedName = name.lowercased()
+                let lowercasedIdentifier = identifier.lowercased()
 
-                    _ = if lowercasedName.contains("premium") || lowercasedIdentifier.contains("premium") {
-                        "premium"
-                    } else if lowercasedName.contains("enhanced") || lowercasedIdentifier.contains("enhanced") {
-                        "enhanced"
-                    } else {
-                        "default"
-                    }
+                _ = if lowercasedName.contains("premium") || lowercasedIdentifier.contains("premium") {
+                    "premium"
+                } else if lowercasedName.contains("enhanced") || lowercasedIdentifier.contains("enhanced") {
+                    "enhanced"
+                } else {
+                    "default"
                 }
             }
         }
@@ -172,7 +146,8 @@ final class PerformanceIntegrationTests: XCTestCase {
 
     // MARK: - Baseline Recording & Comparison
 
-    func testRecordPerformanceBaseline() async throws {
+    @Test("Record performance baseline")
+    func recordPerformanceBaseline() async throws {
         // This test records current performance metrics for comparison
         let provider = AppleVoiceProvider()
 
@@ -234,14 +209,15 @@ final class PerformanceIntegrationTests: XCTestCase {
         }
     }
 
-    func testCompareWithBaseline() async throws {
+    @Test("Compare with baseline")
+    func compareWithBaseline() async throws {
         // Load previous baseline if it exists
         let tempDir = FileManager.default.temporaryDirectory
         let baselineFile = tempDir.appendingPathComponent("performance_baseline.json")
 
         guard let data = try? Data(contentsOf: baselineFile),
               let baseline = try? JSONDecoder().decode(PerformanceBaseline.self, from: data) else {
-            print("⚠️  No baseline found. Run testRecordPerformanceBaseline first.")
+            print("⚠️  No baseline found. Run recordPerformanceBaseline first.")
             return
         }
 
@@ -302,71 +278,58 @@ final class PerformanceIntegrationTests: XCTestCase {
         """)
 
         // Assert that we haven't regressed significantly (>10% slower)
-        XCTAssertLessThan(currentVoiceFetchTime, baseline.voiceFetchTime * 1.1,
-                         "Voice fetching regressed by more than 10%")
-        XCTAssertLessThan(currentProviderInitTime, baseline.providerInitTime * 1.1,
-                         "Provider init regressed by more than 10%")
+        #expect(currentVoiceFetchTime < baseline.voiceFetchTime * 1.1, "Voice fetching regressed by more than 10%")
+        #expect(currentProviderInitTime < baseline.providerInitTime * 1.1, "Provider init regressed by more than 10%")
     }
 
 
     // MARK: - GenerationService Performance
 
-    func testGenerationServiceBatchOperationPerformance() {
+    @Test("GenerationService batch operation performance")
+    func generationServiceBatchOperationPerformance() {
         let testItems = (0..<20).map { i in
             (text: "Test dialogue \(i)", voiceId: "test-voice-\(i)")
         }
 
-        let metrics: [XCTMetric] = [
-            XCTClockMetric(),
-            XCTMemoryMetric()
-        ]
-
-        let options = XCTMeasureOptions()
-        options.iterationCount = 5
-
-        measure(metrics: metrics, options: options) {
-            // Simulate batch generation overhead
-            for item in testItems {
-                _ = item.text.count
-                _ = item.voiceId.count
-            }
+        // Simulate batch generation overhead
+        for item in testItems {
+            _ = item.text.count
+            _ = item.voiceId.count
         }
     }
 
     // MARK: - Voice Filtering and Sorting Performance
 
-    func testVoiceSortingPerformance() async throws {
+    @Test("Voice sorting performance")
+    func voiceSortingPerformance() async throws {
         let provider = AppleVoiceProvider()
 
         let voices = try await provider.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Need voices to test sorting")
+        #expect(!voices.isEmpty, "Need voices to test sorting")
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                _ = voices.sorted { $0.name < $1.name }
-                _ = voices.sorted { ($0.quality ?? "") > ($1.quality ?? "") }
-                _ = voices.sorted { ($0.language ?? "") < ($1.language ?? "") }
-            }
+        for _ in 0..<10 {
+            _ = voices.sorted { $0.name < $1.name }
+            _ = voices.sorted { ($0.quality ?? "") > ($1.quality ?? "") }
+            _ = voices.sorted { ($0.language ?? "") < ($1.language ?? "") }
         }
     }
 
-    func testComplexVoiceFilteringPerformance() async throws {
+    @Test("Complex voice filtering performance")
+    func complexVoiceFilteringPerformance() async throws {
         let provider = AppleVoiceProvider()
 
         let voices = try await provider.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Need voices to test filtering")
+        #expect(!voices.isEmpty, "Need voices to test filtering")
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                // Complex filter: high quality, English, name starts with certain letters
-                _ = voices.filter { voice in
-                    let isHighQuality = voice.quality == "enhanced" || voice.quality == "premium"
-                    let isEnglish = (voice.language ?? "").hasPrefix("en")
-                    let nameFilter = voice.name.first.map { $0 >= "A" && $0 <= "M" } ?? false
-                    return isHighQuality && isEnglish && nameFilter
-                }
+        for _ in 0..<10 {
+            // Complex filter: high quality, English, name starts with certain letters
+            _ = voices.filter { voice in
+                let isHighQuality = voice.quality == "enhanced" || voice.quality == "premium"
+                let isEnglish = (voice.language ?? "").hasPrefix("en")
+                let nameFilter = voice.name.first.map { $0 >= "A" && $0 <= "M" } ?? false
+                return isHighQuality && isEnglish && nameFilter
             }
         }
     }
@@ -374,38 +337,37 @@ final class PerformanceIntegrationTests: XCTestCase {
     // MARK: - Provider Registry Performance (if available)
 
     #if canImport(SwiftData)
-    func testProviderRegistryAccessPerformance() {
-        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            for _ in 0..<10 {
-                // Simulate registry access pattern
-                _ = AppleVoiceProvider()
-                // Would test other providers here if available
-            }
+    @Test("Provider registry access performance")
+    func providerRegistryAccessPerformance() {
+        for _ in 0..<10 {
+            // Simulate registry access pattern
+            _ = AppleVoiceProvider()
+            // Would test other providers here if available
         }
     }
     #endif
 
     // MARK: - Large Text Processing Performance
 
-    func testLargeTextProcessingPerformance() {
+    @Test("Large text processing performance")
+    func largeTextProcessingPerformance() {
         // Generate large text (10,000 characters)
         let largeText = String(repeating: "This is a test sentence for performance measurement. ", count: 200)
-        XCTAssertGreaterThan(largeText.count, 10000, "Text should be large")
+        #expect(largeText.count > 10000, "Text should be large")
 
         let pattern = "\\{\\{[^}]*\\}\\}"
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                _ = largeText.replacingOccurrences(
-                    of: pattern,
-                    with: "",
-                    options: .regularExpression
-                )
-            }
+        for _ in 0..<10 {
+            _ = largeText.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: .regularExpression
+            )
         }
     }
 
-    func testTextSplittingPerformance() {
+    @Test("Text splitting performance")
+    func textSplittingPerformance() {
         let longDialogue = """
         This is a very long piece of dialogue that would need to be split into
         multiple chunks for processing. It contains many sentences and paragraphs
@@ -415,12 +377,10 @@ final class PerformanceIntegrationTests: XCTestCase {
         batch processing of large screenplays with hundreds of dialogue lines.
         """
 
-        measure(metrics: [XCTClockMetric()]) {
-            for _ in 0..<10 {
-                _ = longDialogue.split(separator: ".")
-                _ = longDialogue.split(separator: "\n")
-                _ = longDialogue.components(separatedBy: .newlines)
-            }
+        for _ in 0..<10 {
+            _ = longDialogue.split(separator: ".")
+            _ = longDialogue.split(separator: "\n")
+            _ = longDialogue.components(separatedBy: .newlines)
         }
     }
 }

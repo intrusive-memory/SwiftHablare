@@ -5,35 +5,34 @@
 //  End-to-end integration tests for Apple TTS voice generation
 //
 
-import XCTest
+import Testing
 import AVFoundation
 import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
-final class AppleVoiceProviderIntegrationTests: XCTestCase {
+@Suite("Apple Voice Provider Integration Tests")
+@MainActor
+struct AppleVoiceProviderIntegrationTests {
 
-    var provider: AppleVoiceProvider!
-    var service: GenerationService!
-    var artifactsDirectory: URL!
-    var modelContainer: ModelContainer!
-    var modelContext: ModelContext!
+    var provider: AppleVoiceProvider
+    var service: GenerationService
+    var artifactsDirectory: URL
+    var modelContainer: ModelContainer
+    var modelContext: ModelContext
 
-    @MainActor
-    override func setUp() async throws {
-        try await super.setUp()
-
+    init() throws {
         // Create in-memory SwiftData container
         let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = ModelContext(modelContainer)
 
-        provider = AppleVoiceProvider()
+        provider = TestFixtures.makeAppleProvider()
         service = GenerationService()
 
         // Create artifacts directory
-        let testBundle = Bundle(for: type(of: self))
+        let testBundle = Bundle.main
         let testsDirectory = URL(fileURLWithPath: testBundle.bundlePath).deletingLastPathComponent()
         artifactsDirectory = testsDirectory.deletingLastPathComponent().appendingPathComponent("TestArtifacts")
 
@@ -41,21 +40,13 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         try? FileManager.default.createDirectory(at: artifactsDirectory, withIntermediateDirectories: true)
     }
 
-    @MainActor
-    override func tearDown() async throws {
-        provider = nil
-        service = nil
-        modelContext = nil
-        modelContainer = nil
-        try await super.tearDown()
-    }
-
     // MARK: - End-to-End Integration Tests
 
+    @Test("End-to-end speech generation")
     func testEndToEndSpeechGeneration() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Issue.skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Starting end-to-end Apple TTS speech generation test...")
@@ -63,7 +54,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         // Step 1: Fetch available voices
         print("📋 Fetching available voices...")
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        #expect(!voices.isEmpty, "Should have at least one voice available")
         print("✅ Found \(voices.count) voices")
 
         // Step 2: Select a voice (prefer English)
@@ -82,11 +73,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         )
 
         // Step 4: Validate result
-        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
-        XCTAssertEqual(result.originalText, testText)
-        XCTAssertEqual(result.voiceId, voice.id)
-        XCTAssertEqual(result.providerId, "apple")
-        XCTAssertGreaterThan(result.estimatedDuration, 0)
+        #expect(!result.audioData.isEmpty, "Audio data should not be empty")
+        #expect(result.originalText == testText)
+        #expect(result.voiceId == voice.id)
+        #expect(result.providerId == "apple")
+        #expect(result.estimatedDuration > 0)
         print("✅ Generated \(result.audioData.count) bytes of audio")
         print("⏱️  Estimated duration: \(String(format: "%.2f", result.estimatedDuration))s")
 
@@ -101,22 +92,22 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         // Step 6: Verify audio file has non-zero size
         let attributes = try FileManager.default.attributesOfItem(atPath: artifactURL.path)
         let fileSize = attributes[.size] as? Int64 ?? 0
-        XCTAssertGreaterThan(fileSize, 1000, "Audio file should be larger than 1KB")
+        #expect(fileSize > 1000, "Audio file should be larger than 1KB")
         print("✅ Audio file size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
 
         // Step 7: Verify audio file is valid and has non-zero duration
         let audioFile = try AVAudioFile(forReading: artifactURL)
-        XCTAssertNotNil(audioFile.processingFormat, "Audio file should have valid format")
-        XCTAssertGreaterThan(audioFile.length, 0, "Audio file should have non-zero length")
+        #expect(audioFile.processingFormat != nil, "Audio file should have valid format")
+        #expect(audioFile.length > 0, "Audio file should have non-zero length")
 
         let duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
-        XCTAssertGreaterThan(duration, 1.0, "Audio duration should be at least 1 second for this text")
+        #expect(duration > 1.0, "Audio duration should be at least 1 second for this text")
         print("✅ Audio duration: \(String(format: "%.2f", duration))s (\(audioFile.length) frames)")
 
         // Step 8: Verify audio contains non-zero samples (not silence)
         let frameCount = AVAudioFrameCount(audioFile.length)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: frameCount) else {
-            XCTFail("Failed to create audio buffer")
+            Issue.record("Failed to create audio buffer")
             return
         }
         try audioFile.read(into: buffer)
@@ -131,7 +122,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
                 nonZeroCount += 1
             }
         }
-        XCTAssertTrue(hasNonZeroSamples, "Audio should contain non-zero samples (not silence)")
+        #expect(hasNonZeroSamples, "Audio should contain non-zero samples (not silence)")
         let percentNonZero = (Double(nonZeroCount) / Double(buffer.frameLength)) * 100.0
         print("✅ Audio validated: \(String(format: "%.1f%%", percentNonZero)) non-zero samples (contains actual speech)")
 
@@ -153,10 +144,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         """)
     }
 
+    @Test("End-to-end with multiple voices")
     func testEndToEndWithMultipleVoices() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Issue.skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Testing with multiple Apple voices...")
@@ -175,7 +167,7 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
                 voiceName: voice.name
             )
 
-            XCTAssertFalse(result.audioData.isEmpty)
+            #expect(!result.audioData.isEmpty)
             print("✅ Generated \(result.audioData.count) bytes")
 
             // Save artifact (AIFF format on all platforms)
@@ -189,10 +181,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         print("\n✅ Successfully tested \(voicesToTest.count) voices")
     }
 
+    @Test("End-to-end with long text")
     func testEndToEndWithLongText() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Issue.skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Testing with longer text...")
@@ -216,8 +209,8 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
             voiceName: voice.name
         )
 
-        XCTAssertFalse(result.audioData.isEmpty)
-        XCTAssertGreaterThan(result.estimatedDuration, 5, "Longer text should have longer duration")
+        #expect(!result.audioData.isEmpty)
+        #expect(result.estimatedDuration > 5, "Longer text should have longer duration")
 
         // Save artifact (AIFF format on all platforms)
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
@@ -231,11 +224,11 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
 
     // MARK: - SwiftData Persistence Integration Test
 
-    @MainActor
+    @Test("End-to-end with SwiftData persistence")
     func testEndToEndWithSwiftDataPersistence() async throws {
         // Skip on simulator - AVSpeechSynthesizer.write() doesn't generate real audio on simulators
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
+        throw Issue.skip("Apple TTS integration test skipped on simulator - real speech synthesis only works on physical iOS devices")
         #endif
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
@@ -245,12 +238,12 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
         let schema = Schema([TypedDataStorage.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
-        let modelContext = ModelContext(container)
+        let persistenceContext = ModelContext(container)
 
         // Step 2: Fetch available voices
         print("📋 Fetching available voices...")
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        #expect(!voices.isEmpty, "Should have at least one voice available")
         print("✅ Found \(voices.count) voices")
 
         // Step 3: Select a voice
@@ -268,53 +261,53 @@ final class AppleVoiceProviderIntegrationTests: XCTestCase {
             voiceName: voice.name
         )
 
-        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
+        #expect(!result.audioData.isEmpty, "Audio data should not be empty")
         print("✅ Generated \(result.audioData.count) bytes of audio")
 
         // Step 5: Convert to TypedDataStorage (main thread)
         print("💾 Converting result to TypedDataStorage...")
         let audioRecord = result.toTypedDataStorage()
 
-        XCTAssertEqual(audioRecord.id, result.requestId)
-        XCTAssertEqual(audioRecord.providerId, "apple")
-        XCTAssertEqual(audioRecord.requestorID, "apple.audio.tts")
-        XCTAssertEqual(audioRecord.mimeType, result.mimeType)
-        XCTAssertNotNil(audioRecord.binaryValue)
-        XCTAssertEqual(audioRecord.binaryValue, result.audioData)
-        XCTAssertEqual(audioRecord.prompt, testText)
-        XCTAssertEqual(audioRecord.voiceID, voice.id)
-        XCTAssertEqual(audioRecord.voiceName, voice.name)
+        #expect(audioRecord.id == result.requestId)
+        #expect(audioRecord.providerId == "apple")
+        #expect(audioRecord.requestorID == "apple.audio.tts")
+        #expect(audioRecord.mimeType == result.mimeType)
+        #expect(audioRecord.binaryValue != nil)
+        #expect(audioRecord.binaryValue == result.audioData)
+        #expect(audioRecord.prompt == testText)
+        #expect(audioRecord.voiceID == voice.id)
+        #expect(audioRecord.voiceName == voice.name)
         print("✅ TypedDataStorage created successfully")
 
         // Step 6: Insert into SwiftData context
         print("💾 Inserting into SwiftData context...")
-        modelContext.insert(audioRecord)
+        persistenceContext.insert(audioRecord)
 
         // Step 7: Save to SwiftData
         print("💾 Saving to SwiftData...")
-        try modelContext.save()
+        try persistenceContext.save()
         print("✅ Saved to SwiftData successfully")
 
         // Step 8: Verify persistence by fetching from database
         print("🔍 Verifying persistence...")
         let descriptor = FetchDescriptor<TypedDataStorage>()
-        let savedRecords = try modelContext.fetch(descriptor)
+        let savedRecords = try persistenceContext.fetch(descriptor)
 
-        XCTAssertEqual(savedRecords.count, 1, "Should have exactly one saved record")
+        #expect(savedRecords.count == 1, "Should have exactly one saved record")
 
         let savedRecord = savedRecords.first!
-        XCTAssertEqual(savedRecord.id, result.requestId)
-        XCTAssertEqual(savedRecord.providerId, "apple")
-        XCTAssertEqual(savedRecord.binaryValue, result.audioData)
-        XCTAssertEqual(savedRecord.prompt, testText)
-        XCTAssertEqual(savedRecord.voiceID, voice.id)
+        #expect(savedRecord.id == result.requestId)
+        #expect(savedRecord.providerId == "apple")
+        #expect(savedRecord.binaryValue == result.audioData)
+        #expect(savedRecord.prompt == testText)
+        #expect(savedRecord.voiceID == voice.id)
         print("✅ Record successfully persisted and retrieved from SwiftData")
 
         // Step 9: Verify audio data integrity
         print("🔍 Verifying audio data integrity...")
         let retrievedAudioData = try savedRecord.getBinary()
-        XCTAssertEqual(retrievedAudioData, result.audioData, "Retrieved audio should match original")
-        XCTAssertFalse(retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
+        #expect(retrievedAudioData == result.audioData, "Retrieved audio should match original")
+        #expect(!retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
         print("✅ Audio data integrity verified")
 
         // Print summary

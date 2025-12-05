@@ -5,205 +5,210 @@
 //  Comprehensive tests for SpeakableItemList and GenerationService.generateList()
 //
 
-import XCTest
+import Testing
 import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
-final class SpeakableItemListTests: XCTestCase {
-    var provider: AppleVoiceProvider!
-    var service: GenerationService!
-    var voiceId: String!
-    var modelContainer: ModelContainer!
-    var modelContext: ModelContext!
-
-    @MainActor
-    override func setUp() async throws {
-        try await super.setUp()
-
-        // Create in-memory SwiftData container
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        modelContext = ModelContext(modelContainer)
-
-        // Create provider and service
-        provider = AppleVoiceProvider()
-        service = GenerationService()
-
-        // Get a voice
-        let voices = try await provider.fetchVoices()
-        voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
-    }
-
-    @MainActor
-    override func tearDown() async throws {
-        provider = nil
-        service = nil
-        voiceId = nil
-        modelContext = nil
-        modelContainer = nil
-        try await super.tearDown()
-    }
+@Suite("SpeakableItemList Tests")
+@MainActor
+struct SpeakableItemListTests {
 
     // MARK: - SpeakableItemList Creation Tests
 
-    @MainActor
-    func testListCreation() {
+    @Test("List creation with items")
+    func testListCreation() async throws {
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "World", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Test List", items: items)
 
-        XCTAssertEqual(list.name, "Test List")
-        XCTAssertEqual(list.totalCount, 2)
-        XCTAssertEqual(list.currentIndex, 0)
-        XCTAssertFalse(list.isProcessing)
-        XCTAssertFalse(list.isCancelled)
-        XCTAssertNil(list.error)
-        XCTAssertEqual(list.progress, 0.0)
-        XCTAssertFalse(list.isComplete)
-        XCTAssertFalse(list.hasFailed)
+        #expect(list.name == "Test List")
+        #expect(list.totalCount == 2)
+        #expect(list.currentIndex == 0)
+        #expect(!list.isProcessing)
+        #expect(!list.isCancelled)
+        #expect(list.error == nil)
+        #expect(list.progress == 0.0)
+        #expect(!list.isComplete)
+        #expect(!list.hasFailed)
     }
 
-    @MainActor
+    @Test("Empty list creation")
     func testEmptyList() {
         let list = SpeakableItemList(name: "Empty", items: [])
 
-        XCTAssertEqual(list.totalCount, 0)
-        XCTAssertEqual(list.progress, 0.0)
-        XCTAssertTrue(list.isComplete)  // Empty list is complete by definition
+        #expect(list.totalCount == 0)
+        #expect(list.progress == 0.0)
+        #expect(list.isComplete)  // Empty list is complete by definition
     }
 
-    @MainActor
-    func testListItemAccess() {
+    @Test("List item access")
+    func testListItemAccess() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "First", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Second", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "First", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Second", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Test", items: items)
 
         let firstItem = list.item(at: 0)
-        XCTAssertNotNil(firstItem)
-        XCTAssertEqual(firstItem?.textToSpeak, "First")
+        #expect(firstItem != nil)
+        #expect(firstItem?.textToSpeak == "First")
 
         let secondItem = list.item(at: 1)
-        XCTAssertNotNil(secondItem)
-        XCTAssertEqual(secondItem?.textToSpeak, "Second")
+        #expect(secondItem != nil)
+        #expect(secondItem?.textToSpeak == "Second")
 
         let invalidItem = list.item(at: 5)
-        XCTAssertNil(invalidItem)
+        #expect(invalidItem == nil)
     }
 
-    @MainActor
-    func testListAllItems() {
+    @Test("List all items access")
+    func testListAllItems() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "A", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "B", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "A", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "B", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Test", items: items)
         let allItems = list.allItems()
 
-        XCTAssertEqual(allItems.count, 2)
+        #expect(allItems.count == 2)
     }
 
     // MARK: - Progress Tracking Tests
 
-    @MainActor
-    func testProgressTracking() {
+    @Test("Progress tracking through items")
+    func testProgressTracking() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "1", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "2", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "3", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "4", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "1", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "2", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "3", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "4", provider: provider, voiceId: voiceId)
         ])
 
-        XCTAssertEqual(list.progress, 0.0)
+        #expect(list.progress == 0.0)
 
         list.advanceProgress()
-        XCTAssertEqual(list.currentIndex, 1)
-        XCTAssertEqual(list.progress, 0.25)
+        #expect(list.currentIndex == 1)
+        #expect(list.progress == 0.25)
 
         list.advanceProgress()
-        XCTAssertEqual(list.currentIndex, 2)
-        XCTAssertEqual(list.progress, 0.5)
+        #expect(list.currentIndex == 2)
+        #expect(list.progress == 0.5)
 
         list.advanceProgress()
-        XCTAssertEqual(list.currentIndex, 3)
-        XCTAssertEqual(list.progress, 0.75)
+        #expect(list.currentIndex == 3)
+        #expect(list.progress == 0.75)
 
         list.advanceProgress()
-        XCTAssertEqual(list.currentIndex, 4)
-        XCTAssertEqual(list.progress, 1.0)
+        #expect(list.currentIndex == 4)
+        #expect(list.progress == 1.0)
     }
 
-    @MainActor
-    func testProgressWithCustomMessage() {
+    @Test("Progress with custom message")
+    func testProgressWithCustomMessage() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
         list.advanceProgress(message: "Custom status")
-        XCTAssertEqual(list.statusMessage, "Custom status")
+        #expect(list.statusMessage == "Custom status")
     }
 
-    @MainActor
-    func testProcessingState() {
+    @Test("Processing state transitions")
+    func testProcessingState() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
-        XCTAssertFalse(list.isProcessing)
+        #expect(!list.isProcessing)
 
         list.startProcessing()
-        XCTAssertTrue(list.isProcessing)
-        XCTAssertEqual(list.statusMessage, "Processing...")
+        #expect(list.isProcessing)
+        #expect(list.statusMessage == "Processing...")
 
         // Advance through the item
         list.advanceProgress()
 
         list.completeProcessing()
-        XCTAssertFalse(list.isProcessing)
-        XCTAssertEqual(list.statusMessage, "Complete")
-        XCTAssertTrue(list.isComplete)
+        #expect(!list.isProcessing)
+        #expect(list.statusMessage == "Complete")
+        #expect(list.isComplete)
     }
 
     // MARK: - Cancellation Tests
 
-    @MainActor
-    func testCancellation() {
+    @Test("Cancellation state change")
+    func testCancellation() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
-        XCTAssertFalse(list.isCancelled)
+        #expect(!list.isCancelled)
 
         list.cancel()
-        XCTAssertTrue(list.isCancelled)
-        XCTAssertEqual(list.statusMessage, "Cancelled")
+        #expect(list.isCancelled)
+        #expect(list.statusMessage == "Cancelled")
     }
 
-    @MainActor
+    @Test("Cancellation during generation")
     func testCancellationDuringGeneration() async throws {
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let service = GenerationService()
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "First message", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Second message", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Third message", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "First message", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Second message", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Third message", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Test", items: items)
 
         // Start generation
         Task {
-            _ = try? await service.generateList(list, to: modelContext)
+            _ = try? await service.generateList(list, to: context)
         }
 
         // Cancel after a short delay
@@ -214,16 +219,20 @@ final class SpeakableItemListTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(500))
 
         // Should have been cancelled
-        XCTAssertTrue(list.isCancelled)
-        XCTAssertFalse(list.isProcessing)
+        #expect(list.isCancelled)
+        #expect(!list.isProcessing)
     }
 
     // MARK: - Reset Tests
 
-    @MainActor
-    func testReset() {
+    @Test("Reset after completion")
+    func testReset() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
         // Simulate some progress
@@ -231,125 +240,154 @@ final class SpeakableItemListTests: XCTestCase {
         list.advanceProgress()
         list.completeProcessing()
 
-        XCTAssertEqual(list.currentIndex, 1)
-        XCTAssertTrue(list.isComplete)
+        #expect(list.currentIndex == 1)
+        #expect(list.isComplete)
 
         // Reset
         list.reset()
-        XCTAssertEqual(list.currentIndex, 0)
-        XCTAssertFalse(list.isCancelled)
-        XCTAssertNil(list.error)
-        XCTAssertEqual(list.statusMessage, "Ready")
-        XCTAssertFalse(list.isComplete)
+        #expect(list.currentIndex == 0)
+        #expect(!list.isCancelled)
+        #expect(list.error == nil)
+        #expect(list.statusMessage == "Ready")
+        #expect(!list.isComplete)
     }
 
-    @MainActor
-    func testResetWhileProcessing() {
+    @Test("Reset while processing should not reset")
+    func testResetWhileProcessing() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
         list.startProcessing()
-        XCTAssertTrue(list.isProcessing)
+        #expect(list.isProcessing)
 
         // Reset should not work while processing
         list.reset()
-        XCTAssertTrue(list.isProcessing)
-        XCTAssertNotEqual(list.statusMessage, "Ready")
+        #expect(list.isProcessing)
+        #expect(list.statusMessage != "Ready")
     }
 
     // MARK: - Error Handling Tests
 
-    @MainActor
-    func testErrorHandling() {
+    @Test("Error handling state")
+    func testErrorHandling() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
         let testError = VoiceProviderError.invalidRequest("Test error")
         list.failProcessing(with: testError)
 
-        XCTAssertNotNil(list.error)
-        XCTAssertTrue(list.hasFailed)
-        XCTAssertFalse(list.isProcessing)
-        XCTAssertTrue(list.statusMessage.contains("Failed"))
+        #expect(list.error != nil)
+        #expect(list.hasFailed)
+        #expect(!list.isProcessing)
+        #expect(list.statusMessage.contains("Failed"))
     }
 
     // MARK: - Integration Tests with GenerationService
 
-    @MainActor
+    @Test("Generate list - basic generation")
     func testGenerateListBasic() async throws {
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let service = GenerationService()
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "World", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Test", items: items)
 
-        let records = try await service.generateList(list, to: modelContext)
+        let records = try await service.generateList(list, to: context)
 
-        XCTAssertEqual(records.count, 2)
-        XCTAssertTrue(list.isComplete)
-        XCTAssertFalse(list.isProcessing)
-        XCTAssertEqual(list.currentIndex, 2)
-        XCTAssertEqual(list.progress, 1.0)
+        #expect(records.count == 2)
+        #expect(list.isComplete)
+        #expect(!list.isProcessing)
+        #expect(list.currentIndex == 2)
+        #expect(list.progress == 1.0)
     }
 
-    @MainActor
+    @Test("Generate list - persistence verification")
     func testGenerateListPersistence() async throws {
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let service = GenerationService()
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "Test message one", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Test message two", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Test message one", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Test message two", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Persistence Test", items: items)
 
-        _ = try await service.generateList(list, to: modelContext)
+        _ = try await service.generateList(list, to: context)
 
         // Verify records were persisted
         let descriptor = FetchDescriptor<TypedDataStorage>()
-        let savedRecords = try modelContext.fetch(descriptor)
+        let savedRecords = try context.fetch(descriptor)
 
-        XCTAssertEqual(savedRecords.count, 2)
+        #expect(savedRecords.count == 2)
 
         // Verify content
         for (index, record) in savedRecords.enumerated() {
-            XCTAssertEqual(record.providerId, "apple")
-            XCTAssertEqual(record.mimeType, "audio/x-aiff")
-            XCTAssertNotNil(record.binaryValue)
-            XCTAssertFalse(record.binaryValue!.isEmpty)
-            XCTAssertEqual(record.prompt, items[index].textToSpeak)
+            #expect(record.providerId == "apple")
+            #expect(record.mimeType == "audio/x-aiff")
+            #expect(record.binaryValue != nil)
+            #expect(!record.binaryValue!.isEmpty)
+            #expect(record.prompt == items[index].textToSpeak)
         }
     }
 
-    @MainActor
+    @Test("Generate list with different SpeakableItem types")
     func testGenerateListWithDifferentTypes() async throws {
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let service = GenerationService()
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
-            CharacterDialogue(
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
+            TestFixtures.makeCharacterDialogue(
                 characterName: "Alice",
                 dialogue: "How are you?",
-                voiceProvider: provider,
+                provider: provider,
                 voiceId: voiceId,
                 includeCharacterName: true
             ),
-            Article(
+            TestFixtures.makeArticle(
                 title: "News",
                 author: "Bob",
                 content: "Breaking news today.",
-                voiceProvider: provider,
+                provider: provider,
                 voiceId: voiceId,
                 includeMeta: true
             )
@@ -357,84 +395,104 @@ final class SpeakableItemListTests: XCTestCase {
 
         let list = SpeakableItemList(name: "Mixed Types", items: items)
 
-        let records = try await service.generateList(list, to: modelContext)
+        let records = try await service.generateList(list, to: context)
 
-        XCTAssertEqual(records.count, 3)
-        XCTAssertEqual(records[0].prompt, "Hello")
-        XCTAssertEqual(records[1].prompt, "Alice: How are you?")
-        XCTAssertEqual(records[2].prompt, "News, by Bob. Breaking news today.")
+        #expect(records.count == 3)
+        #expect(records[0].prompt == "Hello")
+        #expect(records[1].prompt == "Alice: How are you?")
+        #expect(records[2].prompt == "News, by Bob. Breaking news today.")
     }
 
-    @MainActor
+    @Test("Generate empty list")
     func testGenerateEmptyList() async throws {
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let service = GenerationService()
+
         let list = SpeakableItemList(name: "Empty", items: [])
 
-        let records = try await service.generateList(list, to: modelContext)
+        let records = try await service.generateList(list, to: context)
 
-        XCTAssertEqual(records.count, 0)
-        XCTAssertTrue(list.isComplete)
+        #expect(records.count == 0)
+        #expect(list.isComplete)
     }
 
-    @MainActor
+    @Test("Generate list with custom save interval")
     func testGenerateListWithSaveInterval() async throws {
         #if targetEnvironment(simulator)
-        try XCTSkipIf(true, "Apple TTS integration test skipped on simulator")
+        throw XCTSkip("Apple TTS integration test skipped on simulator")
         #endif
 
+        let container = try TestFixtures.makeTestContainer()
+        let context = ModelContext(container)
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let service = GenerationService()
+
         let items: [any SpeakableItem] = [
-            SimpleMessage(content: "One", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Two", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Three", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Four", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "One", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Two", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Three", provider: provider, voiceId: voiceId),
+            TestFixtures.makeSimpleMessage(content: "Four", provider: provider, voiceId: voiceId)
         ]
 
         let list = SpeakableItemList(name: "Save Interval Test", items: items)
 
         // Save every 2 items
-        let records = try await service.generateList(list, to: modelContext, saveInterval: 2)
+        let records = try await service.generateList(list, to: context, saveInterval: 2)
 
-        XCTAssertEqual(records.count, 4)
+        #expect(records.count == 4)
 
         // Verify all were persisted
         let descriptor = FetchDescriptor<TypedDataStorage>()
-        let savedRecords = try modelContext.fetch(descriptor)
-        XCTAssertEqual(savedRecords.count, 4)
+        let savedRecords = try context.fetch(descriptor)
+        #expect(savedRecords.count == 4)
     }
 
     // MARK: - List Properties Tests
 
-    @MainActor
-    func testListProperties() {
+    @Test("List properties")
+    func testListProperties() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         let list = SpeakableItemList(name: "Test List", items: [
-            SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId)
+            TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
         ])
 
-        XCTAssertEqual(list.name, "Test List")
-        XCTAssertEqual(list.totalCount, 1)
-        XCTAssertEqual(list.currentIndex, 0)
+        #expect(list.name == "Test List")
+        #expect(list.totalCount == 1)
+        #expect(list.currentIndex == 0)
     }
 
     // MARK: - Performance Tests
 
-    @MainActor
-    func testLargeListProgress() {
+    @Test("Large list progress tracking")
+    func testLargeListProgress() async throws {
+        let provider = TestFixtures.makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
         // Create a large list
         var items: [any SpeakableItem] = []
         for i in 0..<100 {
-            items.append(SimpleMessage(content: "Item \(i)", voiceProvider: provider, voiceId: voiceId))
+            items.append(TestFixtures.makeSimpleMessage(content: "Item \(i)", provider: provider, voiceId: voiceId))
         }
 
         let list = SpeakableItemList(name: "Large List", items: items)
 
-        XCTAssertEqual(list.totalCount, 100)
+        #expect(list.totalCount == 100)
 
         // Simulate progress through all items
         for i in 0..<100 {
             list.advanceProgress()
             let expectedProgress = Double(i + 1) / 100.0
-            XCTAssertEqual(list.progress, expectedProgress, accuracy: 0.001)
+            let difference = abs(list.progress - expectedProgress)
+            #expect(difference < 0.001)
         }
 
-        XCTAssertEqual(list.progress, 1.0)
+        #expect(list.progress == 1.0)
     }
 }

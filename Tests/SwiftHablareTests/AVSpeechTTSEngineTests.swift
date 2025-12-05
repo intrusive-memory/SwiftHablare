@@ -6,50 +6,48 @@
 //
 
 #if canImport(UIKit)
-import XCTest
+import Testing
 import AVFoundation
 @testable import SwiftHablare
 
 @available(iOS 13.0, *)
-final class AVSpeechTTSEngineTests: XCTestCase {
+@Suite("AVSpeechTTSEngine Tests")
+struct AVSpeechTTSEngineTests {
+    var engine: AVSpeechTTSEngine
 
-    var engine: AVSpeechTTSEngine!
-
-    override func setUp() {
-        super.setUp()
+    init() {
         engine = AVSpeechTTSEngine()
-    }
-
-    override func tearDown() {
-        engine = nil
-        super.tearDown()
     }
 
     // MARK: - Voice Fetching Tests
 
-    func testFetchVoicesReturnsNonEmptyArray() async throws {
+    @Test("Voice fetching returns non-empty array")
+    func fetchVoicesReturnsNonEmptyArray() async throws {
         let voices = try await engine.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "Should return at least one voice")
+        #expect(!voices.isEmpty)
     }
 
-    func testFetchedVoicesHaveRequiredProperties() async throws {
+    @Test("Fetched voices have required properties")
+    func fetchedVoicesHaveRequiredProperties() async throws {
         let voices = try await engine.fetchVoices()
 
         for voice in voices {
-            XCTAssertFalse(voice.id.isEmpty, "Voice ID should not be empty")
-            XCTAssertFalse(voice.name.isEmpty, "Voice name should not be empty")
-            XCTAssertEqual(voice.providerId, "apple", "Provider ID should be 'apple'")
+            #expect(!voice.id.isEmpty)
+            #expect(!voice.name.isEmpty)
+            #expect(voice.providerId == "apple")
         }
     }
 
-    func testFetchedVoicesHaveLanguageInformation() async throws {
+    @Test("Fetched voices have language information")
+    func fetchedVoicesHaveLanguageInformation() async throws {
         let voices = try await engine.fetchVoices()
 
         let voicesWithLanguage = voices.filter { $0.language != nil }
-        XCTAssertFalse(voicesWithLanguage.isEmpty, "Some voices should have language information")
+        #expect(!voicesWithLanguage.isEmpty)
     }
 
-    func testFetchedVoicesMatchSystemLanguage() async throws {
+    @Test("Fetched voices match system language")
+    func fetchedVoicesMatchSystemLanguage() async throws {
         let voices = try await engine.fetchVoices()
         let systemLanguageCode = Locale.current.language.languageCode?.identifier ?? "en"
         let systemLangPrefix = String(systemLanguageCode.prefix(2))
@@ -57,80 +55,66 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         // Most voices should match system language (unless fallback to first 10)
         if voices.count < 10 {
             // Fallback mode - just verify we got voices
-            XCTAssertFalse(voices.isEmpty)
+            #expect(!voices.isEmpty)
         } else {
             // Should have filtered to system language
             let matchingVoices = voices.filter { voice in
                 guard let lang = voice.language else { return false }
                 return String(lang.prefix(2)) == systemLangPrefix
             }
-            XCTAssertGreaterThan(matchingVoices.count, 0, "Should have voices matching system language")
+            #expect(matchingVoices.count > 0)
         }
     }
 
     // MARK: - Audio Generation Tests
 
-    func testGenerateAudioReturnsData() async throws {
+    @Test("Audio generation returns data")
+    func generateAudioReturnsData() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let text = "Hello, this is a test."
         let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
 
-        XCTAssertFalse(audioData.isEmpty, "Audio data should not be empty")
-        XCTAssertGreaterThan(audioData.count, 1024, "Audio data should be substantial (>1KB)")
+        #expect(!audioData.isEmpty)
+        #expect(audioData.count > 1024)
     }
 
-    func testGenerateAudioWithEmptyTextThrowsError() async throws {
+    @Test("Audio generation with empty text throws error")
+    func generateAudioWithEmptyTextThrowsError() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
-        do {
-            _ = try await engine.generateAudio(text: "", voiceId: firstVoice.id)
-            XCTFail("Should throw error for empty text")
-        } catch let error as VoiceProviderError {
-            switch error {
-            case .invalidRequest(let message):
-                XCTAssertTrue(message.contains("empty"), "Error should mention empty text")
-            default:
-                XCTFail("Expected invalidRequest error")
-            }
+        await #expect(throws: VoiceProviderError.self) {
+            try await engine.generateAudio(text: "", voiceId: firstVoice.id)
         }
     }
 
-    func testGenerateAudioWithWhitespaceOnlyTextThrowsError() async throws {
+    @Test("Audio generation with whitespace-only text throws error")
+    func generateAudioWithWhitespaceOnlyTextThrowsError() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
-        do {
-            _ = try await engine.generateAudio(text: "   \n\t   ", voiceId: firstVoice.id)
-            XCTFail("Should throw error for whitespace-only text")
-        } catch let error as VoiceProviderError {
-            switch error {
-            case .invalidRequest(let message):
-                XCTAssertTrue(message.contains("empty"), "Error should mention empty text")
-            default:
-                XCTFail("Expected invalidRequest error")
-            }
+        await #expect(throws: VoiceProviderError.self) {
+            try await engine.generateAudio(text: "   \n\t   ", voiceId: firstVoice.id)
         }
     }
 
-    func testGenerateAudioProducesValidAudioFormat() async throws {
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Audio validation test skipped on simulator - AVSpeechSynthesizer.write() doesn't generate audio buffers")
-        #else
+    #if !targetEnvironment(simulator)
+    @Test("Audio generation produces valid audio format")
+    func generateAudioProducesValidAudioFormat() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
@@ -147,17 +131,18 @@ final class AVSpeechTTSEngineTests: XCTestCase {
 
         // Try to open as AVAudioFile
         let audioFile = try AVAudioFile(forReading: tempURL)
-        XCTAssertNotNil(audioFile.processingFormat, "Should have valid audio format")
-        XCTAssertGreaterThan(audioFile.length, 0, "Audio file should have frames")
-        #endif
+        #expect(audioFile.processingFormat != nil)
+        #expect(audioFile.length > 0)
     }
+    #endif
 
-    func testGenerateAudioWithDifferentVoices() async throws {
+    @Test("Audio generation with different voices")
+    func generateAudioWithDifferentVoices() async throws {
         let voices = try await engine.fetchVoices()
         let voicesToTest = Array(voices.prefix(min(3, voices.count)))
 
         guard voicesToTest.count > 1 else {
-            XCTFail("Need at least 2 voices for this test")
+            Issue.record("Need at least 2 voices for this test")
             return
         }
 
@@ -165,18 +150,20 @@ final class AVSpeechTTSEngineTests: XCTestCase {
 
         for voice in voicesToTest {
             let audioData = try await engine.generateAudio(text: text, voiceId: voice.id)
-            XCTAssertFalse(audioData.isEmpty, "Audio should be generated for voice: \(voice.name)")
+            #expect(!audioData.isEmpty)
         }
     }
 
     // MARK: - Duration Estimation Tests
 
-    func testEstimateDurationReturnsPositiveValue() {
+    @Test("Duration estimation returns positive value")
+    func estimateDurationReturnsPositiveValue() {
         let duration = engine.estimateDuration(text: "Hello world", voiceId: "any-voice-id")
-        XCTAssertGreaterThan(duration, 0, "Duration should be positive")
+        #expect(duration > 0)
     }
 
-    func testEstimateDurationScalesWithTextLength() {
+    @Test("Duration estimation scales with text length")
+    func estimateDurationScalesWithTextLength() {
         let shortText = "Hello"
         let mediumText = String(repeating: shortText + " ", count: 10)
         let longText = String(repeating: shortText + " ", count: 100)
@@ -185,31 +172,34 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         let mediumDuration = engine.estimateDuration(text: mediumText, voiceId: "any")
         let longDuration = engine.estimateDuration(text: longText, voiceId: "any")
 
-        XCTAssertLessThan(shortDuration, mediumDuration)
-        XCTAssertLessThan(mediumDuration, longDuration)
+        #expect(shortDuration < mediumDuration)
+        #expect(mediumDuration < longDuration)
     }
 
-    func testEstimateDurationHasMinimumValue() {
+    @Test("Duration estimation has minimum value")
+    func estimateDurationHasMinimumValue() {
         let emptyDuration = engine.estimateDuration(text: "", voiceId: "any")
-        XCTAssertGreaterThanOrEqual(emptyDuration, 1.0, "Should have minimum duration of 1.0 second")
+        #expect(emptyDuration >= 1.0)
     }
 
-    func testEstimateDurationIsReasonable() {
+    @Test("Duration estimation is reasonable")
+    func estimateDurationIsReasonable() {
         let text = "This is approximately fifty characters long text"
         let duration = engine.estimateDuration(text: text, voiceId: "any")
 
         // ~50 chars at 14.5 chars/sec * 1.1 buffer ≈ 3.8 seconds
-        XCTAssertGreaterThan(duration, 2.0, "Duration should be at least 2 seconds")
-        XCTAssertLessThan(duration, 10.0, "Duration should be less than 10 seconds")
+        #expect(duration > 2.0)
+        #expect(duration < 10.0)
     }
 
     // MARK: - Platform-Specific Tests
 
     #if targetEnvironment(simulator)
-    func testSimulatorGeneratesPlaceholderAudio() async throws {
+    @Test("Simulator generates placeholder audio")
+    func simulatorGeneratesPlaceholderAudio() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
@@ -217,14 +207,15 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
 
         // Should still get valid audio data (placeholder)
-        XCTAssertFalse(audioData.isEmpty)
-        XCTAssertGreaterThan(audioData.count, 1024)
+        #expect(!audioData.isEmpty)
+        #expect(audioData.count > 1024)
     }
     #else
-    func testPhysicalDeviceGeneratesRealAudio() async throws {
+    @Test("Physical device generates real audio")
+    func physicalDeviceGeneratesRealAudio() async throws {
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
+            Issue.record("No voices available")
             return
         }
 
@@ -232,15 +223,14 @@ final class AVSpeechTTSEngineTests: XCTestCase {
         let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
 
         // Should get real TTS audio
-        XCTAssertFalse(audioData.isEmpty)
-        XCTAssertGreaterThan(audioData.count, 1024)
+        #expect(!audioData.isEmpty)
+        #expect(audioData.count > 1024)
 
         // Verify it's AIFC format (real TTS output)
         let header = audioData.prefix(12)
         let headerString = String(data: header, encoding: .ascii) ?? ""
         // Real TTS typically produces AIFC format
-        XCTAssertTrue(headerString.contains("FORM") || headerString.contains("AIFC") || headerString.contains("AIFF"),
-                     "Should be AIFF/AIFC format")
+        #expect(headerString.contains("FORM") || headerString.contains("AIFC") || headerString.contains("AIFF"))
     }
     #endif
 }

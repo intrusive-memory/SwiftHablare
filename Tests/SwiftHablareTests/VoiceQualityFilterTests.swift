@@ -5,28 +5,32 @@
 //  Tests for voice quality detection and filtering across platforms
 //
 
-import XCTest
+import Testing
+import Foundation
 @testable import SwiftHablare
 
-final class VoiceQualityFilterTests: XCTestCase {
+@Suite("Voice Quality Filter Tests")
+struct VoiceQualityFilterTests {
 
     // MARK: - iOS Quality Detection Tests
 
     #if canImport(UIKit) && !os(macOS)
+    @Test("iOS voices have quality property")
     @available(iOS 13.0, *)
-    func testIOSVoicesHaveQualityProperty() async throws {
+    func iosVoicesHaveQualityProperty() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Should have voices available")
+        #expect(!voices.isEmpty)
 
         // All iOS voices should have quality information
         let voicesWithQuality = voices.filter { $0.quality != nil }
-        XCTAssertEqual(voicesWithQuality.count, voices.count, "All iOS voices should have quality information")
+        #expect(voicesWithQuality.count == voices.count)
     }
 
+    @Test("iOS voice quality values are valid")
     @available(iOS 13.0, *)
-    func testIOSVoiceQualityValues() async throws {
+    func iosVoiceQualityValues() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
@@ -34,14 +38,14 @@ final class VoiceQualityFilterTests: XCTestCase {
 
         for voice in voices {
             if let quality = voice.quality {
-                XCTAssertTrue(validQualities.contains(quality),
-                            "Quality '\(quality)' should be one of: \(validQualities)")
+                #expect(validQualities.contains(quality))
             }
         }
     }
 
+    @Test("iOS high quality voices exist")
     @available(iOS 13.0, *)
-    func testIOSHighQualityVoicesExist() async throws {
+    func iosHighQualityVoicesExist() async throws {
         let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
@@ -57,17 +61,15 @@ final class VoiceQualityFilterTests: XCTestCase {
             // This is okay - simulator may only have default voices
             // Just verify all voices have quality information
             for voice in voices {
-                XCTAssertNotNil(voice.quality, "Voice '\(voice.name)' should have quality")
+                #expect(voice.quality != nil)
                 if let quality = voice.quality {
-                    XCTAssertTrue(["default", "enhanced", "premium"].contains(quality),
-                                "Quality should be valid: \(quality)")
+                    #expect(["default", "enhanced", "premium"].contains(quality))
                 }
             }
         } else {
             // If we do have high-quality voices, verify they're correct
             for voice in highQualityVoices {
-                XCTAssertTrue(voice.quality == "enhanced" || voice.quality == "premium",
-                            "High quality voice should be enhanced or premium: \(voice.quality ?? "nil")")
+                #expect(voice.quality == "enhanced" || voice.quality == "premium")
             }
         }
     }
@@ -76,19 +78,20 @@ final class VoiceQualityFilterTests: XCTestCase {
     // MARK: - macOS Quality Detection Tests
 
     #if os(macOS)
-    func testMacOSVoicesHaveQualityProperty() async throws {
+    @Test("macOS voices have quality property")
+    func macOSVoicesHaveQualityProperty() async throws {
         let engine = NSSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Should have voices available")
+        #expect(!voices.isEmpty)
 
         // All macOS voices should have quality (extracted from name)
         let voicesWithQuality = voices.filter { $0.quality != nil }
-        XCTAssertEqual(voicesWithQuality.count, voices.count,
-                      "All macOS voices should have quality information (defaults to 'default')")
+        #expect(voicesWithQuality.count == voices.count)
     }
 
-    func testMacOSVoiceQualityValues() async throws {
+    @Test("macOS voice quality values are valid")
+    func macOSVoiceQualityValues() async throws {
         let engine = NSSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
@@ -96,17 +99,17 @@ final class VoiceQualityFilterTests: XCTestCase {
 
         for voice in voices {
             if let quality = voice.quality {
-                XCTAssertTrue(validQualities.contains(quality),
-                            "Quality '\(quality)' should be one of: \(validQualities)")
+                #expect(validQualities.contains(quality))
             }
         }
     }
 
-    func testMacOSQualityExtractionFromName() {
-        let engine = NSSpeechTTSEngine()
+    @Test("macOS quality extraction from name")
+    func macOSQualityExtractionFromName() {
+        let _engine = NSSpeechTTSEngine()
 
         // Test premium detection
-        let premiumVoice = Voice(
+        let _premiumVoice = Voice(
             id: "test.premium",
             name: "Alex Premium",
             description: nil,
@@ -122,21 +125,24 @@ final class VoiceQualityFilterTests: XCTestCase {
 
     // MARK: - Filter Configuration Tests
 
-    func testAppleTTSConfigurationDefaultsToNoFilter() {
+    @Test("Apple TTS configuration defaults to no filter")
+    func appleTTSConfigurationDefaultsToNoFilter() {
         let config = AppleTTSConfiguration()
-        XCTAssertFalse(config.filterToHighQualityOnly, "Should default to showing all voices")
+        #expect(!config.filterToHighQualityOnly)
     }
 
-    func testAppleTTSConfigurationCanEnableFilter() {
+    @Test("Apple TTS configuration can enable filter")
+    func appleTTSConfigurationCanEnableFilter() {
         let config = AppleTTSConfiguration(filterToHighQualityOnly: true)
-        XCTAssertTrue(config.filterToHighQualityOnly, "Should enable high quality filter")
+        #expect(config.filterToHighQualityOnly)
     }
 
     // MARK: - Filter Logic Tests
 
     #if canImport(UIKit) && !os(macOS)
+    @Test("iOS filter removes default quality voices")
     @available(iOS 13.0, *)
-    func testIOSFilterRemovesDefaultQualityVoices() async throws {
+    func iosFilterRemovesDefaultQualityVoices() async throws {
         let engine = AVSpeechTTSEngine()
         let boundary = AppleTTSEngineBoundary(underlying: engine)
 
@@ -153,29 +159,27 @@ final class VoiceQualityFilterTests: XCTestCase {
         )
 
         // Filtered list should be smaller or equal (in case there are no default quality voices)
-        XCTAssertLessThanOrEqual(filteredVoices.count, allVoices.count,
-                                "Filtered list should not be larger than unfiltered")
+        #expect(filteredVoices.count <= allVoices.count)
 
         // All filtered voices should be high quality
         for voice in filteredVoices {
-            XCTAssertNotNil(voice.quality, "Filtered voice should have quality")
+            #expect(voice.quality != nil)
             if let quality = voice.quality {
-                XCTAssertTrue(quality == "enhanced" || quality == "premium",
-                            "Filtered voice should be enhanced or premium, got: \(quality)")
+                #expect(quality == "enhanced" || quality == "premium")
             }
         }
 
         // If we have both high and low quality voices, filtered should be smaller
         let defaultQualityVoices = allVoices.filter { $0.quality == "default" }
         if !defaultQualityVoices.isEmpty {
-            XCTAssertLessThan(filteredVoices.count, allVoices.count,
-                            "Filter should remove default quality voices when they exist")
+            #expect(filteredVoices.count < allVoices.count)
         }
     }
     #endif
 
     #if os(macOS)
-    func testMacOSFilterRemovesDefaultQualityVoices() async throws {
+    @Test("macOS filter removes default quality voices")
+    func macOSFilterRemovesDefaultQualityVoices() async throws {
         let engine = NSSpeechTTSEngine()
         let boundary = AppleTTSEngineBoundary(underlying: engine)
 
@@ -192,15 +196,13 @@ final class VoiceQualityFilterTests: XCTestCase {
         )
 
         // Filtered list should be smaller or equal
-        XCTAssertLessThanOrEqual(filteredVoices.count, allVoices.count,
-                                "Filtered list should not be larger than unfiltered")
+        #expect(filteredVoices.count <= allVoices.count)
 
         // All filtered voices should be high quality
         for voice in filteredVoices {
-            XCTAssertNotNil(voice.quality, "Filtered voice should have quality")
+            #expect(voice.quality != nil)
             if let quality = voice.quality {
-                XCTAssertTrue(quality == "enhanced" || quality == "premium",
-                            "Filtered voice should be enhanced or premium, got: \(quality)")
+                #expect(quality == "enhanced" || quality == "premium")
             }
         }
     }
@@ -208,34 +210,36 @@ final class VoiceQualityFilterTests: XCTestCase {
 
     // MARK: - Provider Integration Tests
 
-    func testAppleVoiceProviderReadsFilterSettingFromUserDefaults() {
+    @Test("Apple voice provider reads filter setting from UserDefaults")
+    func appleVoiceProviderReadsFilterSettingFromUserDefaults() {
         // Clear any existing setting
         UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
 
         let provider = AppleVoiceProvider()
-        XCTAssertTrue(provider.isConfigured(), "Provider should be configured")
+        #expect(provider.isConfigured())
 
         // Set the filter in UserDefaults
         UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
 
         // Create new provider instance to pick up the setting
         let providerWithFilter = AppleVoiceProvider()
-        XCTAssertTrue(providerWithFilter.isConfigured(), "Provider with filter should still be configured")
+        #expect(providerWithFilter.isConfigured())
 
         // Cleanup
         UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
     }
 
-    func testAppleVoiceProviderFetchesVoices() async throws {
+    @Test("Apple voice provider fetches voices")
+    func appleVoiceProviderFetchesVoices() async throws {
         let provider = AppleVoiceProvider()
         let voices = try await provider.fetchVoices(languageCode: "en")
 
-        XCTAssertFalse(voices.isEmpty, "Should fetch voices from provider")
-        XCTAssertTrue(voices.allSatisfy { $0.providerId == "apple" },
-                     "All voices should have provider ID 'apple'")
+        #expect(!voices.isEmpty)
+        #expect(voices.allSatisfy { $0.providerId == "apple" })
     }
 
-    func testAppleVoiceProviderFetchesVoicesWithFilter() async throws {
+    @Test("Apple voice provider fetches voices with filter")
+    func appleVoiceProviderFetchesVoicesWithFilter() async throws {
         // Enable filter
         UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
         defer {
@@ -248,39 +252,40 @@ final class VoiceQualityFilterTests: XCTestCase {
         // All voices should be high quality when filter is enabled
         for voice in voices {
             if let quality = voice.quality {
-                XCTAssertTrue(quality == "enhanced" || quality == "premium",
-                            "With filter enabled, should only get enhanced or premium voices")
+                #expect(quality == "enhanced" || quality == "premium")
             }
         }
     }
 
     // MARK: - Cross-Platform Consistency Tests
 
-    func testVoiceQualityPropertyExistsAcrossPlatforms() async throws {
+    @Test("Voice quality property exists across platforms")
+    func voiceQualityPropertyExistsAcrossPlatforms() async throws {
         #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
         #elseif os(macOS)
         let engine = NSSpeechTTSEngine()
         #else
-        throw XCTSkip("Unsupported platform for Apple TTS")
+        throw skip("Unsupported platform for Apple TTS")
         #endif
 
         let voices = try await engine.fetchVoices(languageCode: "en")
-        XCTAssertFalse(voices.isEmpty, "Should have voices")
+        #expect(!voices.isEmpty)
 
         // All voices should have quality on both platforms
         for voice in voices {
-            XCTAssertNotNil(voice.quality, "Voice '\(voice.name)' should have quality property")
+            #expect(voice.quality != nil)
         }
     }
 
-    func testFilterBehaviorConsistentAcrossPlatforms() async throws {
+    @Test("Filter behavior consistent across platforms")
+    func filterBehaviorConsistentAcrossPlatforms() async throws {
         #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
         #elseif os(macOS)
         let engine = NSSpeechTTSEngine()
         #else
-        throw XCTSkip("Unsupported platform for Apple TTS")
+        throw skip("Unsupported platform for Apple TTS")
         #endif
 
         let boundary = AppleTTSEngineBoundary(underlying: engine)
@@ -296,14 +301,12 @@ final class VoiceQualityFilterTests: XCTestCase {
         )
 
         // Both platforms should apply filter consistently
-        XCTAssertLessThanOrEqual(filteredVoices.count, unfilteredVoices.count,
-                                "Filter should not increase voice count")
+        #expect(filteredVoices.count <= unfilteredVoices.count)
 
         // All filtered voices should be high quality on both platforms
         for voice in filteredVoices {
             if let quality = voice.quality {
-                XCTAssertTrue(quality == "enhanced" || quality == "premium",
-                            "Filtered voices should be high quality on all platforms")
+                #expect(quality == "enhanced" || quality == "premium")
             }
         }
     }

@@ -1,266 +1,205 @@
-# SwiftHablare Tests
+# SwiftHablare Test Suite
 
-Comprehensive test suite for the SwiftHablare text-to-speech library.
+Comprehensive test suite for SwiftHablaré voice generation library using Swift Testing framework.
 
-## Test Coverage
+## Overview
 
-### Model Tests
+- **Total Tests**: 250+ test functions across 21 test files
+- **Test Coverage**: 96%+ on voice generation components
+- **Framework**: Swift Testing (migrated from XCTest in v5.1.0)
+- **Concurrency**: Full Swift 6 compliance with strict concurrency enabled
+- **Platforms**: iOS 26+, macOS 26+
 
-#### VoiceTests.swift
-Tests for the `Voice` model:
-- Initialization with various configurations
-- Default values
-- Codable conformance (encoding/decoding)
-- Round-trip encoding/decoding
-- Identifiable conformance
-- Mutable properties
+## Test Organization
 
-#### VoiceModelTests.swift
-Tests for the `VoiceModel` SwiftData model:
-- Initialization
-- SwiftData persistence
-- Uniqueness constraints
-- Deletion
-- Conversion to/from `Voice`
-- Round-trip conversion
-- Querying by provider ID
-- Sorted queries
-- Timestamp handling
+### Test Types
 
-#### AudioFileTests.swift
-Tests for the `AudioFile` SwiftData model:
-- Initialization with various metadata
-- Custom IDs and dates
-- SwiftData persistence
-- Uniqueness constraints
-- Deletion
-- Querying by voice ID, provider ID, and combined criteria
-- Sorted queries by creation date
-- Audio format handling
-- Audio metadata (sample rate, bit rate, channels)
-- Mono vs stereo configurations
-- Empty and large data handling
+**Unit Tests** (Fast - ~30 seconds):
+- Run on every PR
+- Skip integration tests that require real audio/API keys
+- Run on iOS Simulator and macOS
+- 250+ tests covering all core functionality
 
-#### SwiftHablareLibraryTests.swift
-Tests for the main library interface:
-- Version information
-- Semantic versioning format validation
+**Integration Tests** (Slow - ~2-5 minutes):
+- Run weekly on Saturdays at 3 AM UTC
+- Include real API calls (require API key)
+- Test actual audio generation on physical devices
+- Files in `Integration/` directory
 
-### Protocol and Type Tests
+**Performance Tests**:
+- Run after unit tests pass on PRs
+- Benchmark audio generation, voice fetching, filtering
+- Track performance regressions
+- macOS only (Apple Silicon for consistent results)
 
-#### VoiceProviderTests.swift
-Tests for `VoiceProvider` protocol and related types:
-- `VoiceProviderType` enum (raw values, display names, all cases, Codable)
-- `VoiceProviderError` error descriptions
-- `MockVoiceProvider` implementation
-- Mock provider configuration and behavior
-- Call tracking and verification
-- Error simulation
-- Sendable conformance
+## Swift Testing Framework
 
-### Manager Tests
+### Why Swift Testing?
 
-#### VoiceProviderManagerTests.swift
-Tests for `VoiceProviderManager`:
-- Initialization (default and with saved preferences)
-- Provider registration and retrieval
-- Provider configuration checks
-- Provider switching
-- Voice caching and retrieval
-- Force refresh functionality
-- Audio generation
-- Audio caching with SwiftData
-- Duplicate detection
-- File writing
-- Published property observation
-- UserDefaults persistence
-- Error handling
+SwiftHablaré uses **Swift Testing** (introduced in Swift 6) instead of XCTest:
 
-### Provider Tests
+**Advantages:**
+- Modern macro-based syntax with `@Suite` and `@Test`
+- Cleaner assertions with `#expect()` macro
+- Better test organization and discoverability
+- Built-in async/await support
+- Improved error messages
+- Better Xcode integration
 
-#### AppleVoiceProviderTests.swift
-Tests for Apple Voice Provider using mock simulator (24 tests):
-- Provider properties and configuration
-- Voice fetching with quality levels
-- Gender detection
-- Language and locality parsing
-- Audio generation in CAF format
-- Duration estimation algorithm
-- Voice availability checks
-- Error handling
-- Complete integration flows
+### Migration from XCTest
 
-#### ElevenLabsVoiceProviderTests.swift
-Tests for ElevenLabs Voice Provider using mock simulator (35 tests):
-- Provider properties and API key management
-- Voice fetching with ElevenLabs API format
-- Voice descriptions and metadata
-- Gender and language information
-- Audio generation in MP3 format
-- HTTP error code handling (401, 404, 429, 500)
-- Duration estimation algorithm
-- Voice availability checks
-- API response format validation
-- Complete integration flows
-- Multiple consecutive generations
+All tests migrated in v5.1.0:
 
-## Mock Objects
+| XCTest | Swift Testing |
+|--------|---------------|
+| `import XCTest` | `import Testing` |
+| `class FooTests: XCTestCase` | `@Suite struct FooTests` |
+| `func testFoo()` | `@Test func foo()` |
+| `XCTAssertEqual(a, b)` | `#expect(a == b)` |
+| `XCTAssertTrue(x)` | `#expect(x)` |
+| `XCTAssertFalse(x)` | `#expect(!x)` |
+| `XCTAssertNil(x)` | `#expect(x == nil)` |
+| `XCTFail("msg")` | `Issue.record("msg")` |
+| `XCTSkip("msg")` | `throw Issue.skip("msg")` |
 
-### MockVoiceProvider.swift
-A comprehensive mock implementation of `VoiceProvider` for testing:
-- Configurable responses for all protocol methods
-- Call tracking for verification
-- Error simulation
-- State management
-- Reset functionality
+## TestFixtures Helper
 
-### MockAppleVoiceProviderSimulator.swift
-Simulates Apple VoiceProvider with realistic responses (no actual speech generation):
-- Returns simulated Apple voices (Samantha, Alex, Daniel, Karen, Ava)
-- Generates valid CAF audio file headers
-- Simulates Apple's duration estimation algorithm (~14.5 chars/sec)
-- Supports quality levels (Enhanced, Premium)
-- Gender detection for common Apple voice names
-- Language/locality parsing
-- Configurable error states
-- Call tracking
+Central test utility for creating test data and mocks.
 
-### MockElevenLabsVoiceProviderSimulator.swift
-Simulates ElevenLabs VoiceProvider with documented API responses (no actual speech generation):
-- Returns simulated ElevenLabs voices (Rachel, Antoni, Bella, etc.)
-- Generates valid MP3 audio file headers
-- Simulates ElevenLabs duration estimation algorithm (~13 chars/sec)
-- API key management
-- HTTP error code simulation (401, 404, 429, 500)
-- Documented API response formats
-- Voice metadata (gender, accent, age, use case)
-- Configurable error states
-- Call tracking
+### Container Creation
+
+```swift
+// Create in-memory ModelContainer
+let container = try TestFixtures.makeTestContainer()
+let context = ModelContext(container)
+```
+
+### Mock Providers
+
+```swift
+// Configured provider (always works)
+let provider = TestFixtures.makeMockProvider()
+
+// Unconfigured provider (for error testing)
+let unconfigured = TestFixtures.makeMockUnconfiguredProvider()
+
+// Error provider (always throws)
+let errorProvider = TestFixtures.makeMockErrorProvider()
+
+// Real Apple provider
+let appleProvider = TestFixtures.makeAppleProvider()
+```
+
+### SpeakableItem Factories
+
+```swift
+// Simple message
+let message = TestFixtures.makeSimpleMessage(
+    content: "Hello",
+    provider: provider,
+    voiceId: "voice-id"
+)
+
+// Character dialogue
+let dialogue = TestFixtures.makeCharacterDialogue(
+    characterName: "ALICE",
+    dialogue: "Hello, Bob!"
+)
+```
+
+## Writing Tests
+
+### Basic Pattern
+
+```swift
+import Testing
+import SwiftData
+@testable import SwiftHablare
+
+@Suite("My Tests")
+@MainActor
+struct MyTests {
+    
+    @Test("Basic test")
+    func basicTest() {
+        #expect(42 == 42)
+    }
+    
+    @Test("Async test")
+    func asyncTest() async throws {
+        let provider = TestFixtures.makeMockProvider()
+        let voices = try await provider.fetchVoices()
+        #expect(!voices.isEmpty)
+    }
+}
+```
+
+### SwiftData Testing
+
+```swift
+@Test("Create audio record")
+func createAudioRecord() throws {
+    let container = try TestFixtures.makeTestContainer()
+    let context = ModelContext(container)
+    
+    let provider = TestFixtures.makeMockProvider()
+    let message = TestFixtures.makeSimpleMessage(provider: provider)
+    let record = TestFixtures.makeAudioRecord(for: message, in: context)
+    
+    try context.save()
+    #expect(record.binaryValue.count > 0)
+}
+```
 
 ## Running Tests
 
 ```bash
-# Run all tests
+# All tests
 swift test
 
-# Clean build and run tests
-swift package clean && swift test
+# With coverage
+swift test --enable-code-coverage
+
+# Specific suite
+swift test --filter GenerationServiceTests
+
+# Fast tests only (skip integration)
+xcodebuild test -scheme SwiftHablare \
+  -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+  -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
 ```
 
-## Test Statistics
+## CI/CD Integration
 
-- **Total Tests**: 138
-- **Test Suites**: 8
-- **Model Tests**: 36
-- **Protocol/Type Tests**: 16
-- **Manager Tests**: 24
-- **Library Tests**: 3
-- **Provider Tests**: 59 (Apple: 24, ElevenLabs: 35)
+### Required Status Checks
+- Code Quality Checks
+- Fast Tests (iOS)
+- Fast Tests (macOS)
 
-### Integration Tests
+All must pass before merging to `main`.
 
-#### AppleVoiceProviderIntegrationTests.swift
-End-to-end tests with audio generation (always run):
-- **End-to-end speech generation** - Full workflow from text to audio file
-- **Multiple voice testing** - Test with different system voices
-- **Long text handling** - Performance testing with extended text
-- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
-- **Audio validation**:
-  - File format validation (AIFF on all platforms)
-  - File size checks (> 1KB)
-  - Duration validation (> 1 second for test text)
-  - Non-zero sample verification (confirms actual speech on native macOS)
-  - Sample percentage analysis
-  - Data integrity verification (retrieved audio matches original)
-- **Test artifacts** - Saves .aiff files to TestArtifacts/ directory
-- **Cross-platform** - Runs on native macOS and iOS
+## Best Practices
 
-#### ElevenLabsVoiceProviderIntegrationTests.swift
-End-to-end tests with real API calls (conditional execution):
-- **Conditional execution** - Only runs if ELEVENLABS_API_KEY environment variable is set
-- **Ephemeral API keys** - Uses in-memory API keys (no keychain pollution)
-- **End-to-end speech generation** - Full workflow with real API
-- **Multiple voice testing** - Test with up to 3 different ElevenLabs voices
-- **Long text handling** - Performance testing with extended text
-- **SwiftData persistence** - Complete flow: generate → toTypedDataStorage() → save → retrieve
-- **Audio validation**:
-  - File format validation (MP3)
-  - File size checks
-  - Duration estimation verification
-  - Data integrity verification (retrieved audio matches original)
-  - MP3 header validation on retrieved data
-- **Test artifacts** - Saves .mp3 files to TestArtifacts/ directory
-- **Clean test environment** - No keychain side effects
+### ✅ DO
+- Use TestFixtures for test data
+- Use `@MainActor` for SwiftData tests
+- Create fresh containers per test
+- Skip simulator tests needing real audio
+- Use descriptive `@Test` names
 
-**Running integration tests locally**:
-```bash
-# Run all tests (Apple integration tests always run)
-swift test
+### ❌ DON'T
+- Reuse ModelContext across tests
+- Commit API keys
+- Run integration tests on simulators
+- Create inline mocks
 
-# Run with ElevenLabs API key for full coverage
-ELEVENLABS_API_KEY=your-key-here swift test
-```
+## Test Coverage
 
-**Running integration tests in GitHub Actions**:
+- Voice Providers: 95%+
+- GenerationService: 95%+
+- Models: 100%
+- Overall: 96%+
 
-Integration tests automatically run in CI/CD:
+---
 
-1. **Apple Voice Provider Integration Tests**:
-   - Always run on every PR and push to main/master
-   - Generate AIFF audio artifacts
-   - No API key required
-
-2. **ElevenLabs Integration Tests**:
-   - Run if `ELEVENLABS_API_KEY` repository secret is configured
-   - Generate MP3 audio artifacts
-   - Gracefully skip if API key not available
-
-**Setting up ElevenLabs API key for CI**:
-
-1. Go to repository Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: `ELEVENLABS_API_KEY`
-4. Value: Your ElevenLabs API key
-5. Click "Add secret"
-
-Once configured, all PRs will automatically run ElevenLabs integration tests.
-
-## Test Organization
-
-```
-Tests/SwiftHablareTests/
-├── Mocks/
-│   ├── MockVoiceProvider.swift
-│   ├── MockAppleVoiceProviderSimulator.swift
-│   └── MockElevenLabsVoiceProviderSimulator.swift
-├── Integration/
-│   ├── AppleVoiceProviderIntegrationTests.swift
-│   └── ElevenLabsVoiceProviderIntegrationTests.swift
-├── AudioFileTests.swift
-├── VoiceTests.swift
-├── VoiceModelTests.swift
-├── VoiceProviderTests.swift
-├── VoiceProviderManagerTests.swift
-├── AppleVoiceProviderTests.swift
-├── ElevenLabsVoiceProviderTests.swift
-├── SwiftHablareLibraryTests.swift
-└── SwiftHablareTests.swift (original)
-```
-
-## Test Artifacts
-
-Integration tests generate audio files for manual verification:
-- **Location**: `.build/*/TestArtifacts/`
-- **Apple TTS**: `.aiff` files with timestamped names (all platforms)
-- **ElevenLabs**: `.mp3` files with timestamped names
-- **Git**: Excluded via .gitignore
-
-## Notes
-
-- All tests use in-memory SwiftData containers to avoid side effects
-- Tests are isolated and can run in parallel
-- Mock objects support comprehensive verification
-- UserDefaults are cleaned up in tearDown methods
-- Temporary files are cleaned up after file I/O tests
-- Integration tests generate audio artifacts for verification
-- ElevenLabs integration tests gracefully skip without API key
+**Version**: 5.1.0 | **Framework**: Swift Testing | **Tests**: 250+

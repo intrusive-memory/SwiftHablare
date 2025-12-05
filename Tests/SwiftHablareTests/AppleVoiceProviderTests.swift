@@ -5,65 +5,67 @@
 //  Comprehensive integration tests for AppleVoiceProvider
 //
 
-import XCTest
+import Testing
 import AVFoundation
 #if os(macOS)
 import AppKit
 #endif
 @testable import SwiftHablare
 
-final class AppleVoiceProviderTests: XCTestCase {
+@Suite("AppleVoiceProvider Tests")
+struct AppleVoiceProviderTests {
+    let provider: AppleVoiceProvider
 
-    var provider: AppleVoiceProvider!
-
-    override func setUp() {
-        super.setUp()
-        provider = AppleVoiceProvider()
-    }
-
-    override func tearDown() {
-        provider = nil
-        super.tearDown()
+    @MainActor
+    init() {
+        provider = TestFixtures.makeAppleProvider()
     }
 
     // MARK: - Basic Properties Tests
 
+    @Test("Provider identifier is 'apple'")
     func testProviderIdentifier() {
-        XCTAssertEqual(provider.providerId, "apple")
+        #expect(provider.providerId == "apple")
     }
 
+    @Test("Provider display name is 'Apple Text-to-Speech'")
     func testProviderDisplayName() {
-        XCTAssertEqual(provider.displayName, "Apple Text-to-Speech")
+        #expect(provider.displayName == "Apple Text-to-Speech")
     }
 
+    @Test("Provider does not require API key")
     func testProviderDoesNotRequireAPIKey() {
-        XCTAssertFalse(provider.requiresAPIKey)
+        #expect(provider.requiresAPIKey == false)
     }
 
     // MARK: - Configuration Tests
 
+    @Test("Provider is always configured")
     func testProviderIsAlwaysConfigured() {
-        XCTAssertTrue(provider.isConfigured())
+        #expect(provider.isConfigured() == true)
     }
 
     // MARK: - Voice Fetching Tests
 
+    @Test("Fetch voices returns non-empty array")
     func testFetchVoicesReturnsNonEmptyArray() async throws {
         let voices = try await provider.fetchVoices()
 
-        XCTAssertFalse(voices.isEmpty, "Should return at least one voice")
+        #expect(!voices.isEmpty)
     }
 
+    @Test("Fetched voices have required properties")
     func testFetchedVoicesHaveRequiredProperties() async throws {
         let voices: [Voice] = try await provider.fetchVoices()
 
         for voice in voices {
-            XCTAssertFalse(voice.id.isEmpty, "Voice ID should not be empty")
-            XCTAssertFalse(voice.name.isEmpty, "Voice name should not be empty")
-            XCTAssertEqual(voice.providerId, "apple", "Provider ID should be 'apple'")
+            #expect(!voice.id.isEmpty)
+            #expect(!voice.name.isEmpty)
+            #expect(voice.providerId == "apple")
         }
     }
 
+    @Test("Fetched voices have valid identifiers")
     func testFetchedVoicesHaveValidIdentifiers() async throws {
         let voices = try await provider.fetchVoices()
 
@@ -73,90 +75,98 @@ final class AppleVoiceProviderTests: XCTestCase {
             // On macOS, verify the voice ID is a valid NSSpeechSynthesizer voice name
             let voiceName = NSSpeechSynthesizer.VoiceName(rawValue: voice.id)
             let availableVoices = NSSpeechSynthesizer.availableVoices
-            XCTAssertTrue(availableVoices.contains(voiceName), "Voice ID '\(voice.id)' should be in available voices")
+            #expect(availableVoices.contains(voiceName))
             #else
             // On iOS, verify the voice ID can create an AVSpeechSynthesisVoice
             let avVoice = AVSpeechSynthesisVoice(identifier: voice.id)
-            XCTAssertNotNil(avVoice, "Voice ID '\(voice.id)' should be valid")
+            #expect(avVoice != nil)
             #endif
         }
     }
 
+    @Test("Fetched voices have language information")
     func testFetchedVoicesHaveLanguageInformation() async throws {
         let voices = try await provider.fetchVoices()
 
         // At least some voices should have language information
         let voicesWithLanguage = voices.filter { $0.language != nil }
-        XCTAssertFalse(voicesWithLanguage.isEmpty, "Some voices should have language information")
+        #expect(!voicesWithLanguage.isEmpty)
     }
 
+    @Test("Fetched voices include system language")
     func testFetchedVoicesIncludeSystemLanguage() async throws {
         let voices = try await provider.fetchVoices()
 
         // Just verify we got some voices back
-        XCTAssertFalse(voices.isEmpty, "Should return voices")
+        #expect(!voices.isEmpty)
     }
 
     // MARK: - Voice Availability Tests
 
+    @Test("Voice availability check with valid voice")
     func testIsVoiceAvailableWithValidVoice() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let isAvailable = await provider.isVoiceAvailable(voiceId: firstVoice.id)
-        XCTAssertTrue(isAvailable, "First voice should be available")
+        #expect(isAvailable == true)
     }
 
+    @Test("Voice availability check with invalid voice")
     func testIsVoiceAvailableWithInvalidVoice() async {
         let isAvailable = await provider.isVoiceAvailable(voiceId: "com.apple.invalid.voice.id")
-        XCTAssertFalse(isAvailable, "Invalid voice ID should not be available")
+        #expect(isAvailable == false)
     }
 
+    @Test("Voice availability check with empty string")
     func testIsVoiceAvailableWithEmptyString() async {
         let isAvailable = await provider.isVoiceAvailable(voiceId: "")
-        XCTAssertFalse(isAvailable, "Empty voice ID should not be available")
+        #expect(isAvailable == false)
     }
 
     // MARK: - Duration Estimation Tests
 
+    @Test("Estimate duration for short text")
     func testEstimateDurationForShortText() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let shortText = "Hello world"
         let duration = await provider.estimateDuration(text: shortText, voiceId: firstVoice.id)
 
-        XCTAssertGreaterThan(duration, 0, "Duration should be positive")
-        XCTAssertLessThan(duration, 5, "Short text should have short duration")
+        #expect(duration > 0)
+        #expect(duration < 5)
     }
 
+    @Test("Estimate duration for long text")
     func testEstimateDurationForLongText() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let longText = String(repeating: "This is a longer sentence for testing duration estimation. ", count: 10)
         let duration = await provider.estimateDuration(text: longText, voiceId: firstVoice.id)
 
-        XCTAssertGreaterThan(duration, 5, "Long text should have longer duration")
+        #expect(duration > 5)
     }
 
+    @Test("Duration estimation scales with text length")
     func testEstimateDurationScalesWithTextLength() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
@@ -168,45 +178,48 @@ final class AppleVoiceProviderTests: XCTestCase {
         let mediumDuration = await provider.estimateDuration(text: mediumText, voiceId: firstVoice.id)
         let longDuration = await provider.estimateDuration(text: longText, voiceId: firstVoice.id)
 
-        XCTAssertLessThan(shortDuration, mediumDuration, "Longer text should have longer duration")
-        XCTAssertLessThan(mediumDuration, longDuration, "Even longer text should have even longer duration")
+        #expect(shortDuration < mediumDuration)
+        #expect(mediumDuration < longDuration)
     }
 
+    @Test("Duration estimation has minimum value")
     func testEstimateDurationMinimumValue() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let emptyText = ""
         let duration = await provider.estimateDuration(text: emptyText, voiceId: firstVoice.id)
 
-        XCTAssertGreaterThanOrEqual(duration, 1.0, "Duration should have minimum value of 1.0 second")
+        #expect(duration >= 1.0)
     }
 
     // MARK: - Audio Generation Integration Tests
 
+    @Test("Generate audio returns data")
     func testGenerateAudioReturnsData() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
         let text = "Hello, this is a test."
         let audioData = try await provider.generateAudio(text: text, voiceId: firstVoice.id)
 
-        XCTAssertFalse(audioData.isEmpty, "Audio data should not be empty")
+        #expect(!audioData.isEmpty)
     }
 
+    @Test("Generate audio with different texts")
     func testGenerateAudioWithDifferentTexts() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
@@ -218,10 +231,11 @@ final class AppleVoiceProviderTests: XCTestCase {
 
         for text in texts {
             let audioData = try await provider.generateAudio(text: text, voiceId: firstVoice.id)
-            XCTAssertFalse(audioData.isEmpty, "Audio data should not be empty for text: '\(text.prefix(50))...'")
+            #expect(!audioData.isEmpty)
         }
     }
 
+    @Test("Generate audio with multiple voices")
     func testGenerateAudioWithMultipleVoices() async throws {
         let voices = try await provider.fetchVoices()
 
@@ -232,15 +246,16 @@ final class AppleVoiceProviderTests: XCTestCase {
 
         for voice in voicesToTest {
             let audioData = try await provider.generateAudio(text: text, voiceId: voice.id)
-            XCTAssertFalse(audioData.isEmpty, "Audio data should not be empty for voice: '\(voice.name)'")
+            #expect(!audioData.isEmpty)
         }
     }
 
+    @Test("Generate audio produces valid CAF format")
     func testGenerateAudioProducesValidCAFFormat() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
@@ -256,17 +271,18 @@ final class AppleVoiceProviderTests: XCTestCase {
 
         // Try to open as AVAudioFile to verify it's valid audio
         let audioFile = try AVAudioFile(forReading: tempURL)
-        XCTAssertNotNil(audioFile.processingFormat, "Audio file should have valid format")
+        #expect(audioFile.processingFormat.sampleRate > 0)
 
         // Cleanup
         try? FileManager.default.removeItem(at: tempURL)
     }
 
+    @Test("Generate audio with empty text throws error")
     func testGenerateAudioWithEmptyText() async throws {
         let voices = try await provider.fetchVoices()
 
         guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
+            Issue.record("No voices available for testing")
             return
         }
 
@@ -274,98 +290,26 @@ final class AppleVoiceProviderTests: XCTestCase {
         // Should throw error for empty text
         do {
             _ = try await provider.generateAudio(text: text, voiceId: firstVoice.id)
-            XCTFail("Should throw error for empty text")
+            Issue.record("Should throw error for empty text")
         } catch let error as VoiceProviderError {
             // Verify we get the correct error type
             switch error {
             case .invalidRequest(let message):
-                XCTAssertTrue(message.contains("empty"), "Error message should mention empty text")
+                #expect(message.contains("empty"))
             case .networkError(let message):
                 // On iOS, might get network error if not yet fully implemented
-                XCTAssertTrue(message.contains("generation") || message.contains("failed"), "Error should indicate generation issue")
+                #expect(message.contains("generation") || message.contains("failed"))
             default:
-                XCTFail("Expected invalidRequest or networkError, got \(error)")
+                Issue.record("Expected invalidRequest or networkError, got \(error)")
             }
         } catch {
-            XCTFail("Expected VoiceProviderError, got \(error)")
+            Issue.record("Expected VoiceProviderError, got \(error)")
         }
     }
-
-    // MARK: - Concurrency Tests
-    // Note: These tests are commented out due to Swift 6 strict concurrency requirements
-    // They can be re-enabled once we implement proper isolation
-
-    /* func testConcurrentVoiceFetching() async throws {
-        // Test that multiple concurrent fetchVoices calls work correctly
-        await withThrowingTaskGroup(of: [Voice].self) { group in
-            for _ in 0..<5 {
-                group.addTask {
-                    try await self.provider.fetchVoices()
-                }
-            }
-
-            var allResults: [[Voice]] = []
-            do {
-                for try await voices in group {
-                    allResults.append(voices)
-                }
-
-                // All results should be non-empty
-                for voices in allResults {
-                    XCTAssertFalse(voices.isEmpty, "Each concurrent fetch should return voices")
-                }
-
-                // All results should have similar counts (within tolerance)
-                if let firstCount = allResults.first?.count {
-                    for voices in allResults {
-                        let difference = abs(voices.count - firstCount)
-                        XCTAssertLessThanOrEqual(difference, 5, "Voice counts should be similar")
-                    }
-                }
-            } catch {
-                XCTFail("Concurrent voice fetching failed: \(error)")
-            }
-        }
-    }
-
-    func testConcurrentAudioGeneration() async throws {
-        let voices = try await provider.fetchVoices()
-
-        guard let firstVoice = voices.first else {
-            XCTFail("No voices available for testing")
-            return
-        }
-
-        // Generate multiple audio files concurrently
-        await withThrowingTaskGroup(of: Data.self) { group in
-            for i in 0..<3 {
-                group.addTask {
-                    try await self.provider.generateAudio(
-                        text: "Concurrent test \(i)",
-                        voiceId: firstVoice.id
-                    )
-                }
-            }
-
-            var allData: [Data] = []
-            do {
-                for try await data in group {
-                    allData.append(data)
-                }
-
-                XCTAssertEqual(allData.count, 3, "Should generate 3 audio files")
-
-                for data in allData {
-                    XCTAssertFalse(data.isEmpty, "Each audio data should not be empty")
-                }
-            } catch {
-                XCTFail("Concurrent audio generation failed: \(error)")
-            }
-        }
-    } */
 
     // MARK: - Voice Gender Extraction Tests
 
+    @Test("Voice gender extraction is valid")
     func testVoiceGenderExtraction() async throws {
         let voices = try await provider.fetchVoices()
 
@@ -376,50 +320,10 @@ final class AppleVoiceProviderTests: XCTestCase {
         // macOS includes novelty voices with "neutral" gender
         for voice in voicesWithGender {
             let gender = voice.gender!.lowercased()
-            XCTAssertTrue(
-                gender == "male" || gender == "female" || gender == "neutral",
-                "Gender should be 'male', 'female', or 'neutral', got '\(gender)' for voice '\(voice.name)'"
+            #expect(
+                gender == "male" || gender == "female" || gender == "neutral"
             )
         }
     }
-
-    // MARK: - Performance Tests
-    // Note: These tests are commented out due to Swift 6 strict concurrency requirements
-
-    /* func testVoiceFetchingPerformance() {
-        measure {
-            let expectation = XCTestExpectation(description: "Fetch voices")
-
-            Task {
-                _ = try await provider.fetchVoices()
-                expectation.fulfill()
-            }
-
-            wait(for: [expectation], timeout: 5.0)
-        }
-    }
-
-    func testAudioGenerationPerformance() async throws {
-        let voices = try await provider.fetchVoices()
-
-        guard let firstVoice = voices.first else {
-            XCTFail("No voices available")
-            return
-        }
-
-        measure {
-            let expectation = XCTestExpectation(description: "Generate audio")
-
-            Task {
-                _ = try await self.provider.generateAudio(
-                    text: "Performance test",
-                    voiceId: firstVoice.id
-                )
-                expectation.fulfill()
-            }
-
-            wait(for: [expectation], timeout: 10.0)
-        }
-    } */
 }
 

@@ -5,299 +5,385 @@
 //  Tests for SpeakableItem protocol and implementations
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import SwiftHablare
 
-final class SpeakableItemTests: XCTestCase {
-    var provider: AppleVoiceProvider!
-    var voiceId: String!
+// MARK: - Test Fixtures
 
-    override func setUp() async throws {
-        try await super.setUp()
-        provider = AppleVoiceProvider()
+struct SpeakableItemTestFixtures {
+    let provider: AppleVoiceProvider
+    let voiceId: String
+
+    static func create() async throws -> Self {
+        let provider = AppleVoiceProvider()
         let voices = try await provider.fetchVoices()
-        voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        return SpeakableItemTestFixtures(provider: provider, voiceId: voiceId)
+    }
+}
+
+// MARK: - SimpleMessage Tests
+
+@Suite("SimpleMessage Tests")
+struct SimpleMessageTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    override func tearDown() async throws {
-        provider = nil
-        voiceId = nil
-        try await super.tearDown()
-    }
-
-    // MARK: - SimpleMessage Tests
-
-    func testSimpleMessageConformance() {
+    @Test("Conformance to SpeakableItem")
+    func conformance() {
         let message = SimpleMessage(
             content: "Hello, world!",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
-        XCTAssertEqual(message.textToSpeak, "Hello, world!")
-        XCTAssertEqual(message.voiceId, voiceId)
-        XCTAssertNotNil(message.voiceProvider)
+        #expect(message.textToSpeak == "Hello, world!")
+        #expect(message.voiceId == fixtures.voiceId)
+        #expect(message.voiceProvider is AppleVoiceProvider)
     }
 
-    func testSimpleMessageSpeak() async throws {
+    @Test("Speech generation")
+    func speak() async throws {
         let message = SimpleMessage(
             content: "Testing speech generation",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let audioData = try await message.speak()
-        XCTAssertGreaterThan(audioData.count, 0, "Audio data should not be empty")
+        #expect(audioData.count > 0)
     }
 
-    func testSimpleMessageEstimateDuration() async throws {
+    @Test("Duration estimation")
+    func estimateDuration() async throws {
         let message = SimpleMessage(
             content: "This is a test message",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let duration = await message.estimateDuration()
-        XCTAssertGreaterThan(duration, 0, "Duration should be positive")
+        #expect(duration > 0)
     }
 
-    func testSimpleMessageIsVoiceAvailable() async throws {
+    @Test("Voice availability check")
+    func isVoiceAvailable() async throws {
         let message = SimpleMessage(
             content: "Test",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let available = await message.isVoiceAvailable()
-        XCTAssertTrue(available, "Voice should be available")
+        #expect(available)
+    }
+}
+
+// MARK: - CharacterDialogue Tests
+
+@Suite("CharacterDialogue Tests")
+struct CharacterDialogueTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - CharacterDialogue Tests
-
-    func testCharacterDialogueWithCharacterName() {
+    @Test("Dialogue with character name")
+    func withCharacterName() {
         let dialogue = CharacterDialogue(
             characterName: "Alice",
             dialogue: "Hello!",
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeCharacterName: true
         )
 
-        XCTAssertEqual(dialogue.textToSpeak, "Alice: Hello!")
+        #expect(dialogue.textToSpeak == "Alice: Hello!")
     }
 
-    func testCharacterDialogueWithoutCharacterName() {
+    @Test("Dialogue without character name")
+    func withoutCharacterName() {
         let dialogue = CharacterDialogue(
             characterName: "Alice",
             dialogue: "Hello!",
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeCharacterName: false
         )
 
-        XCTAssertEqual(dialogue.textToSpeak, "Hello!")
+        #expect(dialogue.textToSpeak == "Hello!")
     }
 
-    func testCharacterDialogueSpeak() async throws {
+    @Test("Dialogue speech generation")
+    func speak() async throws {
         let dialogue = CharacterDialogue(
             characterName: "Bob",
             dialogue: "Testing dialogue speech",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let audioData = try await dialogue.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
+    }
+}
+
+// MARK: - Article Tests
+
+@Suite("Article Tests")
+struct ArticleTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - Article Tests
-
-    func testArticleWithMeta() {
+    @Test("Article with metadata")
+    func withMeta() {
         let article = Article(
             title: "Breaking News",
             author: "Jane Doe",
             content: "This is the article content.",
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeMeta: true
         )
 
-        XCTAssertEqual(article.textToSpeak, "Breaking News, by Jane Doe. This is the article content.")
+        #expect(article.textToSpeak == "Breaking News, by Jane Doe. This is the article content.")
     }
 
-    func testArticleWithoutMeta() {
+    @Test("Article without metadata")
+    func withoutMeta() {
         let article = Article(
             title: "Breaking News",
             author: "Jane Doe",
             content: "This is the article content.",
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeMeta: false
         )
 
-        XCTAssertEqual(article.textToSpeak, "This is the article content.")
+        #expect(article.textToSpeak == "This is the article content.")
     }
 
-    func testArticleSpeak() async throws {
+    @Test("Article speech generation")
+    func speak() async throws {
         let article = Article(
             title: "Test Article",
             author: "Test Author",
             content: "Test content",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let audioData = try await article.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
+    }
+}
+
+// MARK: - Notification Tests
+
+@Suite("Notification Tests")
+struct NotificationTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - Notification Tests
-
-    func testNotificationWithTimestamp() {
+    @Test("Notification with timestamp")
+    func withTimestamp() {
         let timestamp = Date(timeIntervalSince1970: 1609459200) // 2021-01-01 00:00:00 UTC
         let notification = Notification(
             title: "New Message",
             message: "You have mail",
             timestamp: timestamp,
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeTimestamp: true
         )
 
-        XCTAssertTrue(notification.textToSpeak.contains("New Message"))
-        XCTAssertTrue(notification.textToSpeak.contains("You have mail"))
-        // Timestamp format varies by locale, so just check it's included
-        XCTAssertTrue(notification.textToSpeak.contains(" at "))
+        #expect(notification.textToSpeak.contains("New Message"))
+        #expect(notification.textToSpeak.contains("You have mail"))
+        #expect(notification.textToSpeak.contains(" at "))
     }
 
-    func testNotificationWithoutTimestamp() {
+    @Test("Notification without timestamp")
+    func withoutTimestamp() {
         let notification = Notification(
             title: "Alert",
             message: "Something happened",
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             includeTimestamp: false
         )
 
-        XCTAssertEqual(notification.textToSpeak, "Alert. Something happened")
+        #expect(notification.textToSpeak == "Alert. Something happened")
     }
 
-    func testNotificationSpeak() async throws {
+    @Test("Notification speech generation")
+    func speak() async throws {
         let notification = Notification(
             title: "Test",
             message: "Test message",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let audioData = try await notification.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
+    }
+}
+
+// MARK: - ListItem Tests
+
+@Suite("ListItem Tests")
+struct ListItemTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - ListItem Tests
-
-    func testListItemFormatting() {
+    @Test("List item formatting")
+    func formatting() {
         let item = ListItem(
             number: 5,
             content: "Mix ingredients",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
-        XCTAssertEqual(item.textToSpeak, "Step 5: Mix ingredients")
+        #expect(item.textToSpeak == "Step 5: Mix ingredients")
     }
 
-    func testListItemSpeak() async throws {
+    @Test("List item speech generation")
+    func speak() async throws {
         let item = ListItem(
             number: 1,
             content: "Test step",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
         let audioData = try await item.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
+    }
+}
+
+// MARK: - Batch Operations Tests
+
+@Suite("Batch Operations Tests")
+struct BatchOperationsTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - Batch Operations Tests
-
-    func testSpeakAll() async throws {
+    @Test("Speak all items")
+    func speakAll() async throws {
         let items: [SimpleMessage] = [
-            SimpleMessage(content: "First", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Second", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Third", voiceProvider: provider, voiceId: voiceId)
+            SimpleMessage(content: "First", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
+            SimpleMessage(content: "Second", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
+            SimpleMessage(content: "Third", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId)
         ]
 
         let audioFiles = try await items.speakAll()
-        XCTAssertEqual(audioFiles.count, 3)
+        #expect(audioFiles.count == 3)
         for audio in audioFiles {
-            XCTAssertGreaterThan(audio.count, 0)
+            #expect(audio.count > 0)
         }
     }
 
-    func testEstimateTotalDuration() async throws {
+    @Test("Estimate total duration")
+    func estimateTotalDuration() async throws {
         let items: [SimpleMessage] = [
-            SimpleMessage(content: "Short", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "Medium length message", voiceProvider: provider, voiceId: voiceId),
-            SimpleMessage(content: "A longer message with more words to speak", voiceProvider: provider, voiceId: voiceId)
+            SimpleMessage(content: "Short", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
+            SimpleMessage(content: "Medium length message", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
+            SimpleMessage(content: "A longer message with more words to speak", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId)
         ]
 
         let totalDuration = await items.estimateTotalDuration()
-        XCTAssertGreaterThan(totalDuration, 0)
+        #expect(totalDuration > 0)
 
         // Verify it's the sum of individual durations
         var expectedTotal: TimeInterval = 0
         for item in items {
             expectedTotal += await item.estimateDuration()
         }
-        XCTAssertEqual(totalDuration, expectedTotal, accuracy: 0.01)
+        #expect(abs(totalDuration - expectedTotal) < 0.01)
     }
 
-    func testEmptyCollectionSpeakAll() async throws {
+    @Test("Empty collection speak all")
+    func emptyCollectionSpeakAll() async throws {
         let items: [SimpleMessage] = []
         let audioFiles = try await items.speakAll()
-        XCTAssertTrue(audioFiles.isEmpty)
+        #expect(audioFiles.isEmpty)
     }
 
-    func testEmptyCollectionEstimateTotalDuration() async throws {
+    @Test("Empty collection estimate total duration")
+    func emptyCollectionEstimateTotalDuration() async throws {
         let items: [SimpleMessage] = []
         let duration = await items.estimateTotalDuration()
-        XCTAssertEqual(duration, 0)
+        #expect(duration == 0)
+    }
+}
+
+// MARK: - Error Handling Tests
+
+@Suite("Error Handling Tests")
+struct ErrorHandlingTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
     }
 
-    // MARK: - Error Handling Tests
-
-    func testSpeakWithInvalidVoiceId() async throws {
+    @Test("Speak with invalid voice ID")
+    func speakWithInvalidVoiceId() async throws {
         let message = SimpleMessage(
             content: "Test",
-            voiceProvider: provider,
+            voiceProvider: fixtures.provider,
             voiceId: "invalid-voice-id"
         )
 
         // Should still generate audio (Apple provider falls back to default voice)
         let audioData = try await message.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
     }
 
-    func testSpeakWithEmptyText() async throws {
+    @Test("Speak with empty text throws error")
+    func speakWithEmptyTextThrowsError() async throws {
         let message = SimpleMessage(
             content: "",
-            voiceProvider: provider,
-            voiceId: voiceId
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId
         )
 
-        do {
-            _ = try await message.speak()
-            XCTFail("Should throw error for empty text")
-        } catch {
-            // Expected to throw
-            XCTAssertTrue(error is VoiceProviderError)
+        await #expect(throws: VoiceProviderError.self) {
+            try await message.speak()
         }
     }
+}
 
-    // MARK: - Custom Implementation Tests
+// MARK: - Custom Implementation Tests
 
-    func testCustomSpeakableItem() async throws {
+@Suite("Custom Implementation Tests")
+struct CustomImplementationTests {
+    var fixtures: SpeakableItemTestFixtures!
+
+    init() async throws {
+        fixtures = try await SpeakableItemTestFixtures.create()
+    }
+
+    @Test("Custom speakable item")
+    func customSpeakableItem() async throws {
         // Test a custom implementation
         struct CustomItem: SpeakableItem {
             let voiceProvider: VoiceProvider
@@ -311,14 +397,14 @@ final class SpeakableItemTests: XCTestCase {
         }
 
         let custom = CustomItem(
-            voiceProvider: provider,
-            voiceId: voiceId,
+            voiceProvider: fixtures.provider,
+            voiceId: fixtures.voiceId,
             prefix: "Hello",
             suffix: "World"
         )
 
-        XCTAssertEqual(custom.textToSpeak, "Hello - World")
+        #expect(custom.textToSpeak == "Hello - World")
         let audioData = try await custom.speak()
-        XCTAssertGreaterThan(audioData.count, 0)
+        #expect(audioData.count > 0)
     }
 }

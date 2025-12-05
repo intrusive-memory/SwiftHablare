@@ -6,12 +6,15 @@
 //  Requires ELEVENLABS_API_KEY environment variable to run
 //
 
-import XCTest
+import Testing
+import Foundation
 import SwiftData
 import SwiftCompartido
 @testable import SwiftHablare
 
-final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
+@Suite
+@MainActor
+struct ElevenLabsVoiceProviderIntegrationTests {
 
     var provider: ElevenLabsVoiceProvider!
     var service: GenerationService!
@@ -21,9 +24,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
     var modelContext: ModelContext!
 
     @MainActor
-    override func setUp() async throws {
-        try await super.setUp()
-
+    init() async throws {
         // Check for API key in environment
         apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"]
 
@@ -33,50 +34,39 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = ModelContext(modelContainer)
 
-        // Skip all tests in this class if no API key
-        guard let key = apiKey, !key.isEmpty else {
-            return // Will skip in each individual test
+        // Initialize provider and service if API key is available
+        if let key = apiKey, !key.isEmpty {
+            // Use ephemeral API key directly (bypasses keychain)
+            provider = ElevenLabsVoiceProvider(apiKey: key)
+            service = GenerationService()
+            // Register the ElevenLabs provider with the service (since it uses ephemeral API key)
+            await service.registerProvider(provider)
         }
 
-        // Use ephemeral API key directly (bypasses keychain)
-        provider = ElevenLabsVoiceProvider(apiKey: key)
-        service = GenerationService()
-        // Register the ElevenLabs provider with the service (since it uses ephemeral API key)
-        await service.registerProvider(provider)
-
         // Create artifacts directory
-        let testBundle = Bundle(for: type(of: self))
-        let testsDirectory = URL(fileURLWithPath: testBundle.bundlePath).deletingLastPathComponent()
-        artifactsDirectory = testsDirectory.deletingLastPathComponent().appendingPathComponent("TestArtifacts")
+        let testsDirectory = FileManager.default.temporaryDirectory
+        artifactsDirectory = testsDirectory.appendingPathComponent("TestArtifacts")
 
         // Create directory if it doesn't exist
         try? FileManager.default.createDirectory(at: artifactsDirectory, withIntermediateDirectories: true)
     }
 
-    @MainActor
-    override func tearDown() async throws {
-        provider = nil
-        service = nil
-        apiKey = nil
-        modelContext = nil
-        modelContainer = nil
-        try await super.tearDown()
-    }
-
     // MARK: - End-to-End Integration Tests
 
-    func testEndToEndSpeechGeneration() async throws {
+    @Test
+    func endToEndSpeechGeneration() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
+            return
         }
 
         print("🎤 Starting end-to-end ElevenLabs speech generation test...")
 
-        // Step 1: Fetch available voices (using ephemeral API key from setUp)
+        // Step 1: Fetch available voices (using ephemeral API key from init)
         print("📋 Fetching available voices from ElevenLabs API...")
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        #expect(!voices.isEmpty, "Should have at least one voice available")
         print("✅ Found \(voices.count) voices")
 
         // Step 2: Select a voice (prefer English)
@@ -95,11 +85,11 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         )
 
         // Step 4: Validate result
-        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
-        XCTAssertEqual(result.originalText, testText)
-        XCTAssertEqual(result.voiceId, voice.id)
-        XCTAssertEqual(result.providerId, "elevenlabs")
-        XCTAssertGreaterThan(result.estimatedDuration, 0)
+        #expect(!result.audioData.isEmpty, "Audio data should not be empty")
+        #expect(result.originalText == testText)
+        #expect(result.voiceId == voice.id)
+        #expect(result.providerId == "elevenlabs")
+        #expect(result.estimatedDuration > 0)
         print("✅ Generated \(result.audioData.count) bytes of audio")
         print("⏱️  Estimated duration: \(String(format: "%.2f", result.estimatedDuration))s")
 
@@ -107,7 +97,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         let mp3Header = result.audioData.prefix(3)
         let hasMP3Header = mp3Header.count == 3 &&
                            (mp3Header[0] == 0xFF || mp3Header[0] == 0x49) // ID3 or sync byte
-        XCTAssertTrue(hasMP3Header, "Audio should be in MP3 format")
+        #expect(hasMP3Header, "Audio should be in MP3 format")
         print("✅ Audio format validated (MP3)")
 
         // Step 6: Save audio artifact
@@ -136,10 +126,12 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         """)
     }
 
-    func testEndToEndWithMultipleVoices() async throws {
+    @Test
+    func endToEndWithMultipleVoices() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
+            return
         }
 
         print("🎤 Testing with multiple ElevenLabs voices...")
@@ -158,7 +150,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
                 voiceName: voice.name
             )
 
-            XCTAssertFalse(result.audioData.isEmpty)
+            #expect(!result.audioData.isEmpty)
             print("✅ Generated \(result.audioData.count) bytes")
 
             // Save artifact
@@ -172,10 +164,12 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         print("\n✅ Successfully tested \(voicesToTest.count) voices")
     }
 
-    func testEndToEndWithLongText() async throws {
+    @Test
+    func endToEndWithLongText() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
+            return
         }
 
         print("🎤 Testing with longer text...")
@@ -199,8 +193,8 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
             voiceName: voice.name
         )
 
-        XCTAssertFalse(result.audioData.isEmpty)
-        XCTAssertGreaterThan(result.estimatedDuration, 5, "Longer text should have longer duration")
+        #expect(!result.audioData.isEmpty)
+        #expect(result.estimatedDuration > 5, "Longer text should have longer duration")
 
         // Save artifact
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
@@ -212,17 +206,20 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         print("💾 Saved: \(filename)")
     }
 
-    func testAPIKeyNotAvailable() async throws {
+    @Test
+    func apiKeyNotAvailable() async throws {
         // This test verifies the skip behavior when API key is not available
         if apiKey == nil || apiKey!.isEmpty {
             print("✅ Verified: ElevenLabs tests are properly skipped when ELEVENLABS_API_KEY is not set")
         }
     }
 
-    func testUserAgentHeaderInRequests() async throws {
+    @Test
+    func userAgentHeaderInRequests() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
+            return
         }
 
         print("🎤 Testing User-Agent header in ElevenLabs requests...")
@@ -239,13 +236,13 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         // Test that requests succeed with the User-Agent header
         // (If the header was malformed or rejected, these would fail)
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "fetchVoices should succeed with User-Agent header")
+        #expect(!voices.isEmpty, "fetchVoices should succeed with User-Agent header")
         print("✅ fetchVoices succeeded with User-Agent header")
 
         // Test voice availability check
         if let firstVoice = voices.first {
             let isAvailable = await provider.isVoiceAvailable(voiceId: firstVoice.id)
-            XCTAssertTrue(isAvailable, "isVoiceAvailable should succeed with User-Agent header")
+            #expect(isAvailable, "isVoiceAvailable should succeed with User-Agent header")
             print("✅ isVoiceAvailable succeeded with User-Agent header")
 
             // Test audio generation
@@ -255,7 +252,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
                 voiceId: firstVoice.id,
                 voiceName: firstVoice.name
             )
-            XCTAssertFalse(result.audioData.isEmpty, "generateAudio should succeed with User-Agent header")
+            #expect(!result.audioData.isEmpty, "generateAudio should succeed with User-Agent header")
             print("✅ generateAudio succeeded with User-Agent header")
         }
 
@@ -274,11 +271,13 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
 
     // MARK: - SwiftData Persistence Integration Test
 
+    @Test
     @MainActor
-    func testEndToEndWithSwiftDataPersistence() async throws {
+    func endToEndWithSwiftDataPersistence() async throws {
         // Skip test if no API key is available
         guard apiKey != nil, !apiKey!.isEmpty else {
-            throw XCTSkip("ELEVENLABS_API_KEY environment variable not set - skipping ElevenLabs integration test")
+            Issue.record("Skipping test - ELEVENLABS_API_KEY not set")
+            return
         }
 
         print("🎤 Starting end-to-end test with SwiftData persistence...")
@@ -293,7 +292,7 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         // Step 2: Fetch available voices
         print("📋 Fetching available voices from ElevenLabs API...")
         let voices = try await provider.fetchVoices()
-        XCTAssertFalse(voices.isEmpty, "Should have at least one voice available")
+        #expect(!voices.isEmpty, "Should have at least one voice available")
         print("✅ Found \(voices.count) voices")
 
         // Step 3: Select a voice
@@ -311,22 +310,22 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
             voiceName: voice.name
         )
 
-        XCTAssertFalse(result.audioData.isEmpty, "Audio data should not be empty")
+        #expect(!result.audioData.isEmpty, "Audio data should not be empty")
         print("✅ Generated \(result.audioData.count) bytes of audio")
 
         // Step 5: Convert to TypedDataStorage (main thread)
         print("💾 Converting result to TypedDataStorage...")
         let audioRecord = result.toTypedDataStorage()
 
-        XCTAssertEqual(audioRecord.id, result.requestId)
-        XCTAssertEqual(audioRecord.providerId, "elevenlabs")
-        XCTAssertEqual(audioRecord.requestorID, "elevenlabs.audio.tts")
-        XCTAssertEqual(audioRecord.mimeType, result.mimeType)
-        XCTAssertNotNil(audioRecord.binaryValue)
-        XCTAssertEqual(audioRecord.binaryValue, result.audioData)
-        XCTAssertEqual(audioRecord.prompt, testText)
-        XCTAssertEqual(audioRecord.voiceID, voice.id)
-        XCTAssertEqual(audioRecord.voiceName, voice.name)
+        #expect(audioRecord.id == result.requestId)
+        #expect(audioRecord.providerId == "elevenlabs")
+        #expect(audioRecord.requestorID == "elevenlabs.audio.tts")
+        #expect(audioRecord.mimeType == result.mimeType)
+        #expect(audioRecord.binaryValue != nil)
+        #expect(audioRecord.binaryValue == result.audioData)
+        #expect(audioRecord.prompt == testText)
+        #expect(audioRecord.voiceID == voice.id)
+        #expect(audioRecord.voiceName == voice.name)
         print("✅ TypedDataStorage created successfully")
 
         // Step 6: Insert into SwiftData context
@@ -343,27 +342,27 @@ final class ElevenLabsVoiceProviderIntegrationTests: XCTestCase {
         let descriptor = FetchDescriptor<TypedDataStorage>()
         let savedRecords = try modelContext.fetch(descriptor)
 
-        XCTAssertEqual(savedRecords.count, 1, "Should have exactly one saved record")
+        #expect(savedRecords.count == 1, "Should have exactly one saved record")
 
         let savedRecord = savedRecords.first!
-        XCTAssertEqual(savedRecord.id, result.requestId)
-        XCTAssertEqual(savedRecord.providerId, "elevenlabs")
-        XCTAssertEqual(savedRecord.binaryValue, result.audioData)
-        XCTAssertEqual(savedRecord.prompt, testText)
-        XCTAssertEqual(savedRecord.voiceID, voice.id)
+        #expect(savedRecord.id == result.requestId)
+        #expect(savedRecord.providerId == "elevenlabs")
+        #expect(savedRecord.binaryValue == result.audioData)
+        #expect(savedRecord.prompt == testText)
+        #expect(savedRecord.voiceID == voice.id)
         print("✅ Record successfully persisted and retrieved from SwiftData")
 
         // Step 9: Verify audio data integrity
         print("🔍 Verifying audio data integrity...")
         let retrievedAudioData = try savedRecord.getBinary()
-        XCTAssertEqual(retrievedAudioData, result.audioData, "Retrieved audio should match original")
-        XCTAssertFalse(retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
+        #expect(retrievedAudioData == result.audioData, "Retrieved audio should match original")
+        #expect(!retrievedAudioData.isEmpty, "Retrieved audio should not be empty")
 
         // Verify MP3 format
         let mp3Header = retrievedAudioData.prefix(3)
         let hasMP3Header = mp3Header.count == 3 &&
                            (mp3Header[0] == 0xFF || mp3Header[0] == 0x49)
-        XCTAssertTrue(hasMP3Header, "Retrieved audio should be in MP3 format")
+        #expect(hasMP3Header, "Retrieved audio should be in MP3 format")
         print("✅ Audio data integrity verified (MP3 format)")
 
         // Print summary
