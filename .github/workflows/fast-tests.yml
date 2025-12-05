@@ -142,15 +142,10 @@ jobs:
           echo ""
 
           # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
-          # Skip integration tests (tests with "Integration" in the name)
-          # Skip performance tests (PerformanceIntegrationTests - runs on weekly schedule)
           xcodebuild test \
             -scheme SwiftHablare \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
-            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/PerformanceIntegrationTests \
             | tee test-output-${{ matrix.platform }}.log \
             | xcpretty --test --color
 
@@ -267,9 +262,6 @@ jobs:
             -scheme SwiftHablare \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
-            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/PerformanceIntegrationTests \
             | tee test-output-macOS.log \
             | xcpretty --test --color
 

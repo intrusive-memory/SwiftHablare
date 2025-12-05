@@ -219,8 +219,6 @@ struct AppleTTSEngineProtocolTests {
 
     @Test
     func estimateDurationMatchesGeneratedAudio() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Duration validation test skipped on simulator - audio generation doesn't produce valid audio buffers")
         #else
         let voices = try await engine.fetchVoices()
         guard let voice = voices.first else {
@@ -247,7 +245,6 @@ struct AppleTTSEngineProtocolTests {
         let tolerance = actualDuration * 0.5
         let difference = abs(estimatedDuration - actualDuration)
         #expect(difference <= tolerance, "Estimated duration (\(estimatedDuration)) should be within \(tolerance) of actual duration (\(actualDuration))")
-        #endif
     }
 
     // MARK: - Error Handling Tests

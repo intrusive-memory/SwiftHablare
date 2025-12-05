@@ -187,9 +187,6 @@ struct SpeakableItemListTests {
 
     @Test("Cancellation during generation")
     func testCancellationDuringGeneration() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
 
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)
@@ -296,9 +293,6 @@ struct SpeakableItemListTests {
 
     @Test("Generate list - basic generation")
     func testGenerateListBasic() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
 
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)
@@ -325,9 +319,6 @@ struct SpeakableItemListTests {
 
     @Test("Generate list - persistence verification")
     func testGenerateListPersistence() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
 
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)
@@ -363,9 +354,6 @@ struct SpeakableItemListTests {
 
     @Test("Generate list with different SpeakableItem types")
     func testGenerateListWithDifferentTypes() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
 
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)
@@ -419,9 +407,6 @@ struct SpeakableItemListTests {
 
     @Test("Generate list with custom save interval")
     func testGenerateListWithSaveInterval() async throws {
-        #if targetEnvironment(simulator)
-        throw Testing.Skip("Apple TTS integration test skipped on simulator")
-        #endif
 
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)

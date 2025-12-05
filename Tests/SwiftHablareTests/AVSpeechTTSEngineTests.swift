@@ -193,7 +193,6 @@ struct AVSpeechTTSEngineTests {
 
     // MARK: - Platform-Specific Tests
 
-    #if targetEnvironment(simulator)
     @Test("Simulator generates placeholder audio")
     func simulatorGeneratesPlaceholderAudio() async throws {
         let voices = try await engine.fetchVoices()
@@ -231,7 +230,6 @@ struct AVSpeechTTSEngineTests {
         // Real TTS typically produces AIFC format
         #expect(headerString.contains("FORM") || headerString.contains("AIFC") || headerString.contains("AIFF"))
     }
-    #endif
 }
 
 #endif

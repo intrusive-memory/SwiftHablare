@@ -174,10 +174,8 @@ struct GenerateAudioButtonTests {
 
     @Test("Button can generate audio and persist to SwiftData")
     func testGenerateAudioAndPersist() async throws {
-        #if targetEnvironment(simulator)
         // Skip on simulator - Apple TTS doesn't generate real audio
         return
-        #endif
 
         let container = try makeTestContainer()
         let context = ModelContext(container)

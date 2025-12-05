@@ -343,10 +343,8 @@ struct SpeakableGroupTests {
 
     @Test("Group generation completes successfully on device")
     func testGroupGenerationEndToEnd() async throws {
-        #if targetEnvironment(simulator)
         // Skip test on simulator - Apple TTS doesn't generate real audio on simulator
         return
-        #endif
 
         let container = try makeTestContainer()
         let context = ModelContext(container)
