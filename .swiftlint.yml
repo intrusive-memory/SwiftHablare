@@ -1,0 +1,48 @@
+# SwiftLint Configuration for SwiftHablare
+# Enforces macOS/iOS 26.0+ minimum deployment target
+
+excluded:
+  - .build
+  - DerivedData
+  - .swiftpm
+  - Tests/SwiftHablareTests/Resources
+
+# Disabled rules (to focus on platform enforcement, not code style)
+disabled_rules:
+  - identifier_name
+  - force_cast
+  - trailing_comma
+  - redundant_string_enum_value
+  - function_parameter_count
+  - function_body_length
+  - type_body_length
+  - file_length
+  - line_length
+  - cyclomatic_complexity
+  - for_where
+  - shorthand_operator
+
+opt_in_rules:
+  - unavailable_function
+
+custom_rules:
+  # Prevent @available with macOS/iOS versions < 26
+  no_old_availability_attribute:
+    regex: '@available\s*\(\s*(macOS|iOS)\s+([0-9]|1[0-9]|2[0-5])(\.[0-9]+)?\s*,'
+    match_kinds:
+      - attribute.builtin
+    message: "Use @available(macOS 26.0, *) or @available(iOS 26.0, *). Versions < 26 are not supported."
+    severity: error
+
+  # Prevent #available with macOS/iOS versions < 26
+  no_old_availability_check:
+    regex: '#available\s*\(\s*(macOS|iOS)\s+([0-9]|1[0-9]|2[0-5])(\.[0-9]+)?'
+    message: "Use #available(macOS 26, *) or #available(iOS 26, *). Versions < 26 are not supported."
+    severity: error
+
+  # Prevent #unavailable with macOS/iOS versions < 26
+  no_old_unavailability_check:
+    regex: '#unavailable\s*\(\s*(macOS|iOS)\s+([0-9]|1[0-9]|2[0-5])(\.[0-9]+)?'
+    message: "Use #unavailable(macOS 26, *) or #unavailable(iOS 26, *). Versions < 26 are not supported."
+    severity: error
+
