@@ -31,7 +31,7 @@ let package = Package(
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
+                .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
         .testTarget(
@@ -42,7 +42,7 @@ let package = Package(
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
+                .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
     ]

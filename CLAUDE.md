@@ -8,6 +8,39 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 390+ test functions across 21 test files
+
+## ⚠️ CRITICAL: Platform Version Enforcement
+
+**This library ONLY supports iOS 26.0+ and macOS 26.0+. NEVER add code that supports older platforms.**
+
+### Rules for Platform Versions
+
+1. **NEVER add `@available` attributes** for versions below iOS 26.0 or macOS 26.0
+   - ❌ WRONG: `@available(iOS 15.0, macOS 12.0, *)`
+   - ✅ CORRECT: No `@available` needed (package enforces iOS 26/macOS 26)
+
+2. **NEVER add `#available` runtime checks** for versions below iOS 26.0 or macOS 26.0
+   - ❌ WRONG: `if #available(iOS 15.0, *) { ... }`
+   - ✅ CORRECT: No runtime checks needed (package enforces minimum versions)
+
+3. **Platform-specific code is OK** (macOS vs iOS differences)
+   - ✅ CORRECT: `#if os(macOS)` or `#if canImport(AppKit)`
+   - ✅ CORRECT: `#if canImport(UIKit)`
+   - ❌ WRONG: Checking for specific OS versions below 26
+
+4. **Package.swift must always specify iOS 26 and macOS 26**
+   ```swift
+   platforms: [
+       .iOS(.v26),
+       .macOS(.v26)
+   ]
+   ```
+
+5. **User-facing messages** must reflect iOS 26/macOS 26 requirements
+   - ❌ WRONG: "Requires macOS 15 or iOS 18"
+   - ✅ CORRECT: "Requires macOS 26 or iOS 26"
+
+**DO NOT lower the platform requirements. Apps using this library must update their deployment targets to iOS 26+ and macOS 26+.**
 - **Test Coverage**: 96%+ on voice generation components
 - **Swift Concurrency**: Full Swift 6 compliance with strict concurrency enabled
 - **Test Frameworks**: Mixed XCTest and Swift Testing (`@Suite`/`@Test`)
