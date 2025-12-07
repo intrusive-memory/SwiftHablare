@@ -95,7 +95,7 @@ extension VoiceProvider {
     /// Default implementation: Generate raw audio and process it
     public func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio {
         let rawAudio = try await generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
-        return try await AudioProcessor.process(audioData: rawAudio)
+        return try await AudioProcessor.process(audioData: rawAudio, mimeType: self.mimeType)
     }
 }
 
