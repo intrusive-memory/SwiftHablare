@@ -76,14 +76,14 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
   │                     │         │                     │
   │ • Built-in TTS      │         │ • Neural voices     │
   │ • No API key needed │         │ • API key required  │
-  │ • AIFF output       │         │ • MP3 output        │
+  │ • AIFF output       │         │ • PCM output        │
   │ • iOS/macOS         │         │ • Production quality│
   │ • Platform-agnostic │         │ • 11+ voices        │
   │ • Cross-platform    │         │ • Emotional range   │
   │                     │         │                     │
   └──────────┬──────────┘         └──────────┬──────────┘
              │                               │
-             │ Audio Data (AIFF)             │ Audio Data (MP3)
+             │ Audio Data (AIFF)             │ Audio Data (PCM)
              │                               │
              └───────────────┬───────────────┘
                              │
@@ -1437,6 +1437,7 @@ public final class MyVoiceProvider: VoiceProvider {
     // - "audio/x-aiff" for AIFF
     // - "audio/wav" for WAV
     // - "audio/ogg" for OGG
+    // - "audio/pcm" for raw PCM
 }
 ```
 

@@ -78,6 +78,7 @@ struct ElevenLabsEngine: VoiceEngine {
         let body: [String: Any] = [
             "text": request.text,
             "model_id": request.options["model_id"] ?? "eleven_monolingual_v1",
+            "output_format": "pcm_44100",
             "voice_settings": [
                 "stability": Double(request.options["stability"] ?? "0.5") ?? 0.5,
                 "similarity_boost": Double(request.options["similarity_boost"] ?? "0.5") ?? 0.5
@@ -110,13 +111,16 @@ struct ElevenLabsEngine: VoiceEngine {
 
         return VoiceEngineOutput(
             audioData: data,
-            audioFormat: .mp3,
-            fileExtension: "mp3",
-            mimeType: "audio/mpeg",
+            audioFormat: .pcm16,
+            fileExtension: "pcm",
+            mimeType: "audio/L16",
             metadata: [
                 "engineId": engineId,
                 "voiceId": request.voiceId,
-                "languageCode": request.languageCode
+                "languageCode": request.languageCode,
+                "sampleRate": "44100",
+                "bitDepth": "16",
+                "channels": "1"
             ]
         )
     }

@@ -221,8 +221,10 @@ public final class SpeakableItemList {
 ### ElevenLabsVoiceProvider
 
 - **Configuration**: Requires API key (stored in Keychain)
-- **Format**: MP3
-- **MIME Type**: `audio/mpeg`
+- **Format**: PCM (16-bit, 44.1kHz, uncompressed)
+- **MIME Type**: `audio/pcm`
+- **Output Format**: `pcm_44100` (raw PCM data, no silence trimming applied)
+- **Note**: Audio trimming should be handled during export/playback, not during generation
 - **Test Coverage**: 30 unit tests (95%+), 5 integration tests
 
 ## Voice URI & Cast List Export
