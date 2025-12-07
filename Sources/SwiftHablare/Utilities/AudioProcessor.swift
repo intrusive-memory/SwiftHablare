@@ -45,28 +45,16 @@ public enum AudioProcessor {
     ///   - threshold: Silence detection threshold in dB (default: -50dB for vocal audio)
     /// - Returns: Processed audio with trimmed silence and accurate duration
     /// - Throws: Audio processing errors
-    public static func process(audioData: Data, mimeType: String = "audio/l16", threshold: Float = -50.0) async throws -> ProcessedAudio {
+    public static func process(audioData: Data, mimeType: String = "audio/mpeg", threshold: Float = -50.0) async throws -> ProcessedAudio {
         // Determine file extension from MIME type
         let fileExtension = fileExtension(for: mimeType)
-
-        // For raw PCM, wrap in WAV container so AVAsset can read it
-        let processableData: Data
-        let isRawPCM = mimeType.lowercased().contains("l16") || mimeType.lowercased().contains("pcm")
-
-        if isRawPCM {
-            // Wrap PCM in WAV header (44.1kHz, 16-bit, stereo)
-            // ElevenLabs pcm_44100 format is stereo (2 channels)
-            processableData = wrapPCMInWAV(audioData, sampleRate: 44100, channels: 2, bitsPerSample: 16)
-        } else {
-            processableData = audioData
-        }
 
         // Create temporary file to load into AVAsset
         let tempInputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(isRawPCM ? "wav" : fileExtension)
+            .appendingPathExtension(fileExtension)
 
-        try processableData.write(to: tempInputURL)
+        try audioData.write(to: tempInputURL)
         defer { try? FileManager.default.removeItem(at: tempInputURL) }
 
         let asset = AVURLAsset(url: tempInputURL)
@@ -265,38 +253,6 @@ public enum AudioProcessor {
         return try Data(contentsOf: tempOutputURL)
     }
 
-    /// Wrap raw PCM data in a WAV container
-    /// ElevenLabs PCM format: 44.1kHz, 16-bit, stereo (2 channels)
-    private static func wrapPCMInWAV(_ pcmData: Data, sampleRate: Int, channels: Int, bitsPerSample: Int) -> Data {
-        var wav = Data()
-
-        let dataSize = UInt32(pcmData.count)
-        let byteRate = UInt32(sampleRate * channels * bitsPerSample / 8)
-        let blockAlign = UInt16(channels * bitsPerSample / 8)
-
-        // RIFF header
-        wav.append("RIFF".data(using: .ascii)!)
-        wav.append(UInt32(36 + dataSize).littleEndianData)
-        wav.append("WAVE".data(using: .ascii)!)
-
-        // fmt chunk
-        wav.append("fmt ".data(using: .ascii)!)
-        wav.append(UInt32(16).littleEndianData) // fmt chunk size
-        wav.append(UInt16(1).littleEndianData) // PCM format (1 = uncompressed)
-        wav.append(UInt16(channels).littleEndianData)
-        wav.append(UInt32(sampleRate).littleEndianData)
-        wav.append(byteRate.littleEndianData)
-        wav.append(blockAlign.littleEndianData)
-        wav.append(UInt16(bitsPerSample).littleEndianData)
-
-        // data chunk
-        wav.append("data".data(using: .ascii)!)
-        wav.append(dataSize.littleEndianData)
-        wav.append(pcmData)
-
-        return wav
-    }
-
     /// Get file extension from MIME type
     private static func fileExtension(for mimeType: String) -> String {
         let components = mimeType.split(separator: "/")
@@ -312,14 +268,6 @@ public enum AudioProcessor {
         case "pcm", "l16": return "wav"
         default: return subtype
         }
-    }
-}
-
-// Extension to convert integers to little-endian Data
-private extension FixedWidthInteger {
-    var littleEndianData: Data {
-        var value = self.littleEndian
-        return Data(bytes: &value, count: MemoryLayout<Self>.size)
     }
 }
 
