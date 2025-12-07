@@ -50,8 +50,9 @@ public enum AudioProcessor {
         let isRawPCM = mimeType.lowercased().contains("l16") || mimeType.lowercased().contains("pcm")
 
         if isRawPCM {
-            // Wrap PCM in WAV header (44.1kHz, 16-bit, mono)
-            processableData = wrapPCMInWAV(audioData, sampleRate: 44100, channels: 1, bitsPerSample: 16)
+            // Wrap PCM in WAV header (44.1kHz, 16-bit, stereo)
+            // ElevenLabs pcm_44100 format is stereo (2 channels)
+            processableData = wrapPCMInWAV(audioData, sampleRate: 44100, channels: 2, bitsPerSample: 16)
         } else {
             processableData = audioData
         }
@@ -235,6 +236,7 @@ public enum AudioProcessor {
     }
 
     /// Wrap raw PCM data in a WAV container
+    /// ElevenLabs PCM format: 44.1kHz, 16-bit, stereo (2 channels)
     private static func wrapPCMInWAV(_ pcmData: Data, sampleRate: Int, channels: Int, bitsPerSample: Int) -> Data {
         var wav = Data()
 
@@ -250,7 +252,7 @@ public enum AudioProcessor {
         // fmt chunk
         wav.append("fmt ".data(using: .ascii)!)
         wav.append(UInt32(16).littleEndianData) // fmt chunk size
-        wav.append(UInt16(1).littleEndianData) // PCM format
+        wav.append(UInt16(1).littleEndianData) // PCM format (1 = uncompressed)
         wav.append(UInt16(channels).littleEndianData)
         wav.append(UInt32(sampleRate).littleEndianData)
         wav.append(byteRate.littleEndianData)
