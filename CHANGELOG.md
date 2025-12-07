@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated all documentation to reflect iOS and macOS only
   - **Migration**: Mac Catalyst users should use the iOS build or macOS build depending on their needs
 
+## [5.1.2] - 2025-12-06
+
+### Added
+- **Platform Version Enforcement**: Multi-layered enforcement to prevent old platform code
+  - Custom SwiftLint rules to detect `@available`, `#available`, `#unavailable` with versions < 26
+  - Supports both macOS and iOS platform detection
+  - Regex patterns match versions 0-25 (blocks old platforms)
+  - Comprehensive documentation in `Docs/PLATFORM-ENFORCEMENT.md`
+  - Quick-start guide in `QUICK-START-ENFORCEMENT.md`
+
+### Changed
+- **Swift Concurrency**: Changed `.enableExperimentalFeature` to `.enableUpcomingFeature("StrictConcurrency")` in Package.swift
+- **Documentation**: Added platform version enforcement section to CLAUDE.md
+- **SwiftLint Configuration**: Improved `.swiftlint.yml` maintainability with YAML anchors
+
 ## [4.1.2] - 2025-11-24
 
 ### Changed
