@@ -57,7 +57,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
         let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey(), userAgent: userAgent)
         let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: languageCode, options: [
-            "model_id": "eleven_monolingual_v1",
+            "model_id": "eleven_multilingual_v2",  // Highest quality model (29 languages, emotionally-aware)
             "stability": "0.5",
             "similarity_boost": "0.5"
         ])
