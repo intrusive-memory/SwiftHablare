@@ -15,7 +15,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     public let providerId = "elevenlabs"
     public let displayName = "ElevenLabs"
     public let requiresAPIKey = true
-    public let mimeType = "audio/L16"
+    public let mimeType = "audio/l16"  // Raw format from API (processed to M4A by AudioProcessor)
 
     private let keychainManager = KeychainManager.shared
     private let apiKeyAccount = "elevenlabs-api-key"

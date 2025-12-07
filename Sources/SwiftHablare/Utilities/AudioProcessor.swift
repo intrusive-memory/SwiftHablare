@@ -10,7 +10,7 @@ import AVFoundation
 
 /// Result of audio processing including trimmed data and metadata
 public struct ProcessedAudio: Sendable {
-    /// The processed audio data (trimmed)
+    /// The processed audio data (trimmed and converted to M4A)
     public let audioData: Data
 
     /// The measured duration of the processed audio in seconds
@@ -22,11 +22,15 @@ public struct ProcessedAudio: Sendable {
     /// Amount of silence trimmed from the end in seconds
     public let trimmedEnd: Double
 
-    public init(audioData: Data, durationSeconds: Double, trimmedStart: Double, trimmedEnd: Double) {
+    /// MIME type of the processed audio (always "audio/mp4" since we export to M4A)
+    public let mimeType: String
+
+    public init(audioData: Data, durationSeconds: Double, trimmedStart: Double, trimmedEnd: Double, mimeType: String = "audio/mp4") {
         self.audioData = audioData
         self.durationSeconds = durationSeconds
         self.trimmedStart = trimmedStart
         self.trimmedEnd = trimmedEnd
+        self.mimeType = mimeType
     }
 }
 
@@ -73,17 +77,19 @@ public enum AudioProcessor {
         // Get total duration
         let totalDuration = try await asset.load(.duration).seconds
 
-        // If no trimming needed, just measure and return
-        guard trimStart > 0 || trimEnd > 0 else {
+        // If no trimming needed, convert to M4A for consistent format
+        if trimStart == 0 && trimEnd == 0 {
+            // Convert to M4A for consistent output format
+            let m4aData = try await convertToM4A(asset: asset)
             return ProcessedAudio(
-                audioData: audioData,
+                audioData: m4aData,
                 durationSeconds: totalDuration,
                 trimmedStart: 0,
                 trimmedEnd: 0
             )
         }
 
-        // Trim the audio
+        // Trim the audio (trimAudio already exports as M4A)
         let trimmedData = try await trimAudio(
             asset: asset,
             trimStart: trimStart,
@@ -198,6 +204,30 @@ public enum AudioProcessor {
 
         let mean = sum / Float(samples.count)
         return sqrt(mean)
+    }
+
+    /// Convert audio asset to M4A format
+    private static func convertToM4A(asset: AVAsset) async throws -> Data {
+        let tempOutputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("m4a")
+
+        defer { try? FileManager.default.removeItem(at: tempOutputURL) }
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw AudioProcessingError.exportFailed("Could not create export session")
+        }
+
+        exportSession.outputURL = tempOutputURL
+        exportSession.outputFileType = .m4a
+
+        await exportSession.export()
+
+        if let error = exportSession.error {
+            throw AudioProcessingError.exportFailed(error.localizedDescription)
+        }
+
+        return try Data(contentsOf: tempOutputURL)
     }
 
     /// Trim audio by exporting a time range
