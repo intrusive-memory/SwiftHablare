@@ -40,6 +40,15 @@ public protocol VoiceProvider: Sendable {
     ///     Defaults to system language if not provided.
     func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data
 
+    /// Generate and process audio data with silence trimming and accurate duration measurement
+    /// - Parameters:
+    ///   - text: The text to convert to speech
+    ///   - voiceId: The voice identifier to use
+    ///   - languageCode: The language code for generation (e.g., "en", "es", "fr").
+    ///     Defaults to system language if not provided.
+    /// - Returns: Processed audio with trimmed silence and measured duration
+    func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio
+
     /// Estimate the duration (in seconds) of audio that would be generated from the given text
     func estimateDuration(text: String, voiceId: String) async -> TimeInterval
 
@@ -76,6 +85,17 @@ extension VoiceProvider {
     /// Generate audio using system language code as default
     public func generateAudio(text: String, voiceId: String) async throws -> Data {
         return try await generateAudio(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
+    }
+
+    /// Generate processed audio using system language code as default
+    public func generateProcessedAudio(text: String, voiceId: String) async throws -> ProcessedAudio {
+        return try await generateProcessedAudio(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
+    }
+
+    /// Default implementation: Generate raw audio and process it
+    public func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio {
+        let rawAudio = try await generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
+        return try await AudioProcessor.process(audioData: rawAudio, mimeType: self.mimeType)
     }
 }
 

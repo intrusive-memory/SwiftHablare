@@ -4,10 +4,10 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Quick Reference
 
-- **Current Version**: 5.1.0 (check `SwiftHablare.swift:84` for actual version string)
+- **Current Version**: 5.2.0 (check `SwiftHablare.swift:84` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
-- **Test Suite**: 390+ test functions across 21 test files
+- **Test Suite**: 289 passing tests
 
 ## ⚠️ CRITICAL: Platform Version Enforcement
 
@@ -221,8 +221,11 @@ public final class SpeakableItemList {
 ### ElevenLabsVoiceProvider
 
 - **Configuration**: Requires API key (stored in Keychain)
-- **Format**: MP3
+- **Format**: MP3 (128kbps, 44.1kHz)
 - **MIME Type**: `audio/mpeg`
+- **Output Format**: `mp3_44100_128` (MP3 audio, processed to M4A via AudioProcessor)
+- **Model**: `eleven_multilingual_v2` (highest quality, emotionally-aware, 29 languages)
+- **Note**: Audio is automatically processed to M4A with silence trimming via `generateProcessedAudio()`
 - **Test Coverage**: 30 unit tests (95%+), 5 integration tests
 
 ## Voice URI & Cast List Export
