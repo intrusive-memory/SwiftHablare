@@ -351,11 +351,25 @@ struct SpeakableGroupTests {
         let container = try makeTestContainer()
         let context = ModelContext(container)
         let service = GenerationService()
-        let group = makeTestGroup(itemCount: 2)
+
+        // Fetch a valid voice ID for testing
+        let provider = AppleVoiceProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
+        // Create test group with valid voice ID
+        let items = (1...2).map { index in
+            SimpleMessage(
+                content: "Message \(index)",
+                voiceProvider: provider,
+                voiceId: voiceId
+            )
+        }
+        let group = TestGroup(name: "Test Group", items: items)
 
         // Generate audio for the group
-        let items = group.getGroupedElements()
-        let list = SpeakableItemList(name: group.groupName, items: items)
+        let groupItems = group.getGroupedElements()
+        let list = SpeakableItemList(name: group.groupName, items: groupItems)
 
         let records = try await service.generateList(list, to: context)
 
