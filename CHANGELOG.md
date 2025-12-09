@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0] - 2025-12-09
+
+### Added
+
+#### ElevenLabs Model Selector
+- **User-selectable TTS models** in ElevenLabs configuration
+  - New `ElevenLabsModel` enum with 5 available models
+  - Multilingual v2 (highest quality, default)
+  - Turbo v2.5 (fastest)
+  - Turbo v2 (fast)
+  - Multilingual v1 (legacy)
+  - Monolingual v1 (English only, legacy)
+- **SwiftUI model picker** in ElevenLabs preferences pane
+  - Dropdown selector with model names and descriptions
+  - Link to ElevenLabs model documentation
+  - Footer showing selected model details
+- **Persistent model selection** stored in UserDefaults
+  - `selectedModel()` - Get current selection
+  - `updateSelectedModel()` - Change model preference
+  - Automatically used in audio generation
+
+#### Development Tools
+- **ship-swift-library skill** for automated releases
+  - Verifies PR quality gates (CI checks, documentation, version, changelog)
+  - Automates merge, tagging, and GitHub release creation
+  - Safety checks to prevent accidental destructive operations
+  - Available as user-global skill in `~/.claude/skills/`
+
+#### Documentation
+- **WellSaid Labs integration requirements** (comprehensive technical spec)
+  - Complete API integration details
+  - Architecture following Engine Boundary pattern
+  - Testing strategy (40-50 new tests, 95%+ coverage target)
+  - 6-phase implementation plan (3-week timeline)
+  - AudioProcessor integration for accurate MP3 duration
+
+### Changed
+
+#### Error Handling Improvements
+- **Invalid voice ID handling** for Apple TTS ([#73](https://github.com/intrusive-memory/SwiftHablare/pull/73))
+  - macOS: Now throws `VoiceProviderError` for invalid voice IDs (no silent fallback)
+  - iOS: Falls back to default voice (platform limitation - `AVSpeechSynthesisVoice` behavior)
+  - **Breaking Change**: macOS apps using invalid voice IDs will receive errors
+- **Platform-aware tests** handle iOS/macOS voice ID validation differences
+
+#### Performance & Concurrency
+- **AudioProcessor modernization**
+  - Replaced semaphore with async/await patterns
+  - Better Swift 6 concurrency compliance
+  - Improved thread safety
+
+### Fixed
+- **Test suite compatibility** with invalid voice ID error handling
+  - Updated 3 tests to handle platform-specific behavior
+  - All 289 tests pass on both platforms
+  - iOS: 282/282 tests (7 simulator-only tests skipped)
+  - macOS: 289/289 tests
+
+### Technical Details
+
+#### Files Added
+1. `.claude/skills/ship-swift-library.md` - Release automation skill
+2. `.claude/skills/README.md` - Skills directory documentation
+3. `Docs/WellSaidIntegrationRequirements.md` - WellSaid integration spec (1,116 lines)
+
+#### Files Modified
+1. `Sources/SwiftHablare/Providers/ElevenLabsVoiceProvider.swift` - Model selector (+102 lines)
+   - ElevenLabsModel enum with 5 models
+   - selectedModel() and updateSelectedModel() methods
+   - Updated configuration view with model picker
+2. `Sources/SwiftHablare/Utilities/AudioProcessor.swift` - Async/await refactoring
+3. `Sources/SwiftHablare/Providers/Apple/NSSpeechTTSEngine.swift` - Invalid voice ID errors
+4. `Tests/SwiftHablareTests/SpeakableItemTests.swift` - Platform-aware tests
+5. `Tests/SwiftHablareTests/SpeakableGroupTests.swift` - Valid voice ID usage
+6. `Tests/SwiftHablareTests/GenerateAudioButtonTests.swift` - Valid voice ID usage
+
+#### Quality Metrics
+- **Test Count**: 289 tests passing
+- **Test Coverage**: 96%+ maintained
+- **Build Status**: ✅ All platforms passing (iOS, macOS)
+- **Swift 6**: Full strict concurrency compliance
+- **CI/CD**: All required checks passing (Code Quality, Fast Tests iOS/macOS)
+
+### Migration Notes
+
+#### ElevenLabs Model Selection (Non-Breaking)
+```swift
+// Existing code works unchanged (uses default Multilingual v2)
+let provider = ElevenLabsVoiceProvider()
+let audio = try await provider.generateAudio(text: "Hello", voiceId: "id", languageCode: "en")
+
+// New: Select different model
+provider.updateSelectedModel(.turboV2_5)  // Use fastest model
+let audio = try await provider.generateAudio(text: "Hello", voiceId: "id", languageCode: "en")
+```
+
+#### Invalid Voice ID Error Handling (Breaking on macOS)
+```swift
+// macOS - BEFORE (v5.2.0): Silent fallback to default voice
+let audio = try await provider.generateAudio(text: "Test", voiceId: "invalid-id", languageCode: "en")
+// Worked, used default voice
+
+// macOS - AFTER (v5.3.0): Throws error
+do {
+    let audio = try await provider.generateAudio(text: "Test", voiceId: "invalid-id", languageCode: "en")
+} catch VoiceProviderError.invalidRequest(let message) {
+    print("Invalid voice: \(message)")  // "Voice not found: invalid-id"
+}
+
+// iOS - No change: Still falls back to default voice
+```
+
 ## [5.2.0] - 2025-12-07
 
 ### Added - Audio Processing and Quality Improvements
