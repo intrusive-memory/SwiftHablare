@@ -277,8 +277,39 @@ extension WellSaidVoiceProvider {
 **Requirements**:
 - WellSaid audio output must be compatible with `AudioProcessor`
 - Support silence trimming if applicable
-- Convert to M4A format for consistency (if not already M4A)
-- Handle sample rates (likely 44.1kHz or 48kHz)
+- Convert to M4A format for consistency
+- **Accurate duration measurement** using AudioProcessor (not estimates)
+
+**Duration Measurement Strategy**:
+
+WellSaid outputs MP3 audio. To get accurate duration (not character-based estimates):
+
+```swift
+// After receiving MP3 from WellSaid API
+let processed = try await AudioProcessor.process(
+    audioData: mp3Data,
+    mimeType: "audio/mpeg"
+)
+
+// processed.durationSeconds contains ACTUAL duration from audio file
+// More accurate than character-based estimates
+```
+
+**How AudioProcessor Handles MP3**:
+1. Writes MP3 to temporary file
+2. Loads into AVURLAsset (reads actual audio frames)
+3. Measures real duration: `asset.load(.duration).seconds`
+4. Trims silence from start/end
+5. Converts to M4A for consistent output
+6. Returns accurate duration + processed audio
+
+**Benefits**:
+- ✅ No MP3 duration estimation issues
+- ✅ Works with variable bitrate (VBR) MP3
+- ✅ Accurate duration regardless of encoding
+- ✅ Same processing pipeline as ElevenLabs
+- ✅ Automatic silence trimming
+- ✅ Consistent M4A output format
 
 ### 4. Platform Support
 
@@ -571,10 +602,11 @@ guard (200...299).contains(httpResponse.statusCode) else {
 2. Implement configuration struct
 3. Implement `fetchVoices()` with API integration
 4. Implement `generateAudio()` with API integration
-5. Implement `estimateDuration()` calculation
-6. Implement `isVoiceAvailable()` check
-7. Add API response type structs
-8. Add comprehensive error handling
+5. Implement `estimateDuration()` calculation (character-based)
+6. Add AudioProcessor integration for accurate duration (from actual MP3)
+7. Implement `isVoiceAvailable()` check
+8. Add API response type structs
+9. Add comprehensive error handling
 
 **Deliverables**:
 - [ ] `WellSaidEngine.swift` complete
