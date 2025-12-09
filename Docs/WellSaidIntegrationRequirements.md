@@ -66,7 +66,7 @@ Integrate WellSaid Labs as a third voice provider for SwiftHablaré, providing u
 - Provider ID: `"wellsaid"`
 - Display Name: `"WellSaid Labs"`
 - Requires API Key: `true`
-- MIME Type: Based on WellSaid API response format (likely `audio/mpeg` or `audio/wav`)
+- MIME Type: `"audio/mpeg"` ✅ Verified (MP3 format)
 
 **Properties**:
 ```swift
@@ -154,18 +154,32 @@ struct WellSaidEngine: VoiceEngine {
 
 **API Response Types**:
 ```swift
-// Mirror ElevenLabs pattern
-struct WellSaidVoicesResponse: Codable {
-    let voices: [WellSaidVoice]  // Or appropriate response structure
+// Mirror ElevenLabs pattern, adapted for WellSaid's "avatar" terminology
+struct WellSaidAvatarsResponse: Codable {
+    let avatars: [WellSaidAvatar]  // WellSaid uses "avatars" not "voices"
 }
 
-struct WellSaidVoice: Codable {
+struct WellSaidAvatar: Codable {
     let id: String
     let name: String
     let description: String?
     let language: String?
     let gender: String?
+    let tags: [String]?  // WellSaid provides tags like "professional", "corporate"
     // Additional WellSaid-specific fields
+
+    // Map to SwiftHablaré's Voice model
+    func toVoice(providerId: String) -> Voice {
+        Voice(
+            id: id,
+            name: name,
+            description: description,
+            providerId: providerId,
+            language: language,
+            locality: nil,
+            gender: gender
+        )
+    }
 }
 ```
 
@@ -354,12 +368,19 @@ Sources/SwiftHablare/
 
 ### WellSaid Labs API Endpoints
 
-**Base URL**: `https://api.wellsaidlabs.com/v1` (verify with docs)
+**Base URL**: `https://api.wellsaidlabs.com/v1/` ✅ Verified
+
+**Documentation**: https://docs.wellsaidlabs.com/reference/getting-started-with-your-api
+
+**Implementation Approach**: Direct HTTP calls using URLSession (no external SDK)
+- Same pattern as ElevenLabs implementation
+- Zero external dependencies
+- Full control over requests/responses
 
 #### 1. Authentication
 
 **Method**: API Key in header
-**Header**: `X-API-Key: <api-key>` (verify format)
+**Header**: `X-Api-Key: <api-key>` ✅ Verified
 
 Example:
 ```swift
@@ -368,27 +389,28 @@ request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
 request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 ```
 
-#### 2. List Voices Endpoint
+#### 2. List Avatars (Voices) Endpoint
 
-**Endpoint**: `GET /voices`
-**Query Parameters**:
-- `language` (optional) - Filter by language code
+**Endpoint**: `GET /avatars` ✅ Verified
+**Query Parameters**: None required (returns all available avatars)
 
-**Response Structure** (assumed, verify with API docs):
+**Response Structure** (verify exact schema with API docs):
 ```json
 {
-  "voices": [
+  "avatars": [
     {
-      "id": "voice-id-123",
+      "id": "avatar-id-123",
       "name": "Paige",
       "description": "Professional female voice",
       "language": "en-US",
       "gender": "female",
-      "speaker_type": "premium"
+      "tags": ["professional", "corporate"]
     }
   ]
 }
 ```
+
+**Note**: WellSaid uses "avatars" terminology instead of "voices"
 
 **Implementation**:
 ```swift
@@ -409,57 +431,74 @@ func fetchVoices(languageCode: String, configuration: WellSaidEngineConfiguratio
 
 #### 3. Text-to-Speech Endpoint
 
-**Endpoint**: `POST /tts`
-**Content-Type**: `application/json`
+**Endpoint Options**:
+- `POST /tts/stream` - Real-time streaming TTS ✅ Verified
+- `POST /tts` - Asynchronous TTS generation ✅ Verified
 
-**Request Body** (assumed, verify):
+**Recommended**: Use `/tts/stream` for immediate response
+
+**Content-Type**: `application/json`
+**Accept**: `audio/mpeg` (for MP3 output)
+
+**Request Body** (verify exact schema with API docs):
 ```json
 {
   "text": "Text to synthesize",
-  "speaker_id": "voice-id-123",
-  "output_format": "mp3",
-  "sample_rate": 44100
+  "speaker_id": "avatar-id-123"
 }
 ```
 
-**Response**: Binary audio data (MP3/WAV/PCM)
+**Response**: Binary audio data (MP3 format, `audio/mpeg`)
 
 **Implementation**:
 ```swift
 func generateAudio(request: VoiceEngineRequest, configuration: WellSaidEngineConfiguration) async throws -> VoiceEngineOutput {
-    let url = URL(string: "https://api.wellsaidlabs.com/v1/tts")!
+    // Use streaming endpoint for immediate response
+    let url = URL(string: "https://api.wellsaidlabs.com/v1/tts/stream")!
     var urlRequest = URLRequest(url: url)
     urlRequest.httpMethod = "POST"
-    urlRequest.setValue(configuration.apiKey, forHTTPHeaderField: "X-API-Key")
+    urlRequest.setValue(configuration.apiKey, forHTTPHeaderField: "X-Api-Key")
     urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    urlRequest.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
     urlRequest.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
     let body: [String: Any] = [
         "text": request.text,
-        "speaker_id": request.voiceId,
-        "output_format": "mp3",  // Or WAV based on API
-        "sample_rate": 44100
+        "speaker_id": request.voiceId  // WellSaid uses "speaker_id" for avatar selection
     ]
 
     urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
     let (data, response) = try await URLSession.shared.data(for: urlRequest)
-    // Handle response and return audio
+
+    // Return MP3 audio data
+    return VoiceEngineOutput(
+        audioData: data,
+        audioFormat: .mp3,
+        fileExtension: "mp3",
+        mimeType: "audio/mpeg",
+        metadata: [
+            "engineId": engineId,
+            "voiceId": request.voiceId,
+            "languageCode": request.languageCode
+        ]
+    )
 }
 ```
 
-#### 4. Voice Availability Check
+#### 4. Avatar (Voice) Availability Check
 
-**Endpoint**: `GET /voices/{voice_id}`
+**Endpoint**: `GET /avatars/{avatar_id}` ✅ Verified
 
-**Response**: Voice details or 404
+**Response**: Avatar details or 404
 
 **Implementation**:
 ```swift
 func isVoiceAvailable(voiceId: String, configuration: WellSaidEngineConfiguration) async -> Bool {
-    let url = URL(string: "https://api.wellsaidlabs.com/v1/voices/\(voiceId)")!
+    let url = URL(string: "https://api.wellsaidlabs.com/v1/avatars/\(voiceId)")!
     var request = URLRequest(url: url)
-    request.setValue(configuration.apiKey, forHTTPHeaderField: "X-API-Key")
+    request.setValue(configuration.apiKey, forHTTPHeaderField: "X-Api-Key")
+    request.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
     do {
         let (_, response) = try await URLSession.shared.data(for: request)
@@ -509,11 +548,17 @@ guard (200...299).contains(httpResponse.statusCode) else {
 
 ### Rate Limiting
 
-**Strategy**:
-- Respect API rate limits (check WellSaid documentation)
+**WellSaid API Limits** ✅ Verified:
+- **Default API Key**: 3 requests per second
+- **Character Limit**: 1000 characters per request
+- **Monthly Quota**: Varies by plan
+
+**Implementation Strategy**:
+- Respect API rate limits (3 req/sec default)
+- Split long text into chunks (max 1000 characters)
 - Implement exponential backoff for 429 responses
-- Cache voice lists to minimize API calls
-- Use language-specific caching (same as ElevenLabs)
+- Cache avatar (voice) lists to minimize API calls
+- Use language-specific caching (same as ElevenLabs pattern)
 
 ---
 
