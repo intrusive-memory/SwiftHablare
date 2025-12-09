@@ -353,9 +353,17 @@ struct ErrorHandlingTests {
             voiceId: "invalid-voice-id"
         )
 
-        // Should still generate audio (Apple provider falls back to default voice)
+        #if os(macOS)
+        // macOS: Should throw an error for invalid voice ID (no fallback)
+        await #expect(throws: VoiceProviderError.self) {
+            try await message.speak()
+        }
+        #else
+        // iOS: AVSpeechSynthesisVoice may fall back to default voice for invalid IDs
+        // Just verify that audio is generated (fallback behavior)
         let audioData = try await message.speak()
         #expect(audioData.count > 0)
+        #endif
     }
 
     @Test("Speak with empty text throws error")

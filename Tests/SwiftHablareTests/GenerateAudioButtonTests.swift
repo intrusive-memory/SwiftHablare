@@ -181,28 +181,39 @@ struct GenerateAudioButtonTests {
 
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let item = makeTestItem()
+
+        // Fetch a valid voice ID for testing
+        let provider = AppleVoiceProvider()
+        let voices = try await provider.fetchVoices()
+        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
+        // Create test item with valid voice ID
+        let item = SimpleMessage(
+            content: "Test message for audio generation",
+            voiceProvider: provider,
+            voiceId: voiceId
+        )
+
+        // Extract values for predicate (can't capture objects in #Predicate)
+        let providerId = provider.providerId
+        let testVoiceId = voiceId
+        let testPrompt = item.textToSpeak
 
         // Verify no audio exists initially
-        let providerId = item.voiceProvider.providerId
-        let voiceId = item.voiceId
-        let prompt = item.textToSpeak
-
         var descriptor = FetchDescriptor<TypedDataStorage>(
             predicate: #Predicate { storage in
                 storage.providerId == providerId &&
-                storage.voiceID == voiceId &&
-                storage.prompt == prompt
+                storage.voiceID == testVoiceId &&
+                storage.prompt == testPrompt
             }
         )
         var results = try context.fetch(descriptor)
         #expect(results.isEmpty)
 
         // Generate audio directly (simulating button action)
-        let provider = item.voiceProvider
         let audioData = try await provider.generateAudio(
             text: item.textToSpeak,
-            voiceId: item.voiceId
+            voiceId: voiceId
         )
 
         // Create record
@@ -214,7 +225,7 @@ struct GenerateAudioButtonTests {
             binaryValue: audioData,
             prompt: item.textToSpeak,
             durationSeconds: 5.0,
-            voiceID: item.voiceId
+            voiceID: voiceId
         )
 
         context.insert(record)
@@ -224,8 +235,8 @@ struct GenerateAudioButtonTests {
         descriptor = FetchDescriptor<TypedDataStorage>(
             predicate: #Predicate { storage in
                 storage.providerId == providerId &&
-                storage.voiceID == voiceId &&
-                storage.prompt == prompt
+                storage.voiceID == testVoiceId &&
+                storage.prompt == testPrompt
             }
         )
         results = try context.fetch(descriptor)
@@ -234,7 +245,7 @@ struct GenerateAudioButtonTests {
         // Verify record properties
         let savedRecord = try #require(results.first)
         #expect(savedRecord.providerId == provider.providerId)
-        #expect(savedRecord.voiceID == item.voiceId)
+        #expect(savedRecord.voiceID == voiceId)
         #expect(savedRecord.prompt == item.textToSpeak)
         #expect(savedRecord.binaryValue != nil)
         #expect(savedRecord.mimeType == "audio/x-aiff")

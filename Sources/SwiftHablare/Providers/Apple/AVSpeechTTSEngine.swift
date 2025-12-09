@@ -131,10 +131,11 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                 do {
                     let utterance = AVSpeechUtterance(string: text)
 
-                    // Set the voice if available
-                    if let voice = AVSpeechSynthesisVoice(identifier: voiceId) {
-                        utterance.voice = voice
+                    // Set the voice - throw error if voice doesn't exist
+                    guard let voice = AVSpeechSynthesisVoice(identifier: voiceId) else {
+                        throw VoiceProviderError.invalidRequest("Voice not found: \(voiceId)")
                     }
+                    utterance.voice = voice
 
                     let synthesizer = AVSpeechSynthesizer()
                     let tempURL = FileManager.default.temporaryDirectory

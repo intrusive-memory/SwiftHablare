@@ -35,8 +35,11 @@ final class NSSpeechTTSEngine: AppleTTSEngine {
                     // Create synthesizer
                     let synthesizer = NSSpeechSynthesizer()
 
-                    // Set voice if specified
+                    // Set voice - throw error if voice doesn't exist
                     let voiceName = NSSpeechSynthesizer.VoiceName(rawValue: voiceId)
+                    guard NSSpeechSynthesizer.availableVoices.contains(voiceName) else {
+                        throw VoiceProviderError.invalidRequest("Voice not found: \(voiceId)")
+                    }
                     synthesizer.setVoice(voiceName)
 
                     // Create temp file for output
