@@ -8,6 +8,27 @@
 import Foundation
 import AVFoundation
 
+/// Semaphore-based export coordinator to serialize AVAssetExportSession operations
+///
+/// AVAssetExportSession can cause audio queue conflicts when many instances
+/// run concurrently. This semaphore ensures only one export happens at a time,
+/// preventing AudioQueue errors (-4), URLAsset errors (-12170), and CoreAudio
+/// figure processing errors (-12482).
+///
+/// We use a class-based semaphore to avoid Swift 6 Sendable issues with actors.
+private final class ExportSemaphore: @unchecked Sendable {
+    private let semaphore = DispatchSemaphore(value: 1)
+
+    func withLock<T>(_ operation: () async throws -> T) async rethrows -> T {
+        semaphore.wait()
+        defer { semaphore.signal() }
+        return try await operation()
+    }
+}
+
+/// Shared export semaphore for serializing AVAssetExportSession operations
+private let exportSemaphore = ExportSemaphore()
+
 /// Result of audio processing including trimmed data and metadata
 public struct ProcessedAudio: Sendable {
     /// The processed audio data (trimmed and converted to M4A)
@@ -202,20 +223,23 @@ public enum AudioProcessor {
 
         defer { try? FileManager.default.removeItem(at: tempOutputURL) }
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-            throw AudioProcessingError.exportFailed("Could not create export session")
+        // Serialize export operations to prevent audio queue conflicts
+        return try await exportSemaphore.withLock {
+            guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                throw AudioProcessingError.exportFailed("Could not create export session")
+            }
+
+            exportSession.outputURL = tempOutputURL
+            exportSession.outputFileType = .m4a
+
+            await exportSession.export()
+
+            if let error = exportSession.error {
+                throw AudioProcessingError.exportFailed(error.localizedDescription)
+            }
+
+            return try Data(contentsOf: tempOutputURL)
         }
-
-        exportSession.outputURL = tempOutputURL
-        exportSession.outputFileType = .m4a
-
-        await exportSession.export()
-
-        if let error = exportSession.error {
-            throw AudioProcessingError.exportFailed(error.localizedDescription)
-        }
-
-        return try Data(contentsOf: tempOutputURL)
     }
 
     /// Trim audio by exporting a time range
@@ -236,21 +260,24 @@ public enum AudioProcessor {
 
         defer { try? FileManager.default.removeItem(at: tempOutputURL) }
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-            throw AudioProcessingError.exportFailed("Could not create export session")
+        // Serialize export operations to prevent audio queue conflicts
+        return try await exportSemaphore.withLock {
+            guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                throw AudioProcessingError.exportFailed("Could not create export session")
+            }
+
+            exportSession.outputURL = tempOutputURL
+            exportSession.outputFileType = .m4a
+            exportSession.timeRange = timeRange
+
+            await exportSession.export()
+
+            if let error = exportSession.error {
+                throw AudioProcessingError.exportFailed(error.localizedDescription)
+            }
+
+            return try Data(contentsOf: tempOutputURL)
         }
-
-        exportSession.outputURL = tempOutputURL
-        exportSession.outputFileType = .m4a
-        exportSession.timeRange = timeRange
-
-        await exportSession.export()
-
-        if let error = exportSession.error {
-            throw AudioProcessingError.exportFailed(error.localizedDescription)
-        }
-
-        return try Data(contentsOf: tempOutputURL)
     }
 
     /// Get file extension from MIME type
