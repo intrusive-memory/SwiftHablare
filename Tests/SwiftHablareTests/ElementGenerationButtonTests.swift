@@ -21,7 +21,6 @@ struct ElementGenerationButtonTests {
     /// Create an in-memory model container for testing
     func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)

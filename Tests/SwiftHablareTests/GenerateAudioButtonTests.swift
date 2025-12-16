@@ -21,7 +21,6 @@ struct GenerateAudioButtonTests {
     /// Create an in-memory model container for testing
     func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -514,7 +513,6 @@ struct GenerateAudioButtonTests {
     func testEstablishesElementRelationship() async throws {
         // Create container with GuionElementModel schema
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self,
             GuionElementModel.self,
             GuionDocumentModel.self
@@ -665,7 +663,6 @@ struct GenerateAudioButtonTests {
     func testMultipleElementRelationships() async throws {
         // Create container with GuionElementModel schema
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self,
             GuionElementModel.self,
             GuionDocumentModel.self

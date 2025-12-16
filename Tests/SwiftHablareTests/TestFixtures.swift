@@ -54,14 +54,12 @@ public enum TestFixtures {
     /// Create an in-memory ModelContainer for testing
     ///
     /// This container is configured with the standard SwiftHablare schema:
-    /// - VoiceCacheModel (voice caching)
     /// - TypedDataStorage (audio persistence from SwiftCompartido)
     ///
     /// - Returns: An in-memory ModelContainer for testing
     /// - Throws: If container creation fails
     public static func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)

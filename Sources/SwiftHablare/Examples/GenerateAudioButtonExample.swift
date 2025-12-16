@@ -280,7 +280,6 @@ struct GenerateAudioButtonExample_Previews: PreviewProvider {
     @MainActor
     static func makePreviewContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -312,7 +311,6 @@ struct MyApp: App {
             ContentView()
         }
         .modelContainer(for: [
-            VoiceCacheModel.self,      // Required for voice caching
             TypedDataStorage.self      // Required for audio persistence
         ])
     }

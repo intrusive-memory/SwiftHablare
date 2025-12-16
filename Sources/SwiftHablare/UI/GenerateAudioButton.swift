@@ -442,7 +442,7 @@ struct GenerateAudioButton_Previews: PreviewProvider {
 
     @MainActor
     static func makePreviewContext() throws -> ModelContext {
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let schema = Schema([TypedDataStorage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         return ModelContext(container)

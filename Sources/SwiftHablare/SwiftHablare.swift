@@ -28,12 +28,12 @@ import Foundation
 /// import SwiftData
 ///
 /// // 1. Create SwiftData model context
-/// let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+/// let schema = Schema([TypedDataStorage.self])
 /// let container = try ModelContainer(for: schema)
 /// let modelContext = ModelContext(container)
 ///
 /// // 2. Create generation service
-/// let service = GenerationService(modelContext: modelContext)
+/// let service = GenerationService()
 ///
 /// // 3. Generate audio for an element
 /// let result = try await service.generate(
@@ -55,7 +55,6 @@ import Foundation
 /// ## Architecture
 ///
 /// SwiftHablare has no UI components - it's purely a generation library.
-/// The only SwiftData model is VoiceCacheModel for caching provider voices.
 ///
 /// Generated audio is saved using TypedDataStorage from SwiftCompartido,
 /// which provides:

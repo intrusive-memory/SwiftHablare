@@ -47,9 +47,9 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Project Overview
 
-**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching, secure API key management, and optional SwiftUI components.
+**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with secure API key management, and optional SwiftUI components.
 
-**Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, voice caching, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
+**Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 
 ## Core Architecture
 
@@ -76,8 +76,6 @@ SwiftHablare/
 ├── VoiceProviderRegistry.swift      # Registry + enablement state for providers
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
-├── SwiftDataModels/
-│   └── VoiceCacheModel.swift        # Voice caching with SwiftData
 ├── UI/
 │   ├── ProviderPickerView.swift     # SwiftUI provider picker
 │   ├── VoicePickerView.swift        # SwiftUI voice picker
@@ -92,14 +90,13 @@ SwiftHablare/
 ### Key Features
 
 - **Multi-Provider Support**: Apple TTS (built-in) and ElevenLabs (API-based)
-- **Language-Specific Caching**: Voices cached per provider AND language code (v2.3.0+)
 - **Engine Boundary Protocol**: Platform-agnostic voice engine abstraction (v3.5.1+)
 - **Voice URI**: Portable voice references with `hablare://` URI scheme
 - **Cast List Export**: Character-to-voice mapping export (JSON format)
 - **Protocol-Oriented Design**: `SpeakableItem` and `SpeakableGroup` protocols
 - **Thread-Safe Generation**: Actor-based concurrency (GenerationService)
 - **SwiftData Integration**: Uses `TypedDataStorage` from SwiftCompartido
-- **Performance Optimizations**: 15-25% faster voice loading, 50% faster UI, 10-20x faster cache clearing (v4.0.0+)
+- **Performance Optimizations**: 15-25% faster voice loading, 50% faster UI (v4.0.0+)
 
 ### Platform Support
 
@@ -327,22 +324,7 @@ let spanishVoices = try await service.fetchVoices(from: "apple", languageCode: "
 let allVoices = try await service.fetchAllVoices()
 ```
 
-### 3. Language-Specific Voice Caching
-
-Voices are cached per provider AND language code:
-
-```swift
-// Automatic caching with language-specific keys
-let enVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "en")
-let esVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "es")
-// Both cached independently - no collision
-
-// Clear specific language or all languages
-try await service.clearVoiceCache(for: "apple", languageCode: "en", using: context)
-try await service.clearVoiceCache(for: "apple", using: context) // All languages
-```
-
-### 4. Batch Generation with Progress
+### 3. Batch Generation with Progress
 
 ```swift
 // Create speakable items
@@ -446,7 +428,7 @@ class MyTests: XCTestCase {
     var modelContainer: ModelContainer!
 
     override func setUp() async throws {
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let schema = Schema([TypedDataStorage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(modelContainer)
@@ -457,7 +439,7 @@ class MyTests: XCTestCase {
 @Suite @MainActor
 struct MyTests {
     func makeTestContainer() throws -> ModelContainer {
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let schema = Schema([TypedDataStorage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
@@ -530,7 +512,7 @@ actor MyService {
 **In Scope:**
 - ✅ Voice provider integration (Apple TTS, ElevenLabs) with language filtering
 - ✅ Provider registry and management
-- ✅ Language-specific voice fetching and caching (VoiceCacheModel)
+- ✅ Language-specific voice fetching
 - ✅ Multi-language support with automatic system language detection
 - ✅ Thread-safe audio generation (actor-based)
 - ✅ API key management (Keychain)

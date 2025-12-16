@@ -23,11 +23,6 @@ struct GenerationServiceTests {
         #expect(service != nil)
     }
 
-    @Test("Initialization with custom cache lifetime")
-    func testInitializationWithCustomCacheLifetime() {
-        let service = GenerationService(cacheLifetime: 10.0)
-        #expect(service != nil)
-    }
 
     // MARK: - Audio Generation Tests with Apple Provider
 
@@ -37,7 +32,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -65,7 +60,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -88,7 +83,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -111,7 +106,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -135,7 +130,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -170,7 +165,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         #expect(!voices.isEmpty)
 
@@ -186,7 +181,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -242,7 +237,7 @@ struct GenerationServiceTests {
         await service.registerProvider(provider)
 
         do {
-            _ = try await service.fetchVoices(from: "mock-unconfigured", using: context)
+            _ = try await service.fetchVoices(from: "mock-unconfigured")
             Issue.record("Should throw notConfigured error")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -305,7 +300,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         #expect(!voices.isEmpty)
         #expect(voices.allSatisfy { $0.providerId == "apple" })
@@ -418,7 +413,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let appleVoices = try await service.fetchVoices(from: "apple", using: context)
+        let appleVoices = try await service.fetchVoices(from: "apple")
 
         #expect(!appleVoices.isEmpty)
         #expect(appleVoices.allSatisfy { $0.providerId == "apple" })
@@ -431,7 +426,7 @@ struct GenerationServiceTests {
         let service = GenerationService()
 
         do {
-            _ = try await service.fetchVoices(from: "unknown-provider", using: context)
+            _ = try await service.fetchVoices(from: "unknown-provider")
             Issue.record("Should throw error for unknown provider")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -454,7 +449,7 @@ struct GenerationServiceTests {
         await service.registerProvider(unconfiguredProvider)
 
         do {
-            _ = try await service.fetchVoices(from: "mock-unconfigured", using: context)
+            _ = try await service.fetchVoices(from: "mock-unconfigured")
             Issue.record("Should throw error for unconfigured provider")
         } catch let error as VoiceProviderError {
             if case .notConfigured = error {
@@ -476,7 +471,7 @@ struct GenerationServiceTests {
         let customProvider = TestFixtures.makeConfiguredProvider(id: "custom1")
         await service.registerProvider(customProvider)
 
-        let allVoices = try await service.fetchAllVoices(using: context)
+        let allVoices = try await service.fetchAllVoices()
 
         #expect(allVoices.count >= 1)
 
@@ -500,7 +495,7 @@ struct GenerationServiceTests {
         let unconfiguredProvider = TestFixtures.makeUnconfiguredProvider()
         await service.registerProvider(unconfiguredProvider)
 
-        let allVoices = try await service.fetchAllVoices(using: context)
+        let allVoices = try await service.fetchAllVoices()
 
         #expect(allVoices["mock-unconfigured"] == nil)
         #expect(allVoices["apple"] != nil)
@@ -515,7 +510,7 @@ struct GenerationServiceTests {
         let errorProvider = TestFixtures.makeErrorProvider()
         await service.registerProvider(errorProvider)
 
-        let allVoices = try await service.fetchAllVoices(using: context)
+        let allVoices = try await service.fetchAllVoices()
 
         #expect(allVoices["mock-error"] == nil)
         #expect(allVoices["apple"] != nil)
@@ -533,9 +528,9 @@ struct GenerationServiceTests {
         await service.registerProvider(custom1)
         await service.registerProvider(custom2)
 
-        let appleVoices = try await service.fetchVoices(from: "apple", using: context)
-        let custom1Voices = try await service.fetchVoices(from: "custom1", using: context)
-        let custom2Voices = try await service.fetchVoices(from: "custom2", using: context)
+        let appleVoices = try await service.fetchVoices(from: "apple")
+        let custom1Voices = try await service.fetchVoices(from: "custom1")
+        let custom2Voices = try await service.fetchVoices(from: "custom2")
 
         #expect(!appleVoices.isEmpty)
         #expect(!custom1Voices.isEmpty)
@@ -548,219 +543,6 @@ struct GenerationServiceTests {
 
     // MARK: - Voice Cache Tests (SwiftData)
 
-    @Test("Voice caching basic")
-    func testVoiceCachingBasic() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService(cacheLifetime: 10.0)
-
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(!hasCache1)
-
-        let voices1 = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices1.isEmpty)
-
-        let hasCache2 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache2)
-
-        let voices2 = try await service.fetchVoices(from: "apple", using: context)
-        let difference = abs(voices1.count - voices2.count)
-        #expect(difference <= 1)
-
-        let hasCache3 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache3)
-
-        let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: "apple")
-        let cachedModels = try context.fetch(descriptor)
-        let cacheDifference = abs(cachedModels.count - voices1.count)
-        #expect(cacheDifference <= 1)
-    }
-
-    @Test("Refresh voices")
-    func testRefreshVoices() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        let voices1 = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices1.isEmpty)
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache1)
-
-        let refreshedVoices = try await service.refreshVoices(from: "apple", using: context)
-        #expect(!refreshedVoices.isEmpty)
-
-        let hasCache2 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache2)
-
-        let voices2 = try await service.fetchVoices(from: "apple", using: context)
-        let refreshDifference = abs(voices2.count - refreshedVoices.count)
-        #expect(refreshDifference <= 1)
-    }
-
-    @Test("Clear voice cache")
-    func testClearVoiceCache() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        _ = try await service.fetchVoices(from: "apple", using: context)
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache1)
-
-        let beforeClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        #expect(!beforeClear.isEmpty)
-
-        try await service.clearVoiceCache(for: "apple", using: context)
-
-        let hasCache2 = await service.hasValidCache(for: "apple", using: context)
-        #expect(!hasCache2)
-
-        let afterClear = try context.fetch(VoiceCacheModel.fetchDescriptor(forProvider: "apple"))
-        #expect(afterClear.isEmpty)
-
-        let voices = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices.isEmpty)
-        let hasCache3 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache3)
-    }
-
-    @Test("Clear all voice caches")
-    func testClearAllVoiceCaches() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        _ = try await service.fetchVoices(from: "apple", using: context)
-        let hasCache1 = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache1)
-
-        let customProvider = TestFixtures.makeConfiguredProvider(id: "custom")
-        await service.registerProvider(customProvider)
-        _ = try await service.fetchVoices(from: "custom", using: context)
-        let hasCache2 = await service.hasValidCache(for: "custom", using: context)
-        #expect(hasCache2)
-
-        let allBefore = try context.fetch(FetchDescriptor<VoiceCacheModel>())
-        #expect(allBefore.count > 0)
-
-        try await service.clearAllVoiceCaches(using: context)
-
-        let hasCache3 = await service.hasValidCache(for: "apple", using: context)
-        #expect(!hasCache3)
-        let hasCache4 = await service.hasValidCache(for: "custom", using: context)
-        #expect(!hasCache4)
-
-        let allAfter = try context.fetch(FetchDescriptor<VoiceCacheModel>())
-        #expect(allAfter.isEmpty)
-    }
-
-    @Test("Cache clearing restores autosave")
-    func testCacheClearingRestoresAutosave() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        _ = try await service.fetchVoices(from: "apple", using: context)
-        let hasCache = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache)
-
-        #expect(context.autosaveEnabled)
-
-        try await service.clearVoiceCache(for: "apple", using: context)
-
-        #expect(context.autosaveEnabled)
-
-        _ = try await service.fetchVoices(from: "apple", using: context)
-        try await service.clearAllVoiceCaches(using: context)
-
-        #expect(context.autosaveEnabled)
-    }
-
-    @Test("Refresh unconfigured provider throws")
-    func testRefreshUnconfiguredProvider() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        do {
-            _ = try await service.refreshVoices(from: "nonexistent", using: context)
-            Issue.record("Should throw error for non-existent provider")
-        } catch VoiceProviderError.notConfigured {
-            // Expected
-        } catch {
-            Issue.record("Wrong error type: \(error)")
-        }
-    }
-
-    @Test("Cache lifetime default")
-    func testCacheLifetimeDefault() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        let voices = try await service.fetchVoices(from: "apple", using: context)
-        #expect(!voices.isEmpty)
-
-        let hasCache = await service.hasValidCache(for: "apple", using: context)
-        #expect(hasCache)
-    }
-
-    @Test("Cache language specific")
-    func testCacheLanguageSpecific() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        let enVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "en")
-        #expect(!enVoices.isEmpty)
-
-        let hasEnCache = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
-        #expect(hasEnCache)
-
-        let hasEsCache1 = await service.hasValidCache(for: "apple", languageCode: "es", using: context)
-        #expect(!hasEsCache1)
-
-        let esVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "es")
-
-        let hasEsCache2 = await service.hasValidCache(for: "apple", languageCode: "es", using: context)
-        #expect(hasEsCache2)
-
-        let hasEnCache2 = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
-        #expect(hasEnCache2)
-
-        #expect(enVoices.count != 0)
-        #expect(esVoices.count != 0)
-    }
-
-    @Test("Clear language specific cache")
-    func testClearLanguageSpecificCache() async throws {
-        let container = try TestFixtures.makeTestContainer()
-        let context = ModelContext(container)
-        let service = GenerationService()
-
-        _ = try await service.fetchVoices(from: "apple", using: context, languageCode: "en")
-        _ = try await service.fetchVoices(from: "apple", using: context, languageCode: "es")
-
-        let hasEnCache1 = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
-        let hasEsCache1 = await service.hasValidCache(for: "apple", languageCode: "es", using: context)
-        #expect(hasEnCache1)
-        #expect(hasEsCache1)
-
-        try await service.clearVoiceCache(for: "apple", languageCode: "en", using: context)
-
-        let hasEnCache2 = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
-        let hasEsCache2 = await service.hasValidCache(for: "apple", languageCode: "es", using: context)
-        #expect(!hasEnCache2)
-        #expect(hasEsCache2)
-
-        try await service.clearVoiceCache(for: "apple", using: context)
-
-        let hasEnCache3 = await service.hasValidCache(for: "apple", languageCode: "en", using: context)
-        let hasEsCache3 = await service.hasValidCache(for: "apple", languageCode: "es", using: context)
-        #expect(!hasEnCache3)
-        #expect(!hasEsCache3)
-    }
 
     // MARK: - Concurrency Tests
 
@@ -770,7 +552,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
@@ -811,7 +593,7 @@ struct GenerationServiceTests {
         let context = ModelContext(container)
         let service = GenerationService()
 
-        let voices = try await service.fetchVoices(from: "apple", using: context)
+        let voices = try await service.fetchVoices(from: "apple")
 
         guard let firstVoice = voices.first else {
             Issue.record("No voices available")
