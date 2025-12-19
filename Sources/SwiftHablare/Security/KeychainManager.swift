@@ -9,7 +9,7 @@ import Foundation
 import Security
 
 /// Simple keychain manager for storing API keys
-public final class KeychainManager: @unchecked Sendable {
+public final class KeychainManager: @unchecked Sendable, KeychainManagerProtocol {
 
     // MARK: - Singleton
 

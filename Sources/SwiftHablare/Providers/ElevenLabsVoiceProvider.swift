@@ -74,14 +74,17 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     public let requiresAPIKey = true
     public let mimeType = "audio/mpeg"  // MP3 format from API (processed to M4A by AudioProcessor)
 
-    private let keychainManager = KeychainManager.shared
+    private let keychainManager: KeychainManagerProtocol
     private let apiKeyAccount = "elevenlabs-api-key"
     private let ephemeralAPIKey: String?
     private let engine = ElevenLabsEngine()
 
-    /// Initialize with optional ephemeral API key (for testing)
-    /// - Parameter apiKey: Optional API key to use instead of keychain (primarily for testing)
-    public init(apiKey: String? = nil) {
+    /// Initialize with optional keychain manager and API key
+    /// - Parameters:
+    ///   - keychainManager: Keychain manager to use (defaults to shared singleton)
+    ///   - apiKey: Optional API key to use instead of keychain (primarily for testing)
+    public init(keychainManager: KeychainManagerProtocol = KeychainManager.shared, apiKey: String? = nil) {
+        self.keychainManager = keychainManager
         self.ephemeralAPIKey = apiKey
     }
 
