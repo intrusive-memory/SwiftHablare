@@ -13,7 +13,7 @@ import Foundation
 /// - Production: KeychainManager (direct keychain access)
 /// - Testing: MockKeychainManager (in-memory storage)
 /// - Session-based: Custom implementations with caching and biometric auth
-public protocol KeychainManagerProtocol {
+public protocol KeychainManagerProtocol: Sendable {
     /// Save an API key to secure storage
     /// - Parameters:
     ///   - key: API key to save
