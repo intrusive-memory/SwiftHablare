@@ -446,7 +446,7 @@ request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 **Implementation**:
 ```swift
 func fetchVoices(languageCode: String, configuration: WellSaidEngineConfiguration) async throws -> [Voice] {
-    let urlString = "https://api.wellsaidlabs.com/v1/voices?language=\(languageCode)"
+    let urlString = "https://api.wellsaidlabs.com/v1/avatars"
     guard let url = URL(string: urlString) else {
         throw VoiceProviderError.invalidRequest("Invalid URL")
     }
@@ -456,9 +456,8 @@ func fetchVoices(languageCode: String, configuration: WellSaidEngineConfiguratio
     request.setValue(configuration.userAgent, forHTTPHeaderField: "User-Agent")
 
     let (data, response) = try await URLSession.shared.data(for: request)
-    // Parse and return voices
+    // Parse avatars and then filter by languageCode on the client side.
 }
-```
 
 #### 3. Text-to-Speech Endpoint
 
