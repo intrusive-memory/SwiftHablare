@@ -313,7 +313,7 @@ public struct GenerateAudioButton: View {
                 }
 
                 // Ensure provider is configured
-                guard provider.isConfigured() else {
+                guard await provider.isConfigured() else {
                     throw VoiceProviderError.notConfigured
                 }
 

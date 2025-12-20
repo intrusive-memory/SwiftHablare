@@ -25,7 +25,7 @@ public protocol VoiceProvider: Sendable {
     var mimeType: String { get }
 
     /// Check if the provider is properly configured
-    func isConfigured() -> Bool
+    func isConfigured() async -> Bool
 
     /// Fetch available voices from the provider
     /// - Parameter languageCode: Optional language code to filter voices (e.g., "en", "es", "fr").

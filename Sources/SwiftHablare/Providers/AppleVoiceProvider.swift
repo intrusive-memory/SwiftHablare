@@ -48,7 +48,7 @@ public final class AppleVoiceProvider: VoiceProvider {
         #endif
     }
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         // Apple TTS is always available on supported platforms
         return engine.canGenerate(with: configuration)
     }

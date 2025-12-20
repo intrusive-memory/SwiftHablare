@@ -399,7 +399,7 @@ public actor GenerationService {
                 let providerId = provider.providerId
 
                 // Ensure provider is configured
-                guard provider.isConfigured() else {
+                guard await provider.isConfigured() else {
                     throw VoiceProviderError.notConfigured
                 }
 

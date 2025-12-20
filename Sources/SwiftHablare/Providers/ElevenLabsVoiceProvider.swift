@@ -94,15 +94,15 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     /// Get API key from ephemeral storage (test) or keychain (production)
-    private func getAPIKey() throws -> String {
+    private func getAPIKey() async throws -> String {
         if let ephemeralKey = ephemeralAPIKey {
             return ephemeralKey
         }
-        return try keychainManager.getAPIKey(for: apiKeyAccount)
+        return try await keychainManager.getAPIKey(for: apiKeyAccount)
     }
 
-    public func isConfigured() -> Bool {
-        guard let apiKey = try? getAPIKey() else {
+    public func isConfigured() async -> Bool {
+        guard let apiKey = try? await getAPIKey() else {
             return false
         }
         let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
@@ -110,12 +110,12 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func fetchVoices(languageCode: String) async throws -> [Voice] {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey(), userAgent: userAgent)
+        let configuration = ElevenLabsEngineConfiguration(apiKey: try await getAPIKey(), userAgent: userAgent)
         return try await engine.fetchVoices(languageCode: languageCode, configuration: configuration)
     }
 
     public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try getAPIKey(), userAgent: userAgent)
+        let configuration = ElevenLabsEngineConfiguration(apiKey: try await getAPIKey(), userAgent: userAgent)
         let selectedModel = selectedModel()
         let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: languageCode, options: [
             "model_id": selectedModel.rawValue,
@@ -127,7 +127,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: (try? getAPIKey()) ?? "", userAgent: userAgent)
+        let configuration = ElevenLabsEngineConfiguration(apiKey: (try? await getAPIKey()) ?? "", userAgent: userAgent)
         let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode, options: [
             "stability": "0.5"
         ])
@@ -135,7 +135,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
-        guard let apiKey = try? getAPIKey() else {
+        guard let apiKey = try? await getAPIKey() else {
             return false
         }
         let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
@@ -143,27 +143,27 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     }
 
     /// Retrieve the current API key if one exists.
-    public func currentAPIKey() -> String? {
+    public func currentAPIKey() async -> String? {
         if let ephemeralAPIKey {
             return ephemeralAPIKey
         }
-        return try? keychainManager.getAPIKey(for: apiKeyAccount)
+        return try? await keychainManager.getAPIKey(for: apiKeyAccount)
     }
 
     /// Persist a new API key for ElevenLabs usage.
-    public func updateAPIKey(_ apiKey: String) throws {
+    public func updateAPIKey(_ apiKey: String) async throws {
         guard ephemeralAPIKey == nil else {
             return
         }
-        try keychainManager.saveAPIKey(apiKey, for: apiKeyAccount)
+        try await keychainManager.saveAPIKey(apiKey, for: apiKeyAccount)
     }
 
     /// Remove the stored API key from secure storage.
-    public func clearAPIKey() throws {
+    public func clearAPIKey() async throws {
         guard ephemeralAPIKey == nil else {
             return
         }
-        try keychainManager.deleteAPIKey(for: apiKeyAccount)
+        try await keychainManager.deleteAPIKey(for: apiKeyAccount)
     }
 
     /// Get the currently selected ElevenLabs model
@@ -191,10 +191,11 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
 #if canImport(SwiftUI)
 @MainActor
 private struct ElevenLabsVoiceProviderConfigurationView: View {
-    @State private var apiKey: String
+    @State private var apiKey: String = ""
     @State private var selectedModel: ElevenLabsModel
     @State private var isProcessing = false
     @State private var errorMessage: String?
+    @State private var hasAPIKey = false
 
     let provider: ElevenLabsVoiceProvider
     let onConfigured: (Bool) -> Void
@@ -202,7 +203,6 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
     init(provider: ElevenLabsVoiceProvider, onConfigured: @escaping (Bool) -> Void) {
         self.provider = provider
         self.onConfigured = onConfigured
-        _apiKey = State(initialValue: provider.currentAPIKey() ?? "")
         _selectedModel = State(initialValue: provider.selectedModel())
     }
 
@@ -264,10 +264,17 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
                 } label: {
                     Text("Remove API Key")
                 }
-                .disabled(isProcessing || provider.currentAPIKey() == nil)
+                .disabled(isProcessing || !hasAPIKey)
             }
         }
         .navigationTitle(provider.displayName)
+        .task {
+            // Load current API key on appear
+            if let currentKey = await provider.currentAPIKey() {
+                apiKey = currentKey
+                hasAPIKey = true
+            }
+        }
     }
 
     private func saveAPIKey() {
@@ -277,7 +284,8 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
 
         Task { @MainActor in
             do {
-                try provider.updateAPIKey(apiKey)
+                try await provider.updateAPIKey(apiKey)
+                hasAPIKey = true
                 onConfigured(true)
             } catch {
                 errorMessage = error.localizedDescription
@@ -294,8 +302,9 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
 
         Task { @MainActor in
             do {
-                try provider.clearAPIKey()
+                try await provider.clearAPIKey()
                 apiKey = ""
+                hasAPIKey = false
                 onConfigured(false)
             } catch {
                 errorMessage = error.localizedDescription
