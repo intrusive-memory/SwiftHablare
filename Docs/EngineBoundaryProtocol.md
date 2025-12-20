@@ -71,25 +71,22 @@ SwiftHablare ships with two engine-backed providers:
 
 | Provider | Engine | Notes |
 | --- | --- | --- |
-| `AppleVoiceProvider` | `AppleTTSEngineBoundary` wrapping platform engines | Uses native system APIs (`AVSpeechSynthesizer` / `NSSpeechSynthesizer`). |
+| `AppleVoiceProvider` | `AppleTTSEngineBoundary` wrapping `AVSpeechTTSEngine` | Uses native system API (`AVSpeechSynthesizer`) on all platforms. |
 | `ElevenLabsVoiceProvider` | `ElevenLabsEngine` | Performs HTTPS requests to ElevenLabs API using stored API keys. |
 
-### Platform Example: Apple Engines
+### Platform Example: Apple Engine
 
-The Apple provider demonstrates how a single boundary adapter can coordinate multiple platform engines:
+The Apple provider demonstrates a unified engine implementation across all platforms:
 
 ```swift
-#if os(iOS) || targetEnvironment(macCatalyst)
+// Unified implementation for all platforms
 let engine = AppleTTSEngineBoundary(underlying: AVSpeechTTSEngine())
-#elseif os(macOS)
-let engine = AppleTTSEngineBoundary(underlying: NSSpeechTTSEngine())
-#endif
 ```
 
-* `AVSpeechTTSEngine` targets iOS and Mac Catalyst via UIKit/AVFoundation APIs.
-* `NSSpeechTTSEngine` targets macOS via AppKit's `NSSpeechSynthesizer`.
+* `AVSpeechTTSEngine` uses `AVSpeechSynthesizer` via AVFoundation on both iOS and macOS.
+* No platform-specific engine code is required - `AVSpeechSynthesizer` is available on all supported platforms (iOS 26+, macOS 26+).
 
-When creating new engines, follow this pattern: keep the boundary type platform-agnostic and inject the appropriate implementation at initialization time.
+When creating new engines, this unified approach is recommended when the underlying API is available across platforms.
 
 ## Adding a New Engine
 

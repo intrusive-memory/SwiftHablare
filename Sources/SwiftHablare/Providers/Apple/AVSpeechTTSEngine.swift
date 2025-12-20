@@ -2,23 +2,27 @@
 //  AVSpeechTTSEngine.swift
 //  SwiftHablare
 //
-//  iOS implementation using AVSpeechSynthesizer
+//  Implementation using AVSpeechSynthesizer for iOS and macOS
 //
 
+import AVFoundation
 #if canImport(UIKit)
 import UIKit
-import AVFoundation
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
-/// iOS implementation of Apple TTS using AVSpeechSynthesizer
+/// Apple TTS implementation using AVSpeechSynthesizer
 ///
 /// **Platform Support:**
-/// - **iOS 13+**: Full TTS support with real audio generation
+/// - **iOS 26+**: Full TTS support with real audio generation
+/// - **macOS 26+**: Full TTS support with real audio generation
 /// - **iOS Simulator**: Generates placeholder silent audio (API limitation)
 ///
 /// **Audio Output:**
 /// - **Physical Device**: AIFC format with actual synthesized speech
 /// - **Simulator**: AIFF format with silent placeholder audio
-@available(iOS 13.0, *)
+@available(iOS 13.0, macOS 14.0, *)
 final class AVSpeechTTSEngine: AppleTTSEngine {
 
     // MARK: - AppleTTSEngine Implementation
@@ -40,75 +44,84 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
     }
 
     func fetchVoices(languageCode: String) async throws -> [Voice] {
-        return try await withCheckedThrowingContinuation { continuation in
+        // Use MainActor.run to properly execute on main thread from async context
+        // This eliminates unsafeForcedSync warnings that occur with DispatchQueue.main.async
+        return try await MainActor.run {
+            #if DEBUG
+            print("🎤 [AVSpeechTTSEngine] About to call AVSpeechSynthesisVoice.speechVoices()")
+            print("🎤 [AVSpeechTTSEngine] Using MainActor.run (no unsafeForcedSync warnings)")
+            print("🎤 [AVSpeechTTSEngine] Current thread: \(Thread.current)")
+            print("🎤 [AVSpeechTTSEngine] Is main thread: \(Thread.isMainThread)")
+            #endif
+
+            // Get all available AVSpeechSynthesisVoice instances
             // AVSpeechSynthesisVoice must be accessed on the main thread
-            DispatchQueue.main.async {
-                // Get all available AVSpeechSynthesisVoice instances
-                let avVoices = AVSpeechSynthesisVoice.speechVoices()
+            let avVoices = AVSpeechSynthesisVoice.speechVoices()
 
-                // Ensure we have voices available
-                guard !avVoices.isEmpty else {
-                    continuation.resume(throwing: VoiceProviderError.invalidResponse)
-                    return
-                }
+            #if DEBUG
+            print("🎤 [AVSpeechTTSEngine] Returned from AVSpeechSynthesisVoice.speechVoices() with \(avVoices.count) voices")
+            #endif
 
-                // Use provided language code for filtering
-                // Convert all voices first, then filter
-                let allVoices = avVoices.compactMap { avVoice -> Voice? in
-                    // Extract language code and quality info
-                    let languageInfo = Locale.current.localizedString(forIdentifier: avVoice.language) ?? avVoice.language
-                    let qualityInfo = self.qualityDescription(for: avVoice.quality)
-                    let description = "\(languageInfo) - \(qualityInfo)"
-
-                    // Extract gender from voice name or identifier patterns
-                    let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
-
-                    // Store quality as string for filtering
-                    let qualityString = self.qualityString(for: avVoice.quality)
-
-                    // Split language code on dash or underscore
-                    let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
-
-                    var language: String?
-                    var locality: String?
-
-                    if components.count >= 1 {
-                        language = components[0]
-                    }
-                    if components.count >= 2 {
-                        locality = components[1]
-                    }
-
-                    return Voice(
-                        id: avVoice.identifier,
-                        name: avVoice.name,
-                        description: description,
-                        providerId: "apple",
-                        language: language,
-                        locality: locality,
-                        gender: gender,
-                        quality: qualityString
-                    )
-                }
-
-                // Filter voices that match the requested language (first 2 characters)
-                let filteredVoices = allVoices.filter { voice in
-                    guard let voiceLanguage = voice.language else { return false }
-                    let voiceLangPrefix = String(voiceLanguage.prefix(2))
-                    let requestedLangPrefix = String(languageCode.prefix(2))
-                    return voiceLangPrefix == requestedLangPrefix
-                }
-
-                // If no voices match system language, return a reasonable subset of all voices
-                let result = filteredVoices.isEmpty ? Array(allVoices.prefix(10)) : filteredVoices
-
-                guard !result.isEmpty else {
-                    continuation.resume(throwing: VoiceProviderError.invalidResponse)
-                    return
-                }
-
-                continuation.resume(returning: result)
+            // Ensure we have voices available
+            guard !avVoices.isEmpty else {
+                throw VoiceProviderError.invalidResponse
             }
+
+            // Use provided language code for filtering
+            // Convert all voices first, then filter
+            let allVoices = avVoices.compactMap { avVoice -> Voice? in
+                // Extract language code and quality info
+                let languageInfo = Locale.current.localizedString(forIdentifier: avVoice.language) ?? avVoice.language
+                let qualityInfo = self.qualityDescription(for: avVoice.quality)
+                let description = "\(languageInfo) - \(qualityInfo)"
+
+                // Extract gender from voice name or identifier patterns
+                let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
+
+                // Store quality as string for filtering
+                let qualityString = self.qualityString(for: avVoice.quality)
+
+                // Split language code on dash or underscore
+                let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
+
+                var language: String?
+                var locality: String?
+
+                if components.count >= 1 {
+                    language = components[0]
+                }
+                if components.count >= 2 {
+                    locality = components[1]
+                }
+
+                return Voice(
+                    id: avVoice.identifier,
+                    name: avVoice.name,
+                    description: description,
+                    providerId: "apple",
+                    language: language,
+                    locality: locality,
+                    gender: gender,
+                    quality: qualityString
+                )
+            }
+
+            // Filter voices that match the requested language (first 2 characters)
+            let filteredVoices = allVoices.filter { voice in
+                guard let voiceLanguage = voice.language else { return false }
+                let voiceLangPrefix = String(voiceLanguage.prefix(2))
+                let requestedLangPrefix = String(languageCode.prefix(2))
+                return voiceLangPrefix == requestedLangPrefix
+            }
+
+            // If no voices match system language, return a reasonable subset of all voices
+            let result = filteredVoices.isEmpty ? Array(allVoices.prefix(10)) : filteredVoices
+
+            guard !result.isEmpty else {
+                throw VoiceProviderError.invalidResponse
+            }
+
+            return result
         }
     }
 
@@ -309,5 +322,3 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         return nil
     }
 }
-
-#endif

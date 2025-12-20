@@ -77,7 +77,7 @@ struct VoiceQualityFilterTests {
     #if os(macOS)
     @Test("macOS voices have quality property")
     func macOSVoicesHaveQualityProperty() async throws {
-        let engine = NSSpeechTTSEngine()
+        let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
         #expect(!voices.isEmpty)
@@ -89,7 +89,7 @@ struct VoiceQualityFilterTests {
 
     @Test("macOS voice quality values are valid")
     func macOSVoiceQualityValues() async throws {
-        let engine = NSSpeechTTSEngine()
+        let engine = AVSpeechTTSEngine()
         let voices = try await engine.fetchVoices(languageCode: "en")
 
         let validQualities = ["default", "enhanced", "premium"]
@@ -103,7 +103,7 @@ struct VoiceQualityFilterTests {
 
     @Test("macOS quality extraction from name")
     func macOSQualityExtractionFromName() {
-        let _engine = NSSpeechTTSEngine()
+        let _engine = AVSpeechTTSEngine()
 
         // Test premium detection
         let _premiumVoice = Voice(
@@ -176,7 +176,7 @@ struct VoiceQualityFilterTests {
     #if os(macOS)
     @Test("macOS filter removes default quality voices")
     func macOSFilterRemovesDefaultQualityVoices() async throws {
-        let engine = NSSpeechTTSEngine()
+        let engine = AVSpeechTTSEngine()
         let boundary = AppleTTSEngineBoundary(underlying: engine)
 
         // Get all voices
@@ -229,13 +229,7 @@ struct VoiceQualityFilterTests {
 
     @Test("Voice quality property exists across platforms")
     func voiceQualityPropertyExistsAcrossPlatforms() async throws {
-        #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
-        #elseif os(macOS)
-        let engine = NSSpeechTTSEngine()
-        #else
-        throw skip("Unsupported platform for Apple TTS")
-        #endif
 
         let voices = try await engine.fetchVoices(languageCode: "en")
         #expect(!voices.isEmpty)
@@ -248,13 +242,7 @@ struct VoiceQualityFilterTests {
 
     @Test("Filter behavior consistent across platforms")
     func filterBehaviorConsistentAcrossPlatforms() async throws {
-        #if canImport(UIKit) && !os(macOS)
         let engine = AVSpeechTTSEngine()
-        #elseif os(macOS)
-        let engine = NSSpeechTTSEngine()
-        #else
-        throw skip("Unsupported platform for Apple TTS")
-        #endif
 
         let boundary = AppleTTSEngineBoundary(underlying: engine)
 

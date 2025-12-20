@@ -7,24 +7,17 @@
 
 import Foundation
 
-/// Protocol defining the interface for platform-specific Apple TTS engines
+/// Protocol defining the interface for Apple TTS engines
 ///
-/// This protocol abstracts the differences between iOS (`AVSpeechSynthesizer`)
-/// and macOS (`NSSpeechSynthesizer`) TTS implementations.
+/// This protocol provides a unified interface for Apple's text-to-speech
+/// functionality using `AVSpeechSynthesizer` on both iOS and macOS.
 ///
-/// ## Platform Implementations
-/// - **iOS**: `AVSpeechTTSEngine` - Uses `AVSpeechSynthesizer.write()`
-/// - **macOS**: `NSSpeechTTSEngine` - Uses `NSSpeechSynthesizer.startSpeaking(to:)`
+/// ## Platform Implementation
+/// - **iOS & macOS**: `AVSpeechTTSEngine` - Uses `AVSpeechSynthesizer.write()`
 ///
 /// ## Example Usage
 /// ```swift
-/// let engine: AppleTTSEngine
-/// #if canImport(UIKit)
-/// engine = AVSpeechTTSEngine()
-/// #elseif canImport(AppKit)
-/// engine = NSSpeechTTSEngine()
-/// #endif
-///
+/// let engine = AVSpeechTTSEngine()
 /// let audio = try await engine.generateAudio(text: "Hello", voiceId: "...")
 /// ```
 protocol AppleTTSEngine: Sendable {

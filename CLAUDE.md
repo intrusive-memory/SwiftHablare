@@ -102,16 +102,16 @@ SwiftHablare/
 
 **Supported Platforms:**
 - **iOS 26+**: Full TTS support with `AVSpeechSynthesizer.write()` (AIFC format)
-- **macOS 26+**: Full TTS support with `NSSpeechSynthesizer` (AIFF format)
+- **macOS 26+**: Full TTS support with `AVSpeechSynthesizer.write()` (AIFC format)
 
-**Platform-Specific Implementations:**
-- iOS uses `AVSpeechTTSEngine` (AVFoundation)
-- macOS uses `NSSpeechTTSEngine` (AppKit)
-- Both engines implement the `VoiceEngine` protocol
+**Unified Implementation:**
+- Both iOS and macOS use `AVSpeechTTSEngine` (AVFoundation)
+- Single implementation using `AVSpeechSynthesizer` across all platforms
+- No platform-specific engine code required
 
 **Simulator Behavior:**
-- Physical iOS devices: Real TTS audio generation
-- iOS Simulator: Limited audio support (AVSpeechSynthesizer.write() constraints)
+- Physical iOS/macOS devices: Real TTS audio generation
+- iOS Simulator: Limited audio support (AVSpeechSynthesizer.write() constraints, generates placeholder audio)
 - macOS: Always produces real audio
 
 Integration tests requiring real audio are skipped on simulators using `#if targetEnvironment(simulator)`.

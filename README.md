@@ -282,10 +282,10 @@ if provider.isConfigured() {
 - Gender detection based on voice name
 - Platform-agnostic through Engine Boundary Protocol
 
-**Platform-Specific Implementation:**
+**Unified Implementation:**
 - **iOS 26+**: Uses AVSpeechSynthesizer.write() (AIFC format)
-- **macOS 26+**: Uses NSSpeechSynthesizer (AIFF format)
-- Unified interface via VoiceEngine protocol
+- **macOS 26+**: Uses AVSpeechSynthesizer.write() (AIFC format)
+- Single implementation across all platforms via AVSpeechTTSEngine
 
 ### ElevenLabs Voice Provider
 

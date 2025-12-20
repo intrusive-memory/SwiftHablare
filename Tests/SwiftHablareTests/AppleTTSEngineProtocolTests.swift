@@ -14,18 +14,12 @@ import AVFoundation
 @MainActor
 struct AppleTTSEngineProtocolTests {
 
-    // Platform-specific engine instance
+    // Unified engine instance for all platforms
     var engine: AppleTTSEngine
 
     init() {
-        // Create platform-appropriate engine
-        #if os(iOS)
+        // Create AVSpeechTTSEngine for all platforms
         self.engine = AVSpeechTTSEngine()
-        #elseif os(macOS)
-        self.engine = NSSpeechTTSEngine()
-        #else
-        fatalError("Unsupported platform")
-        #endif
     }
 
     // MARK: - Protocol Method Signature Tests
