@@ -298,7 +298,7 @@ struct GenerateAudioButtonTests {
             var requiresAPIKey: Bool { true }
             var mimeType: String { "audio/mpeg" }
 
-            func isConfigured() -> Bool { false }
+            func isConfigured() async -> Bool { false }
 
             func fetchVoices(languageCode: String) async throws -> [Voice] {
                 throw VoiceProviderError.notConfigured

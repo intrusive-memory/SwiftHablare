@@ -180,20 +180,6 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         UserDefaults.standard.set(model.rawValue, forKey: "elevenlabs-selected-model")
     }
 
-    /// Get the currently selected ElevenLabs model
-    public func selectedModel() -> ElevenLabsModel {
-        guard let modelString = UserDefaults.standard.string(forKey: "elevenlabs-selected-model"),
-              let model = ElevenLabsModel(rawValue: modelString) else {
-            return .default
-        }
-        return model
-    }
-
-    /// Update the selected ElevenLabs model
-    public func updateSelectedModel(_ model: ElevenLabsModel) {
-        UserDefaults.standard.set(model.rawValue, forKey: "elevenlabs-selected-model")
-    }
-
 #if canImport(SwiftUI)
     @MainActor
     public func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {

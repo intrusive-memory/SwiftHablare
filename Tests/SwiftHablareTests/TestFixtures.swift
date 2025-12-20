@@ -385,7 +385,7 @@ public final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 
@@ -451,7 +451,7 @@ public final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable 
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return false
     }
 
@@ -496,7 +496,7 @@ public final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 
@@ -544,7 +544,7 @@ public final class CustomMockProvider: VoiceProvider, @unchecked Sendable {
         self.displayName = "Custom Mock \(providerId)"
     }
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 

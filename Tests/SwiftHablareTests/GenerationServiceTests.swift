@@ -277,7 +277,7 @@ struct GenerationServiceTests {
             return
         }
 
-        #expect(appleProvider.isConfigured())
+        #expect(await appleProvider.isConfigured())
         #expect(appleProvider.displayName == "Apple Text-to-Speech")
         #expect(!appleProvider.requiresAPIKey)
     }

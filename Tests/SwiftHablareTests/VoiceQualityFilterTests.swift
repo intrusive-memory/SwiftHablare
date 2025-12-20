@@ -207,19 +207,19 @@ struct VoiceQualityFilterTests {
     // MARK: - Provider Integration Tests
 
     @Test("Apple voice provider reads filter setting from UserDefaults")
-    func appleVoiceProviderReadsFilterSettingFromUserDefaults() {
+    func appleVoiceProviderReadsFilterSettingFromUserDefaults() async {
         // Clear any existing setting
         UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
 
         let provider = AppleVoiceProvider()
-        #expect(provider.isConfigured())
+        #expect(await provider.isConfigured())
 
         // Set the filter in UserDefaults
         UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
 
         // Create new provider instance to pick up the setting
         let providerWithFilter = AppleVoiceProvider()
-        #expect(providerWithFilter.isConfigured())
+        #expect(await providerWithFilter.isConfigured())
 
         // Cleanup
         UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
