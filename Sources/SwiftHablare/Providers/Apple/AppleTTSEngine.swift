@@ -32,6 +32,16 @@ protocol AppleTTSEngine: Sendable {
     /// - Throws: `VoiceProviderError` if synthesis fails
     func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data
 
+    /// Generate audio with accurate duration measured from buffer frames
+    ///
+    /// - Parameters:
+    ///   - text: The text to synthesize
+    ///   - voiceId: Platform-specific voice identifier
+    ///   - languageCode: The language code for generation (e.g., "en", "es", "fr")
+    /// - Returns: Tuple of (audio data, duration in seconds)
+    /// - Throws: `VoiceProviderError` if synthesis fails
+    func generateAudioWithDuration(text: String, voiceId: String, languageCode: String) async throws -> (Data, TimeInterval)
+
     /// Get all available voices for this platform
     ///
     /// - Parameter languageCode: Language code to filter voices (e.g., "en", "es", "fr")
