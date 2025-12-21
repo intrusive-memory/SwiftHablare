@@ -164,33 +164,61 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     synthesizer.delegate = delegate
 
                     // Write synthesized speech to file, capturing each audio buffer
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Calling synthesizer.write() with utterance")
+                    #endif
+
                     synthesizer.write(utterance) { buffer in
+                        #if DEBUG
+                        print("🎤 [AVSpeechTTSEngine] ✅ Buffer callback invoked! Buffer type: \(type(of: buffer))")
+                        #endif
+
                         // Cast to PCM buffer (AVSpeechSynthesizer provides PCM buffers)
                         guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                            #if DEBUG
+                            print("🎤 [AVSpeechTTSEngine] ❌ Buffer is not AVAudioPCMBuffer")
+                            #endif
                             return
                         }
+
+                        #if DEBUG
+                        print("🎤 [AVSpeechTTSEngine] ✅ Got PCM buffer with \(pcmBuffer.frameLength) frames")
+                        #endif
 
                         do {
                             // Create the file on first buffer using the buffer's format
                             if audioFile == nil {
                                 audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                                #if DEBUG
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file")
+                                #endif
                             }
 
                             // Write this buffer to the file
                             if let file = audioFile {
                                 try file.write(from: pcmBuffer)
                                 bufferCount += 1
+                                #if DEBUG
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount)")
+                                #endif
                             }
                         } catch {
                             #if DEBUG
-                            print("Error writing audio buffer: \(error)")
+                            print("🎤 [AVSpeechTTSEngine] ❌ Error writing audio buffer: \(error)")
                             #endif
                         }
                     }
 
                     // CRITICAL: Wait for synthesis to complete before checking buffer count
                     // The write() callback is asynchronous, so we need to wait for the delegate callback
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Waiting for synthesis completion...")
+                    #endif
                     await delegate.waitForCompletion()
+
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount)")
+                    #endif
 
                     // If no buffers were generated, fall back to placeholder
                     if bufferCount == 0 {
@@ -365,12 +393,18 @@ private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
 
     /// Called when synthesis completes
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        #if DEBUG
+        print("🎤 [SynthesizerDelegate] didFinish called")
+        #endif
         continuation?.resume()
         continuation = nil
     }
 
     /// Called when synthesis is cancelled
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        #if DEBUG
+        print("🎤 [SynthesizerDelegate] didCancel called")
+        #endif
         continuation?.resume()
         continuation = nil
     }
