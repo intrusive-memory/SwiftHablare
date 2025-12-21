@@ -353,7 +353,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 ///
 /// Note: Not isolated to MainActor to avoid actor isolation conflicts with AVSpeechSynthesizerDelegate.
 /// The delegate methods can be called from any thread, so we use thread-safe continuation handling.
-private class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
     private var continuation: CheckedContinuation<Void, Never>?
 
     /// Wait for synthesis to complete
