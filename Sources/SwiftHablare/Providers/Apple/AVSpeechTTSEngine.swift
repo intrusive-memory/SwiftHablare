@@ -39,6 +39,26 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         #else
         // Physical iOS Device: Use real TTS
         // Note: languageCode is used for voice selection, but actual voice is determined by voiceId
+        let (data, _) = try await generateRealAudio(text: text, voiceId: voiceId)
+        return data
+        #endif
+    }
+
+    /// Generate audio with accurate duration measured from buffer frames
+    /// - Returns: Tuple of (audio data, duration in seconds)
+    func generateAudioWithDuration(text: String, voiceId: String, languageCode: String) async throws -> (Data, TimeInterval) {
+        // Validate text is not empty
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VoiceProviderError.invalidRequest("Text cannot be empty")
+        }
+
+        #if targetEnvironment(simulator)
+        // iOS Simulator: Generate placeholder audio with estimated duration
+        let data = try await generatePlaceholderAudio(text: text)
+        let duration = Double(text.count) / 14.5
+        return (data, duration)
+        #else
+        // Physical Device: Use real TTS with frame-calculated duration
         return try await generateRealAudio(text: text, voiceId: voiceId)
         #endif
     }
@@ -138,7 +158,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
     // MARK: - Real Audio Generation (Physical Device)
 
-    private func generateRealAudio(text: String, voiceId: String) async throws -> Data {
+    private func generateRealAudio(text: String, voiceId: String) async throws -> (Data, TimeInterval) {
         return try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
@@ -157,7 +177,8 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
                     var audioFile: AVAudioFile?
                     var bufferCount = 0
-                    var synthesisCompleted = false
+                    var totalFrames: AVAudioFrameCount = 0
+                    var sampleRate: Double = 0
 
                     // Create delegate to track completion
                     let delegate = SynthesizerDelegate()
@@ -189,8 +210,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                             // Create the file on first buffer using the buffer's format
                             if audioFile == nil {
                                 audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                                sampleRate = pcmBuffer.format.sampleRate
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with sample rate: \(sampleRate) Hz")
                                 #endif
                             }
 
@@ -198,8 +220,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                             if let file = audioFile {
                                 try file.write(from: pcmBuffer)
                                 bufferCount += 1
+                                totalFrames += pcmBuffer.frameLength
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount)")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(pcmBuffer.frameLength) frames)")
                                 #endif
                             }
                         } catch {
@@ -217,7 +240,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     await delegate.waitForCompletion()
 
                     #if DEBUG
-                    print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount)")
+                    print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount), Total frames: \(totalFrames)")
                     #endif
 
                     // If no buffers were generated, fall back to placeholder
@@ -227,9 +250,17 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
                         #endif
                         let placeholderData = try await self.generatePlaceholderAudio(text: text)
-                        continuation.resume(returning: placeholderData)
+                        // Estimate duration for placeholder (14.5 chars/sec)
+                        let estimatedDuration = Double(text.count) / 14.5
+                        continuation.resume(returning: (placeholderData, estimatedDuration))
                         return
                     }
+
+                    // Calculate duration from frames and sample rate
+                    let duration = sampleRate > 0 ? Double(totalFrames) / sampleRate : 0.0
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] ✅ Calculated duration: \(String(format: "%.2f", duration))s from \(totalFrames) frames at \(sampleRate) Hz")
+                    #endif
 
                     // Read the complete synthesized audio file
                     let data = try Data(contentsOf: tempURL)
@@ -242,7 +273,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         throw VoiceProviderError.networkError("Generated audio is too short (\(data.count) bytes)")
                     }
 
-                    continuation.resume(returning: data)
+                    continuation.resume(returning: (data, duration))
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
                 }

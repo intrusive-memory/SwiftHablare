@@ -64,8 +64,24 @@ public final class AppleVoiceProvider: VoiceProvider {
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
     }
 
-    // Note: Uses default VoiceProvider implementation of generateProcessedAudio()
-    // which stores raw AIFF audio without M4A conversion
+    /// Override to use accurate duration from buffer frame calculation
+    /// instead of the default VoiceProvider implementation which uses AVURLAsset.load(.duration)
+    public func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio {
+        // Call the engine directly to get both audio and duration
+        let (audioData, duration) = try await engine.underlying.generateAudioWithDuration(
+            text: text,
+            voiceId: voiceId,
+            languageCode: languageCode
+        )
+
+        return ProcessedAudio(
+            audioData: audioData,
+            durationSeconds: duration,
+            trimmedStart: 0,
+            trimmedEnd: 0,
+            mimeType: self.mimeType
+        )
+    }
 
 #if canImport(SwiftUI)
     @MainActor
