@@ -183,8 +183,7 @@ struct GenerateAudioButtonTests {
 
         // Fetch a valid voice ID for testing
         let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         // Create test item with valid voice ID
         let item = SimpleMessage(

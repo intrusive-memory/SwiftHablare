@@ -118,6 +118,29 @@ public enum TestFixtures {
         return AppleVoiceProvider()
     }
 
+    /// Get an available Apple TTS voice ID for testing
+    ///
+    /// Fetches available voices from AppleVoiceProvider and returns the first available voice ID.
+    /// Throws a descriptive error if no voices are available (common on GitHub Actions runners).
+    ///
+    /// - Returns: A valid voice ID that can be used for testing
+    /// - Throws: NoVoicesAvailableError if no voices are available
+    public static func getAvailableAppleVoiceId() async throws -> String {
+        let provider = makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+
+        guard let voiceId = voices.first?.id else {
+            struct NoVoicesAvailableError: Error, CustomStringConvertible {
+                var description: String {
+                    "No Apple TTS voices available. This is expected on GitHub Actions runners."
+                }
+            }
+            throw NoVoicesAvailableError()
+        }
+
+        return voiceId
+    }
+
     /// Create a custom mock provider with specific ID for testing
     ///
     /// Creates a configured mock provider with a custom provider ID.

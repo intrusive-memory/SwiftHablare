@@ -353,8 +353,7 @@ struct SpeakableGroupTests {
 
         // Fetch a valid voice ID for testing
         let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         // Create test group with valid voice ID
         let items = (1...2).map { index in

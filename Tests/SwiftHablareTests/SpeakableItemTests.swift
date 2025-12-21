@@ -18,7 +18,17 @@ struct SpeakableItemTestFixtures {
     static func create() async throws -> Self {
         let provider = AppleVoiceProvider()
         let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+
+        // Check if voices are available (GitHub Actions runners may not have TTS voices)
+        guard let voiceId = voices.first?.id else {
+            struct NoVoicesAvailableError: Error, CustomStringConvertible {
+                var description: String {
+                    "No Apple TTS voices available. This is expected on GitHub Actions runners."
+                }
+            }
+            throw NoVoicesAvailableError()
+        }
+
         return SpeakableItemTestFixtures(provider: provider, voiceId: voiceId)
     }
 }

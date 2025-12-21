@@ -21,8 +21,7 @@ struct SpeakableItemListTests {
         let container = try TestFixtures.makeTestContainer()
         let context = ModelContext(container)
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let items: [any SpeakableItem] = [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
@@ -54,8 +53,7 @@ struct SpeakableItemListTests {
     @Test("List item access")
     func testListItemAccess() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let items: [any SpeakableItem] = [
             TestFixtures.makeSimpleMessage(content: "First", provider: provider, voiceId: voiceId),
@@ -79,8 +77,7 @@ struct SpeakableItemListTests {
     @Test("List all items access")
     func testListAllItems() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let items: [any SpeakableItem] = [
             TestFixtures.makeSimpleMessage(content: "A", provider: provider, voiceId: voiceId),
@@ -98,8 +95,7 @@ struct SpeakableItemListTests {
     @Test("Progress tracking through items")
     func testProgressTracking() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "1", provider: provider, voiceId: voiceId),
@@ -130,8 +126,7 @@ struct SpeakableItemListTests {
     @Test("Progress with custom message")
     func testProgressWithCustomMessage() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -144,8 +139,7 @@ struct SpeakableItemListTests {
     @Test("Processing state transitions")
     func testProcessingState() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -171,8 +165,7 @@ struct SpeakableItemListTests {
     @Test("Cancellation state change")
     func testCancellation() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -190,8 +183,7 @@ struct SpeakableItemListTests {
     @Test("Reset after completion")
     func testReset() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -217,8 +209,7 @@ struct SpeakableItemListTests {
     @Test("Reset while processing should not reset")
     func testResetWhileProcessing() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -238,8 +229,7 @@ struct SpeakableItemListTests {
     @Test("Error handling state")
     func testErrorHandling() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -275,8 +265,7 @@ struct SpeakableItemListTests {
     @Test("List properties")
     func testListProperties() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         let list = SpeakableItemList(name: "Test List", items: [
             TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
@@ -292,8 +281,7 @@ struct SpeakableItemListTests {
     @Test("Large list progress tracking")
     func testLargeListProgress() async throws {
         let provider = TestFixtures.makeAppleProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         // Create a large list
         var items: [any SpeakableItem] = []

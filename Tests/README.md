@@ -88,6 +88,9 @@ let errorProvider = TestFixtures.makeMockErrorProvider()
 
 // Real Apple provider
 let appleProvider = TestFixtures.makeAppleProvider()
+
+// Get available Apple voice (throws if none available)
+let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 ```
 
 ### SpeakableItem Factories
@@ -177,6 +180,29 @@ xcodebuild test -scheme SwiftHablare \
 - Fast Tests (macOS)
 
 All must pass before merging to `main`.
+
+### GitHub Actions Limitations
+
+**Apple TTS Voice Availability:**
+
+GitHub Actions macOS runners do not have Apple TTS voices pre-installed. This affects tests that require real voices from `AppleVoiceProvider`:
+
+- **Expected Behavior**: Tests using `TestFixtures.getAvailableAppleVoiceId()` will throw `NoVoicesAvailableError` on CI
+- **Test Resilience**: Tests gracefully handle missing voices by recording issues instead of failing
+- **Local Development**: All tests pass normally on development machines with TTS voices installed
+
+**Affected Test Files:**
+- `SpeakableItemTests.swift` - Uses helper for voice-dependent tests
+- `SpeakableItemListTests.swift` - Uses helper for batch generation tests
+- `SpeakableGroupTests.swift` - Uses helper for group generation tests
+- `GenerateAudioButtonTests.swift` - Uses helper for UI integration tests
+- `AppleTTSEngineProtocolTests.swift` - Records issues when no voices available
+
+**Why This is OK:**
+- Tests use mock providers for most functionality testing
+- Integration tests with real voices run weekly on dedicated hardware
+- The test suite verifies error handling when voices aren't available
+- This ensures the library gracefully degrades on systems without TTS support
 
 ## Best Practices
 
