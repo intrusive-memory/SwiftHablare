@@ -157,6 +157,11 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
                     var audioFile: AVAudioFile?
                     var bufferCount = 0
+                    var synthesisCompleted = false
+
+                    // Create delegate to track completion
+                    let delegate = SynthesizerDelegate()
+                    synthesizer.delegate = delegate
 
                     // Write synthesized speech to file, capturing each audio buffer
                     synthesizer.write(utterance) { buffer in
@@ -182,6 +187,10 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                             #endif
                         }
                     }
+
+                    // CRITICAL: Wait for synthesis to complete before checking buffer count
+                    // The write() callback is asynchronous, so we need to wait for the delegate callback
+                    await delegate.waitForCompletion()
 
                     // If no buffers were generated, fall back to placeholder
                     if bufferCount == 0 {
@@ -335,5 +344,32 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
         // If we can't determine, return nil
         return nil
+    }
+}
+
+// MARK: - Synthesizer Delegate
+
+/// Delegate to track AVSpeechSynthesizer completion
+@MainActor
+private class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    /// Wait for synthesis to complete
+    func waitForCompletion() async {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    /// Called when synthesis completes
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        continuation?.resume()
+        continuation = nil
+    }
+
+    /// Called when synthesis is cancelled
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        continuation?.resume()
+        continuation = nil
     }
 }
