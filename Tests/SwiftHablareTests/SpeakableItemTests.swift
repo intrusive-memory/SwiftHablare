@@ -15,21 +15,20 @@ struct SpeakableItemTestFixtures {
     let provider: AppleVoiceProvider
     let voiceId: String
 
-    static func create() async throws -> Self {
+    static func create() async -> Self? {
         let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices()
+        do {
+            let voices = try await provider.fetchVoices()
 
-        // Check if voices are available (GitHub Actions runners may not have TTS voices)
-        guard let voiceId = voices.first?.id else {
-            struct NoVoicesAvailableError: Error, CustomStringConvertible {
-                var description: String {
-                    "No Apple TTS voices available. This is expected on GitHub Actions runners."
-                }
+            // Check if voices are available (GitHub Actions runners may not have TTS voices)
+            guard let voiceId = voices.first?.id else {
+                return nil
             }
-            throw NoVoicesAvailableError()
-        }
 
-        return SpeakableItemTestFixtures(provider: provider, voiceId: voiceId)
+            return SpeakableItemTestFixtures(provider: provider, voiceId: voiceId)
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -37,14 +36,18 @@ struct SpeakableItemTestFixtures {
 
 @Suite("SimpleMessage Tests")
 struct SimpleMessageTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Conformance to SpeakableItem")
     func conformance() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "Hello, world!",
             voiceProvider: fixtures.provider,
@@ -58,6 +61,10 @@ struct SimpleMessageTests {
 
     @Test("Speech generation")
     func speak() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "Testing speech generation",
             voiceProvider: fixtures.provider,
@@ -70,6 +77,10 @@ struct SimpleMessageTests {
 
     @Test("Duration estimation")
     func estimateDuration() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "This is a test message",
             voiceProvider: fixtures.provider,
@@ -82,6 +93,10 @@ struct SimpleMessageTests {
 
     @Test("Voice availability check")
     func isVoiceAvailable() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "Test",
             voiceProvider: fixtures.provider,
@@ -97,14 +112,18 @@ struct SimpleMessageTests {
 
 @Suite("CharacterDialogue Tests")
 struct CharacterDialogueTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Dialogue with character name")
     func withCharacterName() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let dialogue = CharacterDialogue(
             characterName: "Alice",
             dialogue: "Hello!",
@@ -118,6 +137,10 @@ struct CharacterDialogueTests {
 
     @Test("Dialogue without character name")
     func withoutCharacterName() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let dialogue = CharacterDialogue(
             characterName: "Alice",
             dialogue: "Hello!",
@@ -131,6 +154,10 @@ struct CharacterDialogueTests {
 
     @Test("Dialogue speech generation")
     func speak() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let dialogue = CharacterDialogue(
             characterName: "Bob",
             dialogue: "Testing dialogue speech",
@@ -147,14 +174,18 @@ struct CharacterDialogueTests {
 
 @Suite("Article Tests")
 struct ArticleTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Article with metadata")
     func withMeta() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let article = Article(
             title: "Breaking News",
             author: "Jane Doe",
@@ -169,6 +200,10 @@ struct ArticleTests {
 
     @Test("Article without metadata")
     func withoutMeta() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let article = Article(
             title: "Breaking News",
             author: "Jane Doe",
@@ -183,6 +218,10 @@ struct ArticleTests {
 
     @Test("Article speech generation")
     func speak() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let article = Article(
             title: "Test Article",
             author: "Test Author",
@@ -200,14 +239,18 @@ struct ArticleTests {
 
 @Suite("Notification Tests")
 struct NotificationTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Notification with timestamp")
     func withTimestamp() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let timestamp = Date(timeIntervalSince1970: 1609459200) // 2021-01-01 00:00:00 UTC
         let notification = Notification(
             title: "New Message",
@@ -225,6 +268,10 @@ struct NotificationTests {
 
     @Test("Notification without timestamp")
     func withoutTimestamp() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let notification = Notification(
             title: "Alert",
             message: "Something happened",
@@ -238,6 +285,10 @@ struct NotificationTests {
 
     @Test("Notification speech generation")
     func speak() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let notification = Notification(
             title: "Test",
             message: "Test message",
@@ -254,14 +305,18 @@ struct NotificationTests {
 
 @Suite("ListItem Tests")
 struct ListItemTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("List item formatting")
     func formatting() {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let item = ListItem(
             number: 5,
             content: "Mix ingredients",
@@ -274,6 +329,10 @@ struct ListItemTests {
 
     @Test("List item speech generation")
     func speak() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let item = ListItem(
             number: 1,
             content: "Test step",
@@ -290,14 +349,18 @@ struct ListItemTests {
 
 @Suite("Batch Operations Tests")
 struct BatchOperationsTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Speak all items")
     func speakAll() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let items: [SimpleMessage] = [
             SimpleMessage(content: "First", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
             SimpleMessage(content: "Second", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
@@ -313,6 +376,10 @@ struct BatchOperationsTests {
 
     @Test("Estimate total duration")
     func estimateTotalDuration() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let items: [SimpleMessage] = [
             SimpleMessage(content: "Short", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
             SimpleMessage(content: "Medium length message", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
@@ -349,14 +416,18 @@ struct BatchOperationsTests {
 
 @Suite("Error Handling Tests")
 struct ErrorHandlingTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Speak with invalid voice ID")
     func speakWithInvalidVoiceId() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "Test",
             voiceProvider: fixtures.provider,
@@ -378,6 +449,10 @@ struct ErrorHandlingTests {
 
     @Test("Speak with empty text throws error")
     func speakWithEmptyTextThrowsError() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         let message = SimpleMessage(
             content: "",
             voiceProvider: fixtures.provider,
@@ -394,14 +469,18 @@ struct ErrorHandlingTests {
 
 @Suite("Custom Implementation Tests")
 struct CustomImplementationTests {
-    var fixtures: SpeakableItemTestFixtures!
+    var fixtures: SpeakableItemTestFixtures?
 
-    init() async throws {
-        fixtures = try await SpeakableItemTestFixtures.create()
+    init() async {
+        fixtures = await SpeakableItemTestFixtures.create()
     }
 
     @Test("Custom speakable item")
     func customSpeakableItem() async throws {
+        guard let fixtures = fixtures else {
+            Issue.record("No Apple TTS voices available. Skipping test.")
+            return
+        }
         // Test a custom implementation
         struct CustomItem: SpeakableItem {
             let voiceProvider: VoiceProvider
