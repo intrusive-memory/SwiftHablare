@@ -224,29 +224,48 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension("aiff")
 
-                    // Use standard format matching real audio generation
-                    // This ensures compatibility with AVAssetExportSession
-                    let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
-
                     // Generate minimal audio based on text length (rough estimation)
                     let estimatedDuration = Double(text.count) / 14.5
-                    let frameCount = AVAudioFrameCount(22050 * estimatedDuration)
+                    let sampleRate = 22050.0
+                    let frameCount = AVAudioFrameCount(sampleRate * estimatedDuration)
 
+                    // Use explicit Int16 PCM format for maximum compatibility with AVAssetExportSession
+                    // This matches the format that AVSpeechSynthesizer typically generates
+                    let settings: [String: Any] = [
+                        AVFormatIDKey: kAudioFormatLinearPCM,
+                        AVSampleRateKey: sampleRate,
+                        AVNumberOfChannelsKey: 1,
+                        AVLinearPCMBitDepthKey: 16,
+                        AVLinearPCMIsFloatKey: false,
+                        AVLinearPCMIsBigEndianKey: false,
+                        AVLinearPCMIsNonInterleaved: false
+                    ]
+
+                    guard let format = AVAudioFormat(settings: settings) else {
+                        throw VoiceProviderError.networkError("Failed to create audio format")
+                    }
+
+                    // Create audio file first
+                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
+
+                    // Create buffer with proper capacity
                     guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
                         throw VoiceProviderError.networkError("Failed to create audio buffer")
                     }
+
+                    // CRITICAL: Set frameLength BEFORE accessing channel data
+                    // This ensures the internal AudioBufferList is properly configured
                     pcmBuffer.frameLength = frameCount
 
-                    // Fill the buffer with zeros (silence)
-                    if let channelData = pcmBuffer.floatChannelData {
+                    // Fill with silence (zeros) - use int16ChannelData for Int16 format
+                    if let channelData = pcmBuffer.int16ChannelData {
+                        let byteSize = Int(frameCount) * MemoryLayout<Int16>.size
                         for channel in 0..<Int(pcmBuffer.format.channelCount) {
-                            memset(channelData[channel], 0, Int(frameCount) * MemoryLayout<Float>.size)
+                            memset(channelData[channel], 0, byteSize)
                         }
                     }
 
-                    // Write to AIFF file using buffer's natural format settings
-                    // This matches the real audio generation path and ensures AVAssetExportSession compatibility
-                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                    // Write the buffer to file
                     try audioFile.write(from: pcmBuffer)
 
                     let data = try Data(contentsOf: tempURL)
