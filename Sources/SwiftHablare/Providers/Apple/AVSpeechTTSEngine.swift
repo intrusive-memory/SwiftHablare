@@ -224,7 +224,10 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension("aiff")
 
+                    // Use standard format matching real audio generation
+                    // This ensures compatibility with AVAssetExportSession
                     let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
+
                     // Generate minimal audio based on text length (rough estimation)
                     let estimatedDuration = Double(text.count) / 14.5
                     let frameCount = AVAudioFrameCount(22050 * estimatedDuration)
@@ -241,16 +244,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         }
                     }
 
-                    // Write to AIFF file
-                    let settings: [String: Any] = [
-                        AVFormatIDKey: kAudioFormatLinearPCM,
-                        AVSampleRateKey: 22050.0,
-                        AVNumberOfChannelsKey: 1,
-                        AVLinearPCMBitDepthKey: 16,
-                        AVLinearPCMIsFloatKey: false,
-                        AVLinearPCMIsBigEndianKey: true
-                    ]
-                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
+                    // Write to AIFF file using buffer's natural format settings
+                    // This matches the real audio generation path and ensures AVAssetExportSession compatibility
+                    let audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
                     try audioFile.write(from: pcmBuffer)
 
                     let data = try Data(contentsOf: tempURL)
