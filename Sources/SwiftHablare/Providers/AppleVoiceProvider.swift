@@ -64,6 +64,9 @@ public final class AppleVoiceProvider: VoiceProvider {
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
     }
 
+    // Note: Uses default VoiceProvider implementation of generateProcessedAudio()
+    // which stores raw AIFF audio without M4A conversion
+
 #if canImport(SwiftUI)
     @MainActor
     public func makeConfigurationView(onConfigured: @escaping (Bool) -> Void) -> AnyView {

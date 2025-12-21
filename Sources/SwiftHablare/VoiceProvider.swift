@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AVFoundation
 #if canImport(SwiftUI)
 import SwiftUI
 #endif
@@ -92,10 +93,61 @@ extension VoiceProvider {
         return try await generateProcessedAudio(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode)
     }
 
-    /// Default implementation: Generate raw audio and process it
+    /// Default implementation: Generate raw audio and measure duration (no compression or trimming)
+    ///
+    /// This stores raw audio without M4A conversion to:
+    /// - Avoid AVAssetExportSession failures on some platforms
+    /// - Reduce generation time
+    /// - Preserve audio quality
+    /// - Defer compression until export time
+    ///
+    /// Providers can override this to add custom processing if needed.
     public func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio {
         let rawAudio = try await generateAudio(text: text, voiceId: voiceId, languageCode: languageCode)
-        return try await AudioProcessor.process(audioData: rawAudio, mimeType: self.mimeType)
+        let duration = try await measureDuration(audioData: rawAudio, mimeType: self.mimeType)
+
+        return ProcessedAudio(
+            audioData: rawAudio,
+            durationSeconds: duration,
+            trimmedStart: 0,
+            trimmedEnd: 0,
+            mimeType: self.mimeType  // Keep original format
+        )
+    }
+
+    /// Measure audio duration from raw audio data
+    private func measureDuration(audioData: Data, mimeType: String) async throws -> Double {
+        // Determine file extension from MIME type
+        let fileExtension = Self.fileExtension(for: mimeType)
+
+        // Write to temp file to load with AVAsset
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+
+        try audioData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let asset = AVURLAsset(url: tempURL)
+        let duration = try await asset.load(.duration)
+        return duration.seconds
+    }
+
+    /// Get file extension from MIME type
+    private static func fileExtension(for mimeType: String) -> String {
+        let components = mimeType.split(separator: "/")
+        guard components.count == 2 else { return "audio" }
+
+        let subtype = String(components[1]).lowercased()
+
+        switch subtype {
+        case "mpeg", "mp3": return "mp3"
+        case "mp4", "m4a": return "m4a"
+        case "wav", "x-wav", "vnd.wave": return "wav"
+        case "aiff", "x-aiff": return "aiff"
+        case "pcm", "l16": return "wav"
+        default: return subtype
+        }
     }
 }
 
