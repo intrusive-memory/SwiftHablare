@@ -350,7 +350,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 // MARK: - Synthesizer Delegate
 
 /// Delegate to track AVSpeechSynthesizer completion
-@MainActor
+///
+/// Note: Not isolated to MainActor to avoid actor isolation conflicts with AVSpeechSynthesizerDelegate.
+/// The delegate methods can be called from any thread, so we use thread-safe continuation handling.
 private class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
     private var continuation: CheckedContinuation<Void, Never>?
 
@@ -362,13 +364,13 @@ private class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     /// Called when synthesis completes
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         continuation?.resume()
         continuation = nil
     }
 
     /// Called when synthesis is cancelled
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         continuation?.resume()
         continuation = nil
     }
