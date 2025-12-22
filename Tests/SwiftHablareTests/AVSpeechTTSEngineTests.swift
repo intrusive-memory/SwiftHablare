@@ -2,10 +2,10 @@
 //  AVSpeechTTSEngineTests.swift
 //  SwiftHablareTests
 //
-//  Tests for iOS AVSpeechTTSEngine implementation
+//  Tests for AVSpeechTTSEngine implementation (iOS and macOS)
 //
 
-#if canImport(UIKit)
+#if canImport(UIKit) || canImport(AppKit)
 import Testing
 import AVFoundation
 @testable import SwiftHablare
@@ -132,6 +132,114 @@ struct AVSpeechTTSEngineTests {
         let audioFile = try AVAudioFile(forReading: tempURL)
         #expect(audioFile.processingFormat != nil)
         #expect(audioFile.length > 0)
+    }
+
+    @Test("Audio generation produces 16-bit PCM format (AVAudioPlayer compatible)",
+          .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
+    func generateAudioProduces16BitPCM() async throws {
+
+        let voices = try await engine.fetchVoices()
+        guard let firstVoice = voices.first else {
+            Issue.record("No voices available for testing")
+            return
+        }
+
+        let text = "Testing 16-bit PCM format."
+        let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
+
+        // Write to temp file and check format
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("aiff")
+
+        try audioData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        // Verify format using AVAudioFile
+        let audioFile = try AVAudioFile(forReading: tempURL)
+        let format = audioFile.fileFormat
+
+        // CRITICAL: Verify it's 16-bit integer PCM, not 32-bit float
+        // AVAudioPlayer cannot play 32-bit float PCM
+        let settings = format.settings
+        let formatID = settings[AVFormatIDKey] as? UInt32
+        let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
+        let isFloat = settings[AVLinearPCMIsFloatKey] as? Bool
+
+        #expect(formatID == kAudioFormatLinearPCM, "Expected LPCM format")
+        #expect(bitDepth == 16, "Expected 16-bit depth, got \(bitDepth ?? 0)")
+        #expect(isFloat == false, "Expected integer PCM, not float")
+    }
+
+    @Test("Generated audio is playable by AVAudioPlayer",
+          .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
+    func generatedAudioIsPlayableByAVAudioPlayer() async throws {
+        let voices = try await engine.fetchVoices()
+        guard let firstVoice = voices.first else {
+            Issue.record("No voices available for testing")
+            return
+        }
+
+        let text = "Testing AVAudioPlayer compatibility."
+        let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
+
+        // Write to temp file
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("aiff")
+
+        try audioData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        // CRITICAL: Test that AVAudioPlayer can prepare the audio
+        let player = try AVAudioPlayer(contentsOf: tempURL)
+
+        // prepareToPlay() returns false if the format is not supported
+        let prepareResult = player.prepareToPlay()
+        #expect(prepareResult == true, "AVAudioPlayer.prepareToPlay() failed - audio format not compatible")
+
+        // Verify player has valid duration (not 0.0 which indicates format error)
+        #expect(player.duration > 0.0, "Player duration is 0.0 - indicates format incompatibility")
+
+        // Verify player has correct channel count
+        #expect(player.numberOfChannels > 0, "Player has no channels")
+    }
+
+    @Test("Generated audio with duration has correct format",
+          .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
+    func generateAudioWithDurationHasCorrectFormat() async throws {
+        let voices = try await engine.fetchVoices()
+        guard let firstVoice = voices.first else {
+            Issue.record("No voices available for testing")
+            return
+        }
+
+        let text = "Testing duration with format."
+        let (audioData, duration) = try await engine.generateAudioWithDuration(
+            text: text,
+            voiceId: firstVoice.id,
+            languageCode: "en"
+        )
+
+        // Write to temp file and check format
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("aiff")
+
+        try audioData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        // Verify it's still 16-bit PCM when using generateAudioWithDuration
+        let audioFile = try AVAudioFile(forReading: tempURL)
+        let format = audioFile.fileFormat
+        let settings = format.settings
+        let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
+
+        #expect(bitDepth == 16, "generateAudioWithDuration should also produce 16-bit PCM")
+
+        // Verify AVAudioPlayer compatibility
+        let player = try AVAudioPlayer(contentsOf: tempURL)
+        #expect(player.prepareToPlay() == true, "AVAudioPlayer should be able to play generateAudioWithDuration output")
     }
     #endif
 

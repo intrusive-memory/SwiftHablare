@@ -176,6 +176,8 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         .appendingPathExtension("aiff")
 
                     var audioFile: AVAudioFile?
+                    var converter: AVAudioConverter?
+                    var outputFormat: AVAudioFormat?
                     var bufferCount = 0
                     var totalFrames: AVAudioFrameCount = 0
                     var sampleRate: Double = 0
@@ -204,25 +206,94 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
                         #if DEBUG
                         print("🎤 [AVSpeechTTSEngine] ✅ Got PCM buffer with \(pcmBuffer.frameLength) frames")
+                        print("🎤 [AVSpeechTTSEngine] Input format: \(pcmBuffer.format)")
                         #endif
 
                         do {
-                            // Create the file on first buffer using the buffer's format
+                            // Create the file on first buffer using 16-bit PCM format for AVAudioPlayer compatibility
                             if audioFile == nil {
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
                                 sampleRate = pcmBuffer.format.sampleRate
+                                let channels = pcmBuffer.format.channelCount
+
+                                // Create 16-bit PCM output format (compatible with AVAudioPlayer)
+                                guard let format16Bit = AVAudioFormat(
+                                    commonFormat: .pcmFormatInt16,
+                                    sampleRate: sampleRate,
+                                    channels: channels,
+                                    interleaved: false
+                                ) else {
+                                    #if DEBUG
+                                    print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
+                                    #endif
+                                    return
+                                }
+
+                                outputFormat = format16Bit
+                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
+
+                                // Create converter if input format differs from output
+                                if pcmBuffer.format.commonFormat != .pcmFormatInt16 {
+                                    converter = AVAudioConverter(from: pcmBuffer.format, to: format16Bit)
+                                    #if DEBUG
+                                    print("🎤 [AVSpeechTTSEngine] ✅ Created format converter (\(pcmBuffer.format.commonFormat) → 16-bit PCM)")
+                                    #endif
+                                }
+
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with sample rate: \(sampleRate) Hz")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
                                 #endif
                             }
 
-                            // Write this buffer to the file
-                            if let file = audioFile {
-                                try file.write(from: pcmBuffer)
+                            // Write buffer to file (with conversion if needed)
+                            if let file = audioFile, let outFormat = outputFormat {
+                                let bufferToWrite: AVAudioPCMBuffer
+
+                                // Convert if needed, otherwise use original
+                                if let conv = converter {
+                                    guard let outputBuffer = AVAudioPCMBuffer(
+                                        pcmFormat: outFormat,
+                                        frameCapacity: pcmBuffer.frameLength
+                                    ) else {
+                                        #if DEBUG
+                                        print("🎤 [AVSpeechTTSEngine] ❌ Failed to create output buffer")
+                                        #endif
+                                        return
+                                    }
+
+                                    // Use a class to hold mutable state (safe for concurrent closure access)
+                                    final class InputState {
+                                        var hasProvided = false
+                                    }
+                                    let inputState = InputState()
+                                    var error: NSError?
+
+                                    conv.convert(to: outputBuffer, error: &error) { _, outStatus in
+                                        if inputState.hasProvided {
+                                            outStatus.pointee = .noDataNow
+                                            return nil
+                                        }
+                                        inputState.hasProvided = true
+                                        outStatus.pointee = .haveData
+                                        return pcmBuffer
+                                    }
+
+                                    if let error = error {
+                                        #if DEBUG
+                                        print("🎤 [AVSpeechTTSEngine] ❌ Conversion error: \(error)")
+                                        #endif
+                                        return
+                                    }
+
+                                    bufferToWrite = outputBuffer
+                                } else {
+                                    bufferToWrite = pcmBuffer
+                                }
+
+                                try file.write(from: bufferToWrite)
                                 bufferCount += 1
-                                totalFrames += pcmBuffer.frameLength
+                                totalFrames += bufferToWrite.frameLength
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(pcmBuffer.frameLength) frames)")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(bufferToWrite.frameLength) frames)")
                                 #endif
                             }
                         } catch {
@@ -260,6 +331,13 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     let duration = sampleRate > 0 ? Double(totalFrames) / sampleRate : 0.0
                     #if DEBUG
                     print("🎤 [AVSpeechTTSEngine] ✅ Calculated duration: \(String(format: "%.2f", duration))s from \(totalFrames) frames at \(sampleRate) Hz")
+                    #endif
+
+                    // CRITICAL: Deallocate AVAudioFile to finalize AIFF header with correct file size
+                    // If we read the file while AVAudioFile is still alive, the header won't be updated
+                    audioFile = nil
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] ✅ AVAudioFile deallocated, AIFF header finalized")
                     #endif
 
                     // Read the complete synthesized audio file

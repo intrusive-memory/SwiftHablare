@@ -98,6 +98,76 @@ SwiftHablare/
 - **SwiftData Integration**: Uses `TypedDataStorage` from SwiftCompartido
 - **Performance Optimizations**: 15-25% faster voice loading, 50% faster UI (v4.0.0+)
 
+### Audio Format Requirements
+
+**CRITICAL**: All generated audio MUST be in **16-bit integer PCM** format (not 32-bit float).
+
+#### Why 16-bit PCM?
+
+`AVAudioPlayer` (the standard iOS/macOS playback API) **cannot play 32-bit float PCM** audio. While `AVAudioFile` can read it, `AVAudioPlayer.prepareToPlay()` will fail (returns `false` with `duration = 0.0`).
+
+**Symptoms of wrong format:**
+- ✅ AVAudioFile can open the file
+- ❌ AVAudioPlayer.prepareToPlay() returns false
+- ❌ player.duration == 0.0
+- ❌ No playback occurs
+
+#### Implementation (AppleVoiceProvider)
+
+The `AVSpeechTTSEngine` converts audio buffers during generation:
+
+```swift
+// Create 16-bit PCM output format
+let format16Bit = AVAudioFormat(
+    commonFormat: .pcmFormatInt16,
+    sampleRate: sampleRate,
+    channels: channels,
+    interleaved: false
+)
+
+// Convert each buffer from AVSpeechSynthesizer (which provides float) to 16-bit
+if let converter = AVAudioConverter(from: inputFormat, to: format16Bit) {
+    // Convert and write 16-bit PCM to file
+}
+```
+
+#### Testing Requirements
+
+**All audio generation tests MUST verify:**
+
+1. **Format is 16-bit integer PCM** (not float):
+   ```swift
+   let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
+   let isFloat = settings[AVLinearPCMIsFloatKey] as? Bool
+   XCTAssertEqual(bitDepth, 16)
+   XCTAssertEqual(isFloat, false)
+   ```
+
+2. **AVAudioPlayer can play it**:
+   ```swift
+   let player = try AVAudioPlayer(contentsOf: audioURL)
+   XCTAssertTrue(player.prepareToPlay())
+   XCTAssertGreaterThan(player.duration, 0.0)
+   ```
+
+3. **CI environment handling**:
+   - Use `.enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI"))` trait
+   - Skip audio generation tests in headless CI runners (no audio hardware)
+
+#### Benefits of 16-bit PCM
+
+✅ **Compatible** with AVAudioPlayer (universal playback)
+✅ **Smaller files** - 50% reduction vs 32-bit float
+✅ **Standard format** - Works with all Apple audio APIs
+✅ **Better compression** - More efficient than float for speech
+
+#### Legacy Format Handling
+
+If you encounter 32-bit float AIFC files (from older SwiftHablare versions):
+- These require on-the-fly conversion to 16-bit PCM for playback
+- See `GuionAudioLibraryView.convertTo16BitPCM()` in Produciesta
+- New audio should NEVER be generated in this format
+
 ### Platform Support
 
 **Supported Platforms:**
