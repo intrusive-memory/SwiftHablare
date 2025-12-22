@@ -267,7 +267,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                     let inputState = InputState()
                                     var error: NSError?
 
-                                    conv.convert(to: outputBuffer, error: &error) { _, outStatus in
+                                    let status = conv.convert(to: outputBuffer, error: &error) { _, outStatus in
                                         if inputState.hasProvided {
                                             outStatus.pointee = .noDataNow
                                             return nil
@@ -283,6 +283,27 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                         #endif
                                         return
                                     }
+
+                                    // Verify conversion succeeded
+                                    if status == .error {
+                                        #if DEBUG
+                                        print("🎤 [AVSpeechTTSEngine] ❌ Conversion failed with status: \(status)")
+                                        #endif
+                                        return
+                                    }
+
+                                    // CRITICAL: outputBuffer.frameLength must be set after conversion
+                                    // The converter fills the buffer but doesn't update frameLength
+                                    if outputBuffer.frameLength == 0 {
+                                        #if DEBUG
+                                        print("🎤 [AVSpeechTTSEngine] ⚠️ Output buffer frameLength is 0, using input frameLength: \(pcmBuffer.frameLength)")
+                                        #endif
+                                        outputBuffer.frameLength = pcmBuffer.frameLength
+                                    }
+
+                                    #if DEBUG
+                                    print("🎤 [AVSpeechTTSEngine] ✅ Converted \(pcmBuffer.frameLength) frames → \(outputBuffer.frameLength) frames (status: \(status))")
+                                    #endif
 
                                     bufferToWrite = outputBuffer
                                 } else {
