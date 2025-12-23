@@ -23,7 +23,7 @@ git config core.hooksPath .githooks
 Runs before every commit to ensure code quality.
 
 **What it does:**
-- Runs local audio tests (`LocalAudioTests.xctestplan`)
+- Runs 3 audio hardware tests using `swift test --filter`
 - Validates 16-bit PCM audio format generation
 - Tests AVAudioPlayer compatibility
 - Verifies accurate duration calculation
@@ -79,7 +79,9 @@ git config --unset core.hooksPath
 **Fix**:
 1. Run tests manually to see detailed output:
    ```bash
-   xcodebuild test -testPlan LocalAudioTests -destination 'platform=macOS'
+   swift test --filter "AVSpeechTTSEngineTests.*16-bit PCM format"
+   swift test --filter "AVSpeechTTSEngineTests.*playable by AVAudioPlayer"
+   swift test --filter "AVSpeechTTSEngineTests.*duration has correct format"
    ```
 2. Fix the failing tests before committing
 3. Or skip once with `--no-verify` if you're working on unrelated changes
