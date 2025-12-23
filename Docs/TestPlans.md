@@ -179,40 +179,64 @@ Edit `LocalAudioTests.xctestplan` and add ALL OTHER tests to `skippedTests`:
 
 ## CI Integration
 
-GitHub Actions workflows automatically use `CITests.xctestplan`:
+**IMPORTANT**: Test plans (`.xctestplan` files) are **local development only**.
+
+GitHub Actions CI does NOT use test plans because:
+- SwiftHablare is a Swift Package Manager (SPM) project
+- xcodebuild test plans require an Xcode project/workspace
+- SPM packages don't have associated Xcode projects by default
+
+**Instead, CI uses environment variable detection:**
 
 **File**: `.github/workflows/fast-tests.yml`
 
 ```yaml
 - name: Run fast tests on ${{ matrix.platform }} (unit tests only)
+  env:
+    CI: true  # ← Triggers placeholder audio generation
   run: |
     xcodebuild test \
       -scheme SwiftHablare \
-      -testPlan CITests \  # ← Uses CI test plan
       -destination '${{ matrix.destination }}' \
       -skipPackagePluginValidation
 ```
 
+**Implementation**: `AVSpeechTTSEngine.generateRealAudio()` detects `CI` environment variable and returns placeholder audio instead of attempting real TTS generation.
+
 This ensures:
 - ✅ Tests pass on CI runners without audio hardware
 - ✅ No crashes from missing TTS voices
-- ✅ Placeholder audio used automatically
-- ✅ Real audio tests skipped (run locally only)
+- ✅ Placeholder audio used automatically via code detection
+- ✅ Real audio tests skipped automatically (no test plan needed)
 
 ## Troubleshooting
 
 ### "Test plan not found" Error
 
-**Cause**: Xcode can't find the `.xctestplan` file.
+**Cause**: Test plans don't work with SPM projects via xcodebuild.
 
-**Solution**:
+**Error Message**:
+```
+xcodebuild: error: Scheme "SwiftHablare" does not have an associated test plan named "CITests".
+```
+
+**Solution**: Test plans are **local development only**. Don't use `-testPlan` with xcodebuild on SPM packages.
+
+- ✅ **For local testing**: Use xcodebuild with test plans (generates Xcode project automatically)
+- ✅ **For CI**: Rely on `CI` environment variable detection (no test plan needed)
+
+**Local usage (works)**:
 ```bash
-# Ensure test plans are in project root
-ls *.xctestplan
+xcodebuild test -testPlan LocalAudioTests -destination 'platform=macOS'
+```
 
-# Should show:
-# CITests.xctestplan
-# LocalAudioTests.xctestplan
+**CI usage (test plans don't work)**:
+```bash
+# Don't do this on SPM packages:
+xcodebuild test -testPlan CITests  # ❌ Fails
+
+# Instead, let CI environment variable control behavior:
+CI=true xcodebuild test  # ✅ Works
 ```
 
 ### LocalAudioTests Fail on CI

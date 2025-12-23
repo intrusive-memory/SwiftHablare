@@ -94,6 +94,8 @@ jobs:
     name: Fast Tests (${{ matrix.platform }})
     runs-on: macos-26
     needs: [code-quality]
+    env:
+      CI: true  # Triggers placeholder audio generation (no TTS voices on CI)
     strategy:
       fail-fast: false
       matrix:
@@ -142,10 +144,10 @@ jobs:
           echo ""
 
           # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
-          # Use CITests test plan to exclude tests requiring real audio hardware
+          # CI environment variable triggers placeholder audio generation
+          # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
           xcodebuild test \
             -scheme SwiftHablare \
-            -testPlan CITests \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
             | tee test-output-${{ matrix.platform }}.log \
@@ -260,10 +262,10 @@ jobs:
           echo "Integration tests will run on the weekly schedule"
           echo ""
 
-          # Use CITests test plan to exclude tests requiring real audio hardware
+          # CI environment variable triggers placeholder audio generation
+          # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
           xcodebuild test \
             -scheme SwiftHablare \
-            -testPlan CITests \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
             | tee test-output-macOS.log \
@@ -338,6 +340,8 @@ jobs:
     runs-on: macos-26
     needs: [fast-test, fast-test-macos]  # Wait for BOTH iOS and macOS unit tests to pass
     if: success()  # Only run if BOTH unit tests succeeded
+    env:
+      CI: true  # Triggers placeholder audio generation (no TTS voices on CI)
 
     steps:
       - name: Checkout code
