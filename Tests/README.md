@@ -12,10 +12,29 @@ Comprehensive test suite for SwiftHablaré voice generation library using Swift 
 
 ## Test Organization
 
+### Test Plans
+
+SwiftHablare uses **Xcode Test Plans** to separate tests by audio hardware requirements:
+
+**CITests.xctestplan** (Default for CI):
+- All tests EXCEPT those requiring real audio hardware
+- Uses placeholder audio when TTS voices unavailable
+- Runs on GitHub Actions CI runners
+- ~270 tests, completes in 30-60 seconds
+
+**LocalAudioTests.xctestplan** (Local Development Only):
+- Only 3 tests requiring real TTS voices and audio hardware
+- Tests 16-bit PCM format validation
+- Tests AVAudioPlayer compatibility
+- Tests accurate duration calculation
+- **Cannot run on CI** (no audio hardware)
+
+See `Docs/TestPlans.md` for complete documentation.
+
 ### Test Types
 
 **Unit Tests** (Fast - ~30 seconds):
-- Run on every PR
+- Run on every PR via `CITests.xctestplan`
 - Skip integration tests that require real audio/API keys
 - Run on iOS Simulator and macOS
 - 250+ tests covering all core functionality
@@ -28,6 +47,12 @@ Comprehensive test suite for SwiftHablaré voice generation library using Swift 
 
 **Performance Tests**:
 - Run after unit tests pass on PRs
+
+**Audio Hardware Tests** (Local Only):
+- Run via `LocalAudioTests.xctestplan`
+- Require macOS with TTS voices installed
+- 3 tests validating real audio generation
+- **Never run on CI**
 - Benchmark audio generation, voice fetching, filtering
 - Track performance regressions
 - macOS only (Apple Silicon for consistent results)

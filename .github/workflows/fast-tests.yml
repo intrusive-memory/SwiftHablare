@@ -142,8 +142,10 @@ jobs:
           echo ""
 
           # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
+          # Use CITests test plan to exclude tests requiring real audio hardware
           xcodebuild test \
             -scheme SwiftHablare \
+            -testPlan CITests \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
             | tee test-output-${{ matrix.platform }}.log \
@@ -258,8 +260,10 @@ jobs:
           echo "Integration tests will run on the weekly schedule"
           echo ""
 
+          # Use CITests test plan to exclude tests requiring real audio hardware
           xcodebuild test \
             -scheme SwiftHablare \
+            -testPlan CITests \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
             | tee test-output-macOS.log \

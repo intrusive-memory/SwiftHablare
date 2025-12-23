@@ -1,0 +1,53 @@
+{
+  "configurations" : [
+    {
+      "id" : "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "name" : "CI Tests (No Audio Hardware Required)",
+      "options" : {
+        "environmentVariableEntries" : [
+          {
+            "key" : "CI",
+            "value" : "true"
+          }
+        ],
+        "targetForVariableExpansion" : {
+          "containerPath" : "container:",
+          "identifier" : "SwiftHablare",
+          "name" : "SwiftHablare"
+        }
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:",
+          "identifier" : "SwiftHablare",
+          "name" : "SwiftHablare"
+        }
+      ]
+    },
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:",
+      "identifier" : "SwiftHablare",
+      "name" : "SwiftHablare"
+    },
+    "testExecutionOrdering" : "random"
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "AVSpeechTTSEngineTests/Audio generation produces 16-bit PCM format (AVAudioPlayer compatible)",
+        "AVSpeechTTSEngineTests/Generated audio is playable by AVAudioPlayer",
+        "AVSpeechTTSEngineTests/Generated audio with duration has correct format"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SwiftHablareTests",
+        "name" : "SwiftHablareTests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -1,0 +1,75 @@
+{
+  "configurations" : [
+    {
+      "id" : "B5E8F9A2-3D4C-4E5F-A6B7-8C9D0E1F2A3B",
+      "name" : "Local Audio Tests",
+      "options" : {
+        "targetForVariableExpansion" : {
+          "containerPath" : "container:",
+          "identifier" : "SwiftHablare",
+          "name" : "SwiftHablare"
+        }
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:",
+          "identifier" : "SwiftHablare",
+          "name" : "SwiftHablare"
+        }
+      ]
+    },
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:",
+      "identifier" : "SwiftHablare",
+      "name" : "SwiftHablare"
+    },
+    "testExecutionOrdering" : "random"
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "AppleVoiceProviderTests",
+        "ElevenLabsProviderTests",
+        "ElevenLabsUserAgentTests",
+        "GenerateAudioButtonTests",
+        "GenerationServiceTests",
+        "GuionElementSpeakableTests",
+        "KeychainManagerTests",
+        "ProviderPickerViewTests",
+        "SpeakableGroupTests",
+        "SpeakableItemListTests",
+        "SpeakableItemTests",
+        "VoiceModelTests",
+        "VoicePickerViewTests",
+        "VoiceProviderRegistryTests",
+        "VoiceQualityFilterTests",
+        "VoiceTests",
+        "VoiceURITests",
+        "AppleTTSEngineProtocolTests",
+        "AVSpeechTTSEngineTests/Duration estimation returns positive value",
+        "AVSpeechTTSEngineTests/Duration estimation scales with text length",
+        "AVSpeechTTSEngineTests/Duration estimation is reasonable",
+        "AVSpeechTTSEngineTests/Duration estimation has minimum value",
+        "AVSpeechTTSEngineTests/Voice fetching returns non-empty array",
+        "AVSpeechTTSEngineTests/Fetched voices have required properties",
+        "AVSpeechTTSEngineTests/Fetched voices have language information",
+        "AVSpeechTTSEngineTests/Fetched voices match system language",
+        "AVSpeechTTSEngineTests/Audio generation with empty text throws error",
+        "AVSpeechTTSEngineTests/Audio generation with whitespace-only text throws error",
+        "AVSpeechTTSEngineTests/Audio generation returns data",
+        "AVSpeechTTSEngineTests/Audio generation produces valid audio format",
+        "AVSpeechTTSEngineTests/Audio generation with different voices"
+      ],
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SwiftHablareTests",
+        "name" : "SwiftHablareTests"
+      }
+    }
+  ],
+  "version" : 1
+}
