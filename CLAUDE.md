@@ -435,6 +435,31 @@ Update branch protection when CI workflow changes:
 gh api repos/intrusive-memory/SwiftHablare/branches/main/protection/required_status_checks
 ```
 
+### Git Hooks
+
+**Pre-commit Audio Tests:**
+
+SwiftHablare includes a pre-commit hook that runs local audio tests before allowing commits. This ensures audio generation features remain working on development machines.
+
+**Install hooks:**
+```bash
+./.githooks/install.sh
+```
+
+**What the hook does:**
+- Runs `LocalAudioTests.xctestplan` (3 tests, ~5-10 seconds)
+- Validates 16-bit PCM format generation
+- Tests AVAudioPlayer compatibility
+- Verifies accurate duration calculation
+- Automatically skips on CI or non-macOS systems
+
+**Bypass (not recommended):**
+```bash
+git commit --no-verify
+```
+
+**See `.githooks/README.md` for detailed documentation.**
+
 ### Development Best Practices
 
 **For New Features:**
