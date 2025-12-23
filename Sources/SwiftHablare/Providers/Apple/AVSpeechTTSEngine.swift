@@ -176,8 +176,6 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         .appendingPathExtension("aiff")
 
                     var audioFile: AVAudioFile?
-                    var converter: AVAudioConverter?
-                    var outputFormat: AVAudioFormat?
                     var bufferCount = 0
                     var totalFrames: AVAudioFrameCount = 0
                     var sampleRate: Double = 0
@@ -210,112 +208,27 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         #endif
 
                         do {
-                            // Create the file on first buffer using 16-bit PCM format for AVAudioPlayer compatibility
+                            // Create the file on first buffer using the original format from AVSpeechSynthesizer
+                            // Note: We write in the original format (typically Float32) to avoid conversion issues
+                            // The audio can be converted to 16-bit PCM later if needed for playback compatibility
                             if audioFile == nil {
                                 sampleRate = pcmBuffer.format.sampleRate
-                                let channels = pcmBuffer.format.channelCount
 
-                                // Create 16-bit PCM output format (compatible with AVAudioPlayer)
-                                // CRITICAL: Must be interleaved for AIFC file writing with converters
-                                guard let format16Bit = AVAudioFormat(
-                                    commonFormat: .pcmFormatInt16,
-                                    sampleRate: sampleRate,
-                                    channels: channels,
-                                    interleaved: true
-                                ) else {
-                                    #if DEBUG
-                                    print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
-                                    #endif
-                                    return
-                                }
-
-                                outputFormat = format16Bit
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
-
-                                // Create converter if input format differs from output
-                                if pcmBuffer.format.commonFormat != .pcmFormatInt16 {
-                                    converter = AVAudioConverter(from: pcmBuffer.format, to: format16Bit)
-                                    #if DEBUG
-                                    print("🎤 [AVSpeechTTSEngine] ✅ Created format converter (\(pcmBuffer.format.commonFormat) → 16-bit PCM)")
-                                    #endif
-                                }
+                                // Use the original format directly (no conversion needed)
+                                audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
 
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with format: \(pcmBuffer.format)")
                                 #endif
                             }
 
-                            // Write buffer to file (with conversion if needed)
-                            if let file = audioFile, let outFormat = outputFormat {
-                                let bufferToWrite: AVAudioPCMBuffer
-
-                                // Convert if needed, otherwise use original
-                                if let conv = converter {
-                                    guard let outputBuffer = AVAudioPCMBuffer(
-                                        pcmFormat: outFormat,
-                                        frameCapacity: pcmBuffer.frameLength
-                                    ) else {
-                                        #if DEBUG
-                                        print("🎤 [AVSpeechTTSEngine] ❌ Failed to create output buffer")
-                                        #endif
-                                        return
-                                    }
-
-                                    // Use a class to hold mutable state (safe for concurrent closure access)
-                                    final class InputState {
-                                        var hasProvided = false
-                                    }
-                                    let inputState = InputState()
-                                    var error: NSError?
-
-                                    let status = conv.convert(to: outputBuffer, error: &error) { _, outStatus in
-                                        if inputState.hasProvided {
-                                            outStatus.pointee = .noDataNow
-                                            return nil
-                                        }
-                                        inputState.hasProvided = true
-                                        outStatus.pointee = .haveData
-                                        return pcmBuffer
-                                    }
-
-                                    if let error = error {
-                                        #if DEBUG
-                                        print("🎤 [AVSpeechTTSEngine] ❌ Conversion error: \(error)")
-                                        #endif
-                                        return
-                                    }
-
-                                    // Verify conversion succeeded
-                                    if status == .error {
-                                        #if DEBUG
-                                        print("🎤 [AVSpeechTTSEngine] ❌ Conversion failed with status: \(status)")
-                                        #endif
-                                        return
-                                    }
-
-                                    // CRITICAL: outputBuffer.frameLength must be set after conversion
-                                    // The converter fills the buffer but doesn't update frameLength
-                                    if outputBuffer.frameLength == 0 {
-                                        #if DEBUG
-                                        print("🎤 [AVSpeechTTSEngine] ⚠️ Output buffer frameLength is 0, using input frameLength: \(pcmBuffer.frameLength)")
-                                        #endif
-                                        outputBuffer.frameLength = pcmBuffer.frameLength
-                                    }
-
-                                    #if DEBUG
-                                    print("🎤 [AVSpeechTTSEngine] ✅ Converted \(pcmBuffer.frameLength) frames → \(outputBuffer.frameLength) frames (status: \(status))")
-                                    #endif
-
-                                    bufferToWrite = outputBuffer
-                                } else {
-                                    bufferToWrite = pcmBuffer
-                                }
-
-                                try file.write(from: bufferToWrite)
+                            // Write buffer directly to file (no conversion)
+                            if let file = audioFile {
+                                try file.write(from: pcmBuffer)
                                 bufferCount += 1
-                                totalFrames += bufferToWrite.frameLength
+                                totalFrames += pcmBuffer.frameLength
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(bufferToWrite.frameLength) frames)")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(pcmBuffer.frameLength) frames)")
                                 #endif
                             }
                         } catch {

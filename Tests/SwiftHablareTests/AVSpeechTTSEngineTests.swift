@@ -134,9 +134,9 @@ struct AVSpeechTTSEngineTests {
         #expect(audioFile.length > 0)
     }
 
-    @Test("Audio generation produces 16-bit PCM format (AVAudioPlayer compatible)",
+    @Test("Audio generation produces Float32 PCM format",
           .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
-    func generateAudioProduces16BitPCM() async throws {
+    func generateAudioProducesFloat32PCM() async throws {
 
         let voices = try await engine.fetchVoices()
         guard let firstVoice = voices.first else {
@@ -144,7 +144,7 @@ struct AVSpeechTTSEngineTests {
             return
         }
 
-        let text = "Testing 16-bit PCM format."
+        let text = "Testing Float32 PCM format."
         let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
 
         // Write to temp file and check format
@@ -159,51 +159,27 @@ struct AVSpeechTTSEngineTests {
         let audioFile = try AVAudioFile(forReading: tempURL)
         let format = audioFile.fileFormat
 
-        // CRITICAL: Verify it's 16-bit integer PCM, not 32-bit float
-        // AVAudioPlayer cannot play 32-bit float PCM
+        // NOTE: We output Float32 format (original from AVSpeechSynthesizer)
+        // Apps should convert to 16-bit PCM if needed for AVAudioPlayer compatibility
         let settings = format.settings
         let formatID = settings[AVFormatIDKey] as? UInt32
         let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
         let isFloat = settings[AVLinearPCMIsFloatKey] as? Bool
 
         #expect(formatID == kAudioFormatLinearPCM, "Expected LPCM format")
-        #expect(bitDepth == 16, "Expected 16-bit depth, got \(bitDepth ?? 0)")
-        #expect(isFloat == false, "Expected integer PCM, not float")
+        #expect(bitDepth == 32, "Expected 32-bit depth (Float32)")
+        #expect(isFloat == true, "Expected Float32 format")
     }
 
-    @Test("Generated audio is playable by AVAudioPlayer",
-          .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
-    func generatedAudioIsPlayableByAVAudioPlayer() async throws {
-        let voices = try await engine.fetchVoices()
-        guard let firstVoice = voices.first else {
-            Issue.record("No voices available for testing")
-            return
-        }
-
-        let text = "Testing AVAudioPlayer compatibility."
-        let audioData = try await engine.generateAudio(text: text, voiceId: firstVoice.id)
-
-        // Write to temp file
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("aiff")
-
-        try audioData.write(to: tempURL)
-        defer { try? FileManager.default.removeItem(at: tempURL) }
-
-        // CRITICAL: Test that AVAudioPlayer can prepare the audio
-        let player = try AVAudioPlayer(contentsOf: tempURL)
-
-        // prepareToPlay() returns false if the format is not supported
-        let prepareResult = player.prepareToPlay()
-        #expect(prepareResult == true, "AVAudioPlayer.prepareToPlay() failed - audio format not compatible")
-
-        // Verify player has valid duration (not 0.0 which indicates format error)
-        #expect(player.duration > 0.0, "Player duration is 0.0 - indicates format incompatibility")
-
-        // Verify player has correct channel count
-        #expect(player.numberOfChannels > 0, "Player has no channels")
-    }
+    // NOTE: This test is disabled because AVSpeechTTSEngine now outputs Float32 format
+    // to avoid Core Audio crashes during format conversion. Apps should convert to 16-bit
+    // PCM if they need AVAudioPlayer compatibility.
+    //
+    // @Test("Generated audio is playable by AVAudioPlayer",
+    //       .enabled(if: false))
+    // func generatedAudioIsPlayableByAVAudioPlayer() async throws {
+    //     // Test disabled - Float32 format not compatible with AVAudioPlayer
+    // }
 
     @Test("Generated audio with duration has correct format",
           .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
@@ -229,17 +205,16 @@ struct AVSpeechTTSEngineTests {
         try audioData.write(to: tempURL)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
-        // Verify it's still 16-bit PCM when using generateAudioWithDuration
+        // Verify it's Float32 PCM when using generateAudioWithDuration
         let audioFile = try AVAudioFile(forReading: tempURL)
         let format = audioFile.fileFormat
         let settings = format.settings
         let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
+        let isFloat = settings[AVLinearPCMIsFloatKey] as? Bool
 
-        #expect(bitDepth == 16, "generateAudioWithDuration should also produce 16-bit PCM")
-
-        // Verify AVAudioPlayer compatibility
-        let player = try AVAudioPlayer(contentsOf: tempURL)
-        #expect(player.prepareToPlay() == true, "AVAudioPlayer should be able to play generateAudioWithDuration output")
+        #expect(bitDepth == 32, "generateAudioWithDuration should produce Float32 (32-bit)")
+        #expect(isFloat == true, "generateAudioWithDuration should produce Float format")
+        #expect(duration > 0, "Duration should be positive")
     }
     #endif
 
