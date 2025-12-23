@@ -91,7 +91,7 @@ struct SimpleMessageTests {
         #expect(duration > 0)
     }
 
-    @Test("Voice availability check")
+    @Test("Voice availability check", .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
     func isVoiceAvailable() async throws {
         guard let fixtures = fixtures else {
             Issue.record("No Apple TTS voices available. Skipping test.")
@@ -105,11 +105,8 @@ struct SimpleMessageTests {
 
         let available = await message.isVoiceAvailable()
 
-        // On CI runners, voices may be in the list but not actually available
-        // Just record issue instead of failing the test
-        if !available {
-            Issue.record("Voice '\(fixtures.voiceId)' is in voice list but not available on this system")
-        }
+        // This test requires real TTS voices which aren't available on CI
+        #expect(available, "Voice '\(fixtures.voiceId)' should be available")
     }
 }
 
