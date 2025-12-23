@@ -216,11 +216,12 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                 let channels = pcmBuffer.format.channelCount
 
                                 // Create 16-bit PCM output format (compatible with AVAudioPlayer)
+                                // CRITICAL: Must be interleaved for AIFC file writing with converters
                                 guard let format16Bit = AVAudioFormat(
                                     commonFormat: .pcmFormatInt16,
                                     sampleRate: sampleRate,
                                     channels: channels,
-                                    interleaved: false
+                                    interleaved: true
                                 ) else {
                                     #if DEBUG
                                     print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
