@@ -91,8 +91,13 @@ struct SimpleMessageTests {
         #expect(duration > 0)
     }
 
-    @Test("Voice availability check", .enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI")))
+    @Test("Voice availability check")
     func isVoiceAvailable() async throws {
+        // Skip on CI - TTS voices aren't available there
+        if ProcessInfo.processInfo.environment.keys.contains("CI") {
+            return
+        }
+
         guard let fixtures = fixtures else {
             Issue.record("No Apple TTS voices available. Skipping test.")
             return
