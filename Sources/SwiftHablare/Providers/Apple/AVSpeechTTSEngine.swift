@@ -156,6 +156,66 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         return max(1.0, estimatedSeconds * 1.1)
     }
 
+    // MARK: - Format Conversion
+
+    /// Manually convert Float32 PCM buffer to Int16 PCM buffer
+    /// This avoids using AVAudioConverter which crashes with AVAudioFile.write()
+    private func convertFloat32ToInt16(_ inputBuffer: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer {
+        guard let floatChannelData = inputBuffer.floatChannelData else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        let frameLength = inputBuffer.frameLength
+        let channelCount = Int(inputBuffer.format.channelCount)
+
+        // Create 16-bit output format
+        guard let format16Bit = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: inputBuffer.format.sampleRate,
+            channels: inputBuffer.format.channelCount,
+            interleaved: false
+        ) else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        // Create output buffer
+        guard let outputBuffer = AVAudioPCMBuffer(
+            pcmFormat: format16Bit,
+            frameCapacity: frameLength
+        ) else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        guard let int16ChannelData = outputBuffer.int16ChannelData else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        // Convert each channel's samples from Float32 to Int16
+        for channel in 0..<channelCount {
+            let floatSamples = floatChannelData[channel]
+            let int16Samples = int16ChannelData[channel]
+
+            for frame in 0..<Int(frameLength) {
+                // Read Float32 sample (range: -1.0 to 1.0)
+                let floatSample = floatSamples[frame]
+
+                // Clamp to valid range
+                let clamped = max(-1.0, min(1.0, floatSample))
+
+                // Scale to Int16 range (-32768 to 32767)
+                let scaled = clamped * 32767.0
+
+                // Convert to Int16
+                int16Samples[frame] = Int16(scaled)
+            }
+        }
+
+        // Set the frame length on the output buffer
+        outputBuffer.frameLength = frameLength
+
+        return outputBuffer
+    }
+
     // MARK: - Real Audio Generation (Physical Device)
 
     private func generateRealAudio(text: String, voiceId: String) async throws -> (Data, TimeInterval) {
@@ -208,27 +268,40 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         #endif
 
                         do {
-                            // Create the file on first buffer using the original format from AVSpeechSynthesizer
-                            // Note: We write in the original format (typically Float32) to avoid conversion issues
-                            // The audio can be converted to 16-bit PCM later if needed for playback compatibility
+                            // Create the file on first buffer using 16-bit PCM format
+                            // We manually convert Float32 to Int16 to avoid AVAudioConverter crashes
                             if audioFile == nil {
                                 sampleRate = pcmBuffer.format.sampleRate
+                                let channels = pcmBuffer.format.channelCount
 
-                                // Use the original format directly (no conversion needed)
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                                // Create 16-bit PCM format for AVAudioPlayer compatibility
+                                guard let format16Bit = AVAudioFormat(
+                                    commonFormat: .pcmFormatInt16,
+                                    sampleRate: sampleRate,
+                                    channels: channels,
+                                    interleaved: false
+                                ) else {
+                                    #if DEBUG
+                                    print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
+                                    #endif
+                                    return
+                                }
+
+                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
 
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with format: \(pcmBuffer.format)")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
                                 #endif
                             }
 
-                            // Write buffer directly to file (no conversion)
+                            // Manual conversion from Float32 to Int16 (avoids AVAudioConverter crashes)
                             if let file = audioFile {
-                                try file.write(from: pcmBuffer)
+                                let converted = try self.convertFloat32ToInt16(pcmBuffer)
+                                try file.write(from: converted)
                                 bufferCount += 1
-                                totalFrames += pcmBuffer.frameLength
+                                totalFrames += converted.frameLength
                                 #if DEBUG
-                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(pcmBuffer.frameLength) frames)")
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(converted.frameLength) frames)")
                                 #endif
                             }
                         } catch {
