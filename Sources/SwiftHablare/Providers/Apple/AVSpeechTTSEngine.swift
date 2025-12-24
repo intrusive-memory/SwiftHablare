@@ -302,7 +302,12 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                     return
                                 }
 
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
+                                audioFile = try AVAudioFile(
+                                    forWriting: tempURL,
+                                    settings: format16Bit.settings,
+                                    commonFormat: .pcmFormatInt16,
+                                    interleaved: false
+                                )
 
                                 #if DEBUG
                                 print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
