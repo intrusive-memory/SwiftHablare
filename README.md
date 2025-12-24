@@ -22,6 +22,41 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 
 SwiftHablare focuses on doing one thing well: generating high-quality audio from text with a specified voice.
 
+## What's New in v5.3.0
+
+SwiftHablaré v5.3.0 introduces a **deterministic event-driven notification system** for audio synthesis completion.
+
+**Architecture Improvements:**
+- ⚡ **Deterministic timing** - AsyncStream-based events replace continuation-based waiting
+- ⚡ **No timeouts** - Audio generation completes exactly when synthesis finishes (no arbitrary waits)
+- ⚡ **Thread-safe notifications** - AsyncStream.Continuation handles cross-thread event emission
+- ⚡ **Better cancellation** - Built-in support for task cancellation
+
+**Technical Changes:**
+- 🔧 **SynthesizerDelegate refactored** - Uses AsyncStream for event emission
+- 🔧 **Event-driven flow** - `for await event in delegate.events` replaces manual continuation
+- 🔧 **Removed timeout logic** - All timing now deterministic and event-based
+
+**Benefits:**
+- ✅ Faster completion (no wasted time waiting)
+- ✅ More reliable (no timeout failures)
+- ✅ Better resource usage (no polling or arbitrary sleeps)
+- ✅ Cleaner architecture (reactive programming pattern)
+
+**No Breaking Changes:**
+This is an internal refactoring. Consumer code continues to work exactly the same:
+
+```swift
+// Your code (unchanged)
+let result = try await service.generate(text: "Hello", providerId: "apple", voiceId: "...")
+// ✅ Now uses deterministic event system internally
+```
+
+**Documentation:**
+- See [Docs/NOTIFICATION_SYSTEM.md](Docs/NOTIFICATION_SYSTEM.md) for implementation guide
+- See [Docs/CONCURRENCY_MODEL.md](Docs/CONCURRENCY_MODEL.md) for architecture diagrams
+- See [Thread Safety & Concurrency](#asyncstream-notification-system) section below
+
 ## What's New in v4.0.0
 
 SwiftHablaré v4.0.0 is a **performance-focused release** that significantly improves efficiency and removes deprecated code.
@@ -1067,6 +1102,80 @@ await MainActor.run {
     try? modelContext.save()
 }
 ```
+
+### AsyncStream Notification System
+
+SwiftHablare v5.3+ uses an **event-driven notification system** for audio synthesis completion. This architecture provides deterministic, timeout-free synthesis handling.
+
+**Key Benefits:**
+- ✅ **No Timeouts** - Events fire exactly when synthesis completes (no arbitrary waits)
+- ✅ **Deterministic** - All timing controlled by AVSpeechSynthesizer callbacks
+- ✅ **Thread-Safe** - AsyncStream handles cross-thread event emission automatically
+- ✅ **Cancellable** - Built-in support for task cancellation
+
+**How It Works:**
+
+The system uses Swift's `AsyncStream` to emit events when audio synthesis completes:
+
+```swift
+// Internal implementation (AVSpeechTTSEngine)
+private enum SynthesisEvent: Sendable {
+    case finished   // Synthesis completed successfully
+    case cancelled  // Synthesis was cancelled
+}
+
+private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    let events: AsyncStream<SynthesisEvent>
+    private var eventContinuation: AsyncStream<SynthesisEvent>.Continuation?
+
+    // Emit events when AVSpeechSynthesizer completes
+    nonisolated func speechSynthesizer(_:didFinish:) {
+        eventContinuation?.yield(.finished)
+        eventContinuation?.finish()
+    }
+}
+
+// Subscriber waits deterministically for completion
+for await event in delegate.events {
+    switch event {
+    case .finished, .cancelled:
+        // Process results - no timeout needed!
+        return (audioData, duration)
+    }
+}
+```
+
+**Why This Matters:**
+
+Traditional approaches use timeouts or polling:
+```swift
+// ❌ OLD: Arbitrary timeout
+try await Task.sleep(nanoseconds: 5_000_000_000)  // Wait 5 seconds
+// Problem: Wastes time if synthesis finishes early, fails if takes longer
+
+// ✅ NEW: Event-driven
+for await event in delegate.events {
+    // Completes immediately when ready, no wasted time
+}
+```
+
+**Consumer Impact:**
+
+As a SwiftHablare consumer, you don't need to change anything! The notification system is internal to the library. Your code continues to work exactly the same:
+
+```swift
+// Your code (unchanged)
+let result = try await service.generate(
+    text: "Hello, world!",
+    providerId: "apple",
+    voiceId: "voice-id"
+)
+// ✅ This now completes deterministically without timeouts
+```
+
+**Technical Details:**
+
+See [Docs/NOTIFICATION_SYSTEM.md](Docs/NOTIFICATION_SYSTEM.md) for implementation details and [Docs/CONCURRENCY_MODEL.md](Docs/CONCURRENCY_MODEL.md) for architecture diagrams.
 
 ## TypedDataStorage Integration
 
