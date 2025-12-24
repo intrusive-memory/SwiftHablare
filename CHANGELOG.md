@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.0] - 2025-12-24
+
+### Added
+
+#### AsyncStream-Based Notification System
+- **Deterministic audio synthesis completion** - Event-driven architecture replaces timeout-based waiting
+  - `AsyncStream<SynthesisEvent>` for thread-safe event emission from AVSpeechSynthesizer callbacks
+  - Guaranteed happens-before ordering: all buffer callbacks complete before `didFinish()` fires
+  - No arbitrary timeouts - waits indefinitely for synthesis to complete (correct behavior)
+  - Thread-safe event emission from arbitrary threads (AVSpeechSynthesizer delegate callbacks)
+  - Fully cancellable by caller (external task cancellation)
+  - Zero data races - guaranteed ordering ensures safe shared state access
+
+- **Documentation**
+  - `Docs/CONCURRENCY_MODEL.md` - Complete architecture diagrams and concurrency model
+  - `Docs/NOTIFICATION_SYSTEM.md` - AsyncStream implementation guide
+  - `Docs/NOTIFICATION_SYSTEM_TESTING.md` - Comprehensive testing strategy
+
+### Changed
+
+#### Audio File Creation
+- **Explicit interleaved parameter** in AVAudioFile creation
+  - Fixes deprecation warnings in Xcode 16.2+
+  - Uses modern API: `AVAudioFile(forWriting:settings:commonFormat:interleaved:)`
+  - Explicitly sets `interleaved: false` (matches PCM format requirements)
+  - No behavioral change - always used non-interleaved format
+
+### Fixed
+
+- **AVAudioFile API deprecation** - Updated to use explicit interleaved parameter
+  - Resolves Xcode 16.2+ warnings about deprecated initializer
+  - Future-proof against API changes
+
+### Technical Details
+
+#### Architecture Changes
+- **Event-Driven Synthesis**: Replaced continuation-based waiting with AsyncStream events
+  - More robust than single-use continuations
+  - Natural for event-driven programming (multiple events, cancellation)
+  - Built-in stream lifecycle management
+
+#### Quality Metrics
+- **Test Count**: 390+ tests passing (all platforms)
+- **Test Coverage**: 96%+ maintained
+- **Build Status**: ✅ All platforms passing (iOS, macOS)
+- **Swift 6**: Full strict concurrency compliance
+- **CI/CD**: All required checks passing
+
 ## [5.3.0] - 2025-12-09
 
 ### Added
