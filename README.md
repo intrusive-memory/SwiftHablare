@@ -9,7 +9,6 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 **Core Features:**
 - **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
 - **Provider registry**: Centralized provider management with configuration panels (v3.5.1)
-- **Voice caching**: Reduces API calls by caching available voices in SwiftData
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
 - **Cross-platform**: iOS 26+ and macOS 26+ (full platform support)
 - **Optional UI components**: SwiftUI pickers and generation buttons (v2.3.0)
@@ -28,9 +27,7 @@ SwiftHablare focuses on doing one thing well: generating high-quality audio from
 SwiftHablaré v4.0.0 is a **performance-focused release** that significantly improves efficiency and removes deprecated code.
 
 **Performance Improvements:**
-- ⚡ **15-25% faster voice loading** - Optimized cache invalidation with batch deletion
 - ⚡ **50% faster UI rendering** - Eliminated redundant FetchDescriptor creation in GenerateAudioButton
-- ⚡ **10-20x faster cache clearing** - Batch deletion replaces individual delete operations
 - ⚡ **Reduced memory overhead** - Removed 250+ lines of dead code
 
 **Breaking Changes:**
@@ -226,8 +223,6 @@ SwiftHablare/
 │   └── ElevenLabsVoiceProvider.swift # ElevenLabs API
 ├── Generation/
 │   └── GenerationService.swift  # Actor-based generation coordinator
-├── SwiftDataModels/
-│   └── VoiceCacheModel.swift    # Cache for provider voices
 ├── Models/
 │   └── Voice.swift              # Voice model (Sendable DTO)
 └── Security/
@@ -240,22 +235,22 @@ SwiftHablare/
 ┌─────────────────┐
 │ VoiceProvider   │  1. Fetch available voices
 │ (init)          │     ↓
-└─────────────────┘  2. Cache in VoiceCacheModel
+└─────────────────┘
         ↓
 ┌─────────────────┐
-│ GenerationService│  3. Takes GuionElementModel
+│ GenerationService│  2. Takes GuionElementModel
 │ (actor)         │     ↓
-└─────────────────┘  4. Generates audio (background)
+└─────────────────┘  3. Generates audio (background)
         ↓
 ┌─────────────────┐
-│ GenerationResult │  5. Sendable result
+│ GenerationResult │  4. Sendable result
 │ (Sendable)      │     ↓
-└─────────────────┘  6. Main thread receives
+└─────────────────┘  5. Main thread receives
         ↓
 ┌─────────────────┐
-│ TypedDataStorage │  7. Save to SwiftCompartido
+│ TypedDataStorage │  6. Save to SwiftCompartido
 │ (SwiftData)     │     ↓
-└─────────────────┘  8. Link to GuionElementModel
+└─────────────────┘  7. Link to GuionElementModel
 ```
 
 ## Voice Providers
@@ -287,10 +282,10 @@ if provider.isConfigured() {
 - Gender detection based on voice name
 - Platform-agnostic through Engine Boundary Protocol
 
-**Platform-Specific Implementation:**
+**Unified Implementation:**
 - **iOS 26+**: Uses AVSpeechSynthesizer.write() (AIFC format)
-- **macOS 26+**: Uses NSSpeechSynthesizer (AIFF format)
-- Unified interface via VoiceEngine protocol
+- **macOS 26+**: Uses AVSpeechSynthesizer.write() (AIFC format)
+- Single implementation across all platforms via AVSpeechTTSEngine
 
 ### ElevenLabs Voice Provider
 
@@ -1030,30 +1025,6 @@ CommonMarkParser in SwiftCompartido converts markdown to GuionElements:
 
 See the [SwiftCompartido documentation](https://github.com/intrusive-memory/SwiftCompartido) for more details on screenplay parsing.
 
-## Voice Caching
-
-SwiftHablare automatically caches voices in SwiftData to reduce API calls:
-
-```swift
-// VoiceCacheModel properties:
-// - providerId: "apple" or "elevenlabs"
-// - voiceId: Provider's voice identifier
-// - voiceName: Display name
-// - language, locality, gender: Metadata
-// - cachedAt, lastValidatedAt: Timestamps
-// - isAvailable: Current availability
-
-// Fetch cached voices
-let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: "elevenlabs")
-let cachedVoices = try modelContext.fetch(descriptor)
-
-// Check if cache is stale (default: 24 hours)
-if cachedVoices.first?.isStale() == true {
-    // Refresh from provider
-    let freshVoices = try await provider.fetchVoices()
-}
-```
-
 ## Thread Safety & Concurrency
 
 SwiftHablare follows Swift 6 strict concurrency:
@@ -1250,7 +1221,7 @@ do {
 
 ## Testing
 
-SwiftHablaré has a comprehensive test suite with 259 passing tests and 96%+ coverage.
+SwiftHablaré has a comprehensive test suite with 390+ passing tests and 96%+ coverage.
 
 ### Test Organization
 
@@ -1325,6 +1296,29 @@ xcodebuild test \
 swift test --enable-code-coverage
 ```
 
+### Pre-Commit Hooks
+
+SwiftHablaré includes a pre-commit hook that validates local audio generation before commits:
+
+**Install the hooks:**
+```bash
+./.githooks/install.sh
+```
+
+**What it does:**
+- Runs 3 audio hardware tests (~5-10 seconds)
+- Validates 16-bit PCM audio format generation
+- Tests AVAudioPlayer compatibility
+- Verifies accurate duration calculation
+- Automatically skips on CI or non-macOS systems
+
+**Bypass (not recommended):**
+```bash
+git commit --no-verify
+```
+
+See `.githooks/README.md` for complete documentation.
+
 ### CI/CD Workflows
 
 SwiftHablaré uses GitHub Actions with three workflows running on macOS runners.
@@ -1398,7 +1392,7 @@ final class MyProviderIntegrationTests: XCTestCase {
 ## Dependencies
 
 - **SwiftCompartido** (required): Provides `GuionElementModel` and `TypedDataStorage`
-- **SwiftData** (system): For `VoiceCacheModel` persistence
+- **SwiftData** (system): For `TypedDataStorage` persistence
 - **AVFoundation** (system): For Apple TTS provider
 - **Foundation** (system): Core Swift types
 
@@ -1479,9 +1473,7 @@ No action required - this struct was never part of the public API.
 
 These improvements are automatic and require no code changes:
 
-- ⚡ **15-25% faster voice loading** - Batch cache invalidation
 - ⚡ **50% faster UI rendering** - Optimized FetchDescriptor creation
-- ⚡ **10-20x faster cache clearing** - Batch deletion
 - ⚡ **Swift 6 compliance** - Fixed concurrency violations
 
 ### New Features
@@ -1523,10 +1515,9 @@ SwiftHablare 3.0 is a complete rewrite. Key changes:
 - All image generation
 - All video generation
 - All UI components (AudioPlayerManager, widgets, etc.)
-- All SwiftData models except VoiceCacheModel
+- All SwiftData models
 
 ### Added
-- VoiceCacheModel for voice caching
 - GenerationService actor for safe concurrency
 - Direct TypedDataStorage integration
 

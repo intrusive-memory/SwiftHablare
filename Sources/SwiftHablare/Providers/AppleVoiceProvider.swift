@@ -13,17 +13,15 @@ import SwiftUI
 /// Apple Text-to-Speech implementation of VoiceProvider
 ///
 /// **Platform Support:**
-/// - **iOS 13+**: Full TTS support with real audio generation using `AVSpeechSynthesizer.write()`
-/// - **macOS 10.13+**: Full TTS support with real audio generation using `NSSpeechSynthesizer`
+/// - **iOS 26+**: Full TTS support with real audio generation using `AVSpeechSynthesizer.write()`
+/// - **macOS 26+**: Full TTS support with real audio generation using `AVSpeechSynthesizer.write()`
 ///
 /// **Audio Output:**
-/// - **iOS**: AIFC format with actual synthesized speech (physical device), AIFF placeholder (simulator)
-/// - **macOS**: AIFF format with actual synthesized speech
+/// - **iOS/macOS Physical Device**: AIFC format with actual synthesized speech
+/// - **iOS Simulator**: AIFF format with placeholder silent audio (API limitation)
 ///
 /// **Implementation:**
-/// This provider delegates to platform-specific engines:
-/// - iOS: `AVSpeechTTSEngine` (using AVSpeechSynthesizer)
-/// - macOS: `NSSpeechTTSEngine` (using NSSpeechSynthesizer)
+/// This provider uses `AVSpeechTTSEngine` (using AVSpeechSynthesizer) on all platforms
 public final class AppleVoiceProvider: VoiceProvider {
     public let providerId = "apple"
     public let displayName = "Apple Text-to-Speech"
@@ -39,16 +37,10 @@ public final class AppleVoiceProvider: VoiceProvider {
     }
 
     public init() {
-        #if os(iOS)
         self.engine = AppleTTSEngineBoundary(underlying: AVSpeechTTSEngine())
-        #elseif os(macOS)
-        self.engine = AppleTTSEngineBoundary(underlying: NSSpeechTTSEngine())
-        #else
-        fatalError("Unsupported platform for Apple TTS")
-        #endif
     }
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         // Apple TTS is always available on supported platforms
         return engine.canGenerate(with: configuration)
     }
@@ -70,6 +62,25 @@ public final class AppleVoiceProvider: VoiceProvider {
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
         return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
+    }
+
+    /// Override to use accurate duration from buffer frame calculation
+    /// instead of the default VoiceProvider implementation which uses AVURLAsset.load(.duration)
+    public func generateProcessedAudio(text: String, voiceId: String, languageCode: String) async throws -> ProcessedAudio {
+        // Call the engine directly to get both audio and duration
+        let (audioData, duration) = try await engine.underlying.generateAudioWithDuration(
+            text: text,
+            voiceId: voiceId,
+            languageCode: languageCode
+        )
+
+        return ProcessedAudio(
+            audioData: audioData,
+            durationSeconds: duration,
+            trimmedStart: 0,
+            trimmedEnd: 0,
+            mimeType: self.mimeType
+        )
     }
 
 #if canImport(SwiftUI)

@@ -438,7 +438,6 @@ struct ScreenplayGenerationListView_Previews: PreviewProvider {
             GuionDocumentModel.self,
             GuionElementModel.self,
             TitlePageEntryModel.self,
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)

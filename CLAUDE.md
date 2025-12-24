@@ -47,9 +47,9 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Project Overview
 
-**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with automatic voice caching, secure API key management, and optional SwiftUI components.
+**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with secure API key management, and optional SwiftUI components.
 
-**Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, voice caching, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
+**Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 
 ## Core Architecture
 
@@ -76,8 +76,6 @@ SwiftHablare/
 ├── VoiceProviderRegistry.swift      # Registry + enablement state for providers
 ├── Security/
 │   └── KeychainManager.swift        # Secure API key storage
-├── SwiftDataModels/
-│   └── VoiceCacheModel.swift        # Voice caching with SwiftData
 ├── UI/
 │   ├── ProviderPickerView.swift     # SwiftUI provider picker
 │   ├── VoicePickerView.swift        # SwiftUI voice picker
@@ -92,29 +90,99 @@ SwiftHablare/
 ### Key Features
 
 - **Multi-Provider Support**: Apple TTS (built-in) and ElevenLabs (API-based)
-- **Language-Specific Caching**: Voices cached per provider AND language code (v2.3.0+)
 - **Engine Boundary Protocol**: Platform-agnostic voice engine abstraction (v3.5.1+)
 - **Voice URI**: Portable voice references with `hablare://` URI scheme
 - **Cast List Export**: Character-to-voice mapping export (JSON format)
 - **Protocol-Oriented Design**: `SpeakableItem` and `SpeakableGroup` protocols
 - **Thread-Safe Generation**: Actor-based concurrency (GenerationService)
 - **SwiftData Integration**: Uses `TypedDataStorage` from SwiftCompartido
-- **Performance Optimizations**: 15-25% faster voice loading, 50% faster UI, 10-20x faster cache clearing (v4.0.0+)
+- **Performance Optimizations**: 15-25% faster voice loading, 50% faster UI (v4.0.0+)
+
+### Audio Format Requirements
+
+**CRITICAL**: All generated audio MUST be in **16-bit integer PCM** format (not 32-bit float).
+
+#### Why 16-bit PCM?
+
+`AVAudioPlayer` (the standard iOS/macOS playback API) **cannot play 32-bit float PCM** audio. While `AVAudioFile` can read it, `AVAudioPlayer.prepareToPlay()` will fail (returns `false` with `duration = 0.0`).
+
+**Symptoms of wrong format:**
+- ✅ AVAudioFile can open the file
+- ❌ AVAudioPlayer.prepareToPlay() returns false
+- ❌ player.duration == 0.0
+- ❌ No playback occurs
+
+#### Implementation (AppleVoiceProvider)
+
+The `AVSpeechTTSEngine` converts audio buffers during generation:
+
+```swift
+// Create 16-bit PCM output format
+let format16Bit = AVAudioFormat(
+    commonFormat: .pcmFormatInt16,
+    sampleRate: sampleRate,
+    channels: channels,
+    interleaved: false
+)
+
+// Convert each buffer from AVSpeechSynthesizer (which provides float) to 16-bit
+if let converter = AVAudioConverter(from: inputFormat, to: format16Bit) {
+    // Convert and write 16-bit PCM to file
+}
+```
+
+#### Testing Requirements
+
+**All audio generation tests MUST verify:**
+
+1. **Format is 16-bit integer PCM** (not float):
+   ```swift
+   let bitDepth = settings[AVLinearPCMBitDepthKey] as? Int
+   let isFloat = settings[AVLinearPCMIsFloatKey] as? Bool
+   XCTAssertEqual(bitDepth, 16)
+   XCTAssertEqual(isFloat, false)
+   ```
+
+2. **AVAudioPlayer can play it**:
+   ```swift
+   let player = try AVAudioPlayer(contentsOf: audioURL)
+   XCTAssertTrue(player.prepareToPlay())
+   XCTAssertGreaterThan(player.duration, 0.0)
+   ```
+
+3. **CI environment handling**:
+   - Tests detect `CI` environment variable (automatically set by GitHub Actions)
+   - Skip audio format validation with early return: `if ProcessInfo.processInfo.environment["CI"] != nil { return }`
+   - Skip audio generation tests in headless CI runners (no audio hardware)
+
+#### Benefits of 16-bit PCM
+
+✅ **Compatible** with AVAudioPlayer (universal playback)
+✅ **Smaller files** - 50% reduction vs 32-bit float
+✅ **Standard format** - Works with all Apple audio APIs
+✅ **Better compression** - More efficient than float for speech
+
+#### Legacy Format Handling
+
+If you encounter 32-bit float AIFC files (from older SwiftHablare versions):
+- These require on-the-fly conversion to 16-bit PCM for playback
+- See `GuionAudioLibraryView.convertTo16BitPCM()` in Produciesta
+- New audio should NEVER be generated in this format
 
 ### Platform Support
 
 **Supported Platforms:**
 - **iOS 26+**: Full TTS support with `AVSpeechSynthesizer.write()` (AIFC format)
-- **macOS 26+**: Full TTS support with `NSSpeechSynthesizer` (AIFF format)
+- **macOS 26+**: Full TTS support with `AVSpeechSynthesizer.write()` (AIFC format)
 
-**Platform-Specific Implementations:**
-- iOS uses `AVSpeechTTSEngine` (AVFoundation)
-- macOS uses `NSSpeechTTSEngine` (AppKit)
-- Both engines implement the `VoiceEngine` protocol
+**Unified Implementation:**
+- Both iOS and macOS use `AVSpeechTTSEngine` (AVFoundation)
+- Single implementation using `AVSpeechSynthesizer` across all platforms
+- No platform-specific engine code required
 
 **Simulator Behavior:**
-- Physical iOS devices: Real TTS audio generation
-- iOS Simulator: Limited audio support (AVSpeechSynthesizer.write() constraints)
+- Physical iOS/macOS devices: Real TTS audio generation
+- iOS Simulator: Limited audio support (AVSpeechSynthesizer.write() constraints, generates placeholder audio)
 - macOS: Always produces real audio
 
 Integration tests requiring real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
@@ -327,22 +395,7 @@ let spanishVoices = try await service.fetchVoices(from: "apple", languageCode: "
 let allVoices = try await service.fetchAllVoices()
 ```
 
-### 3. Language-Specific Voice Caching
-
-Voices are cached per provider AND language code:
-
-```swift
-// Automatic caching with language-specific keys
-let enVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "en")
-let esVoices = try await service.fetchVoices(from: "apple", using: context, languageCode: "es")
-// Both cached independently - no collision
-
-// Clear specific language or all languages
-try await service.clearVoiceCache(for: "apple", languageCode: "en", using: context)
-try await service.clearVoiceCache(for: "apple", using: context) // All languages
-```
-
-### 4. Batch Generation with Progress
+### 3. Batch Generation with Progress
 
 ```swift
 // Create speakable items
@@ -382,6 +435,31 @@ Update branch protection when CI workflow changes:
 ```bash
 gh api repos/intrusive-memory/SwiftHablare/branches/main/protection/required_status_checks
 ```
+
+### Git Hooks
+
+**Pre-commit Audio Tests:**
+
+SwiftHablare includes a pre-commit hook that runs local audio tests before allowing commits. This ensures audio generation features remain working on development machines.
+
+**Install hooks:**
+```bash
+./.githooks/install.sh
+```
+
+**What the hook does:**
+- Runs `LocalAudioTests.xctestplan` (3 tests, ~5-10 seconds)
+- Validates 16-bit PCM format generation
+- Tests AVAudioPlayer compatibility
+- Verifies accurate duration calculation
+- Automatically skips on CI or non-macOS systems
+
+**Bypass (not recommended):**
+```bash
+git commit --no-verify
+```
+
+**See `.githooks/README.md` for detailed documentation.**
 
 ### Development Best Practices
 
@@ -429,6 +507,26 @@ xcodebuild test -scheme SwiftHablare \
   -destination 'platform=macOS'
 ```
 
+### CI Testing
+
+**Environment Variable Detection:**
+- GitHub Actions automatically sets `CI=true` environment variable
+- Tests detect this and skip hardware-dependent tests (audio format validation)
+- Pattern: `if ProcessInfo.processInfo.environment["CI"] != nil { return }`
+
+**Test Plans:**
+- Test plans (`.xctestplan` files) are **local development only**
+- They do NOT work with SPM packages via xcodebuild (require Xcode project/workspace)
+- See `Docs/TestPlans.md` for detailed test plan documentation
+
+**Tests that skip on CI:**
+- "Audio generation produces valid audio format" - requires real AIFC/AIFF format validation
+- "Generated audio is playable by AVAudioPlayer" - requires audio hardware
+- "Generated audio with duration has correct format" - requires real TTS duration
+- "Physical device generates real audio" - requires real TTS voices
+- "Speak with invalid voice ID" - expects errors that don't occur with placeholder audio
+- "Voice availability check" - requires real TTS voice availability
+
 ### Test Frameworks
 
 **Mixed Framework Support:**
@@ -446,7 +544,7 @@ class MyTests: XCTestCase {
     var modelContainer: ModelContainer!
 
     override func setUp() async throws {
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let schema = Schema([TypedDataStorage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(modelContainer)
@@ -457,7 +555,7 @@ class MyTests: XCTestCase {
 @Suite @MainActor
 struct MyTests {
     func makeTestContainer() throws -> ModelContainer {
-        let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
+        let schema = Schema([TypedDataStorage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
@@ -530,7 +628,7 @@ actor MyService {
 **In Scope:**
 - ✅ Voice provider integration (Apple TTS, ElevenLabs) with language filtering
 - ✅ Provider registry and management
-- ✅ Language-specific voice fetching and caching (VoiceCacheModel)
+- ✅ Language-specific voice fetching
 - ✅ Multi-language support with automatic system language detection
 - ✅ Thread-safe audio generation (actor-based)
 - ✅ API key management (Keychain)

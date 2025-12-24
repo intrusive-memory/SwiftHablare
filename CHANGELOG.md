@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automates merge, tagging, and GitHub release creation
   - Safety checks to prevent accidental destructive operations
   - Available as user-global skill in `~/.claude/skills/`
+- **Pre-commit git hooks** for local audio validation
+  - Runs 3 audio hardware tests before allowing commits (~5-10 seconds)
+  - Validates 16-bit PCM format, AVAudioPlayer compatibility, and duration accuracy
+  - Automatically skips on CI or non-macOS systems
+  - Install with `./.githooks/install.sh`
 
 #### Documentation
 - **WellSaid Labs integration requirements** (comprehensive technical spec)
@@ -61,9 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Test suite compatibility** with invalid voice ID error handling
   - Updated 3 tests to handle platform-specific behavior
-  - All 289 tests pass on both platforms
-  - iOS: 282/282 tests (7 simulator-only tests skipped)
-  - macOS: 289/289 tests
+  - All 390+ tests pass on both platforms
+  - iOS: Tests skip audio hardware validation on CI
+  - macOS: All tests pass on physical machines
+- **CI test reliability** with automatic environment detection
+  - Tests detect GitHub Actions `CI` environment variable
+  - 6 audio format validation tests skip on CI (no audio hardware)
+  - Pattern: `if ProcessInfo.processInfo.environment["CI"] != nil { return }`
+  - Prevents false failures on headless CI runners
 
 ### Technical Details
 
@@ -71,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 1. `.claude/skills/ship-swift-library.md` - Release automation skill
 2. `.claude/skills/README.md` - Skills directory documentation
 3. `Docs/WellSaidIntegrationRequirements.md` - WellSaid integration spec (1,116 lines)
+4. `.githooks/pre-commit` - Pre-commit hook for local audio tests
+5. `.githooks/install.sh` - Git hooks installation script
+6. `.githooks/README.md` - Git hooks documentation
 
 #### Files Modified
 1. `Sources/SwiftHablare/Providers/ElevenLabsVoiceProvider.swift` - Model selector (+102 lines)
@@ -79,16 +92,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Updated configuration view with model picker
 2. `Sources/SwiftHablare/Utilities/AudioProcessor.swift` - Async/await refactoring
 3. `Sources/SwiftHablare/Providers/Apple/NSSpeechTTSEngine.swift` - Invalid voice ID errors
-4. `Tests/SwiftHablareTests/SpeakableItemTests.swift` - Platform-aware tests
+4. `Tests/SwiftHablareTests/SpeakableItemTests.swift` - CI environment detection, platform-aware tests
 5. `Tests/SwiftHablareTests/SpeakableGroupTests.swift` - Valid voice ID usage
 6. `Tests/SwiftHablareTests/GenerateAudioButtonTests.swift` - Valid voice ID usage
+7. `Tests/SwiftHablareTests/AVSpeechTTSEngineTests.swift` - CI environment detection for audio format tests
+8. `.github/workflows/fast-tests.yml` - TEST_RUNNER_CI environment variable passing
+9. `CLAUDE.md` - CI testing section, git hooks documentation
+10. `README.md` - Pre-commit hooks section, updated test count
+11. `Docs/TestPlans.md` - CI environment variable detection documentation
 
 #### Quality Metrics
-- **Test Count**: 289 tests passing
+- **Test Count**: 390+ tests passing (all platforms)
 - **Test Coverage**: 96%+ maintained
 - **Build Status**: ✅ All platforms passing (iOS, macOS)
 - **Swift 6**: Full strict concurrency compliance
-- **CI/CD**: All required checks passing (Code Quality, Fast Tests iOS/macOS)
+- **CI/CD**: All required checks passing (Code Quality, Fast Tests iOS/macOS, Performance Tests)
 
 ### Migration Notes
 

@@ -2,23 +2,27 @@
 //  AVSpeechTTSEngine.swift
 //  SwiftHablare
 //
-//  iOS implementation using AVSpeechSynthesizer
+//  Implementation using AVSpeechSynthesizer for iOS and macOS
 //
 
+import AVFoundation
 #if canImport(UIKit)
 import UIKit
-import AVFoundation
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
-/// iOS implementation of Apple TTS using AVSpeechSynthesizer
+/// Apple TTS implementation using AVSpeechSynthesizer
 ///
 /// **Platform Support:**
-/// - **iOS 13+**: Full TTS support with real audio generation
+/// - **iOS 26+**: Full TTS support with real audio generation
+/// - **macOS 26+**: Full TTS support with real audio generation
 /// - **iOS Simulator**: Generates placeholder silent audio (API limitation)
 ///
 /// **Audio Output:**
 /// - **Physical Device**: AIFC format with actual synthesized speech
 /// - **Simulator**: AIFF format with silent placeholder audio
-@available(iOS 13.0, *)
+@available(iOS 13.0, macOS 14.0, *)
 final class AVSpeechTTSEngine: AppleTTSEngine {
 
     // MARK: - AppleTTSEngine Implementation
@@ -35,80 +39,109 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         #else
         // Physical iOS Device: Use real TTS
         // Note: languageCode is used for voice selection, but actual voice is determined by voiceId
+        let (data, _) = try await generateRealAudio(text: text, voiceId: voiceId)
+        return data
+        #endif
+    }
+
+    /// Generate audio with accurate duration measured from buffer frames
+    /// - Returns: Tuple of (audio data, duration in seconds)
+    func generateAudioWithDuration(text: String, voiceId: String, languageCode: String) async throws -> (Data, TimeInterval) {
+        // Validate text is not empty
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VoiceProviderError.invalidRequest("Text cannot be empty")
+        }
+
+        #if targetEnvironment(simulator)
+        // iOS Simulator: Generate placeholder audio with estimated duration
+        let data = try await generatePlaceholderAudio(text: text)
+        let duration = Double(text.count) / 14.5
+        return (data, duration)
+        #else
+        // Physical Device: Use real TTS with frame-calculated duration
         return try await generateRealAudio(text: text, voiceId: voiceId)
         #endif
     }
 
     func fetchVoices(languageCode: String) async throws -> [Voice] {
-        return try await withCheckedThrowingContinuation { continuation in
+        // Use MainActor.run to properly execute on main thread from async context
+        // This eliminates unsafeForcedSync warnings that occur with DispatchQueue.main.async
+        return try await MainActor.run {
+            #if DEBUG
+            print("🎤 [AVSpeechTTSEngine] About to call AVSpeechSynthesisVoice.speechVoices()")
+            print("🎤 [AVSpeechTTSEngine] Using MainActor.run (no unsafeForcedSync warnings)")
+            print("🎤 [AVSpeechTTSEngine] Current thread: \(Thread.current)")
+            print("🎤 [AVSpeechTTSEngine] Is main thread: \(Thread.isMainThread)")
+            #endif
+
+            // Get all available AVSpeechSynthesisVoice instances
             // AVSpeechSynthesisVoice must be accessed on the main thread
-            DispatchQueue.main.async {
-                // Get all available AVSpeechSynthesisVoice instances
-                let avVoices = AVSpeechSynthesisVoice.speechVoices()
+            let avVoices = AVSpeechSynthesisVoice.speechVoices()
 
-                // Ensure we have voices available
-                guard !avVoices.isEmpty else {
-                    continuation.resume(throwing: VoiceProviderError.invalidResponse)
-                    return
-                }
+            #if DEBUG
+            print("🎤 [AVSpeechTTSEngine] Returned from AVSpeechSynthesisVoice.speechVoices() with \(avVoices.count) voices")
+            #endif
 
-                // Use provided language code for filtering
-                // Convert all voices first, then filter
-                let allVoices = avVoices.compactMap { avVoice -> Voice? in
-                    // Extract language code and quality info
-                    let languageInfo = Locale.current.localizedString(forIdentifier: avVoice.language) ?? avVoice.language
-                    let qualityInfo = self.qualityDescription(for: avVoice.quality)
-                    let description = "\(languageInfo) - \(qualityInfo)"
-
-                    // Extract gender from voice name or identifier patterns
-                    let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
-
-                    // Store quality as string for filtering
-                    let qualityString = self.qualityString(for: avVoice.quality)
-
-                    // Split language code on dash or underscore
-                    let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
-
-                    var language: String?
-                    var locality: String?
-
-                    if components.count >= 1 {
-                        language = components[0]
-                    }
-                    if components.count >= 2 {
-                        locality = components[1]
-                    }
-
-                    return Voice(
-                        id: avVoice.identifier,
-                        name: avVoice.name,
-                        description: description,
-                        providerId: "apple",
-                        language: language,
-                        locality: locality,
-                        gender: gender,
-                        quality: qualityString
-                    )
-                }
-
-                // Filter voices that match the requested language (first 2 characters)
-                let filteredVoices = allVoices.filter { voice in
-                    guard let voiceLanguage = voice.language else { return false }
-                    let voiceLangPrefix = String(voiceLanguage.prefix(2))
-                    let requestedLangPrefix = String(languageCode.prefix(2))
-                    return voiceLangPrefix == requestedLangPrefix
-                }
-
-                // If no voices match system language, return a reasonable subset of all voices
-                let result = filteredVoices.isEmpty ? Array(allVoices.prefix(10)) : filteredVoices
-
-                guard !result.isEmpty else {
-                    continuation.resume(throwing: VoiceProviderError.invalidResponse)
-                    return
-                }
-
-                continuation.resume(returning: result)
+            // Ensure we have voices available
+            guard !avVoices.isEmpty else {
+                throw VoiceProviderError.invalidResponse
             }
+
+            // Use provided language code for filtering
+            // Convert all voices first, then filter
+            let allVoices = avVoices.compactMap { avVoice -> Voice? in
+                // Extract language code and quality info
+                let languageInfo = Locale.current.localizedString(forIdentifier: avVoice.language) ?? avVoice.language
+                let qualityInfo = self.qualityDescription(for: avVoice.quality)
+                let description = "\(languageInfo) - \(qualityInfo)"
+
+                // Extract gender from voice name or identifier patterns
+                let gender = self.extractGender(from: avVoice.name, identifier: avVoice.identifier)
+
+                // Store quality as string for filtering
+                let qualityString = self.qualityString(for: avVoice.quality)
+
+                // Split language code on dash or underscore
+                let components = avVoice.language.components(separatedBy: CharacterSet(charactersIn: "_-"))
+
+                var language: String?
+                var locality: String?
+
+                if components.count >= 1 {
+                    language = components[0]
+                }
+                if components.count >= 2 {
+                    locality = components[1]
+                }
+
+                return Voice(
+                    id: avVoice.identifier,
+                    name: avVoice.name,
+                    description: description,
+                    providerId: "apple",
+                    language: language,
+                    locality: locality,
+                    gender: gender,
+                    quality: qualityString
+                )
+            }
+
+            // Filter voices that match the requested language (first 2 characters)
+            let filteredVoices = allVoices.filter { voice in
+                guard let voiceLanguage = voice.language else { return false }
+                let voiceLangPrefix = String(voiceLanguage.prefix(2))
+                let requestedLangPrefix = String(languageCode.prefix(2))
+                return voiceLangPrefix == requestedLangPrefix
+            }
+
+            // If no voices match system language, return a reasonable subset of all voices
+            let result = filteredVoices.isEmpty ? Array(allVoices.prefix(10)) : filteredVoices
+
+            guard !result.isEmpty else {
+                throw VoiceProviderError.invalidResponse
+            }
+
+            return result
         }
     }
 
@@ -123,9 +156,81 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         return max(1.0, estimatedSeconds * 1.1)
     }
 
+    // MARK: - Format Conversion
+
+    /// Manually convert Float32 PCM buffer to Int16 PCM buffer
+    /// This avoids using AVAudioConverter which crashes with AVAudioFile.write()
+    private func convertFloat32ToInt16(_ inputBuffer: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer {
+        guard let floatChannelData = inputBuffer.floatChannelData else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        let frameLength = inputBuffer.frameLength
+        let channelCount = Int(inputBuffer.format.channelCount)
+
+        // Create 16-bit output format
+        // CRITICAL: Must use interleaved:true for AVAudioFile.write() compatibility
+        guard let format16Bit = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: inputBuffer.format.sampleRate,
+            channels: inputBuffer.format.channelCount,
+            interleaved: true
+        ) else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        // Create output buffer
+        guard let outputBuffer = AVAudioPCMBuffer(
+            pcmFormat: format16Bit,
+            frameCapacity: frameLength
+        ) else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        guard let int16ChannelData = outputBuffer.int16ChannelData else {
+            throw VoiceProviderError.invalidResponse
+        }
+
+        // Convert each channel's samples from Float32 to Int16
+        for channel in 0..<channelCount {
+            let floatSamples = floatChannelData[channel]
+            let int16Samples = int16ChannelData[channel]
+
+            for frame in 0..<Int(frameLength) {
+                // Read Float32 sample (range: -1.0 to 1.0)
+                let floatSample = floatSamples[frame]
+
+                // Clamp to valid range
+                let clamped = max(-1.0, min(1.0, floatSample))
+
+                // Scale to Int16 range (-32768 to 32767)
+                let scaled = clamped * 32767.0
+
+                // Convert to Int16
+                int16Samples[frame] = Int16(scaled)
+            }
+        }
+
+        // Set the frame length on the output buffer
+        outputBuffer.frameLength = frameLength
+
+        return outputBuffer
+    }
+
     // MARK: - Real Audio Generation (Physical Device)
 
-    private func generateRealAudio(text: String, voiceId: String) async throws -> Data {
+    private func generateRealAudio(text: String, voiceId: String) async throws -> (Data, TimeInterval) {
+        // CRITICAL: CI runners don't have TTS voices installed
+        // Return placeholder audio to avoid crashes
+        if ProcessInfo.processInfo.environment.keys.contains("CI") {
+            #if DEBUG
+            print("🎤 [AVSpeechTTSEngine] CI environment detected, using placeholder audio")
+            #endif
+            let placeholderData = try await self.generatePlaceholderAudio(text: text)
+            let estimatedDuration = Double(text.count) / 14.5
+            return (placeholderData, estimatedDuration)
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
             Task { @MainActor in
                 do {
@@ -144,31 +249,91 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
                     var audioFile: AVAudioFile?
                     var bufferCount = 0
+                    var totalFrames: AVAudioFrameCount = 0
+                    var sampleRate: Double = 0
+
+                    // Create delegate to track completion
+                    let delegate = SynthesizerDelegate()
+                    synthesizer.delegate = delegate
 
                     // Write synthesized speech to file, capturing each audio buffer
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Calling synthesizer.write() with utterance")
+                    #endif
+
                     synthesizer.write(utterance) { buffer in
+                        #if DEBUG
+                        print("🎤 [AVSpeechTTSEngine] ✅ Buffer callback invoked! Buffer type: \(type(of: buffer))")
+                        #endif
+
                         // Cast to PCM buffer (AVSpeechSynthesizer provides PCM buffers)
                         guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                            #if DEBUG
+                            print("🎤 [AVSpeechTTSEngine] ❌ Buffer is not AVAudioPCMBuffer")
+                            #endif
                             return
                         }
 
+                        #if DEBUG
+                        print("🎤 [AVSpeechTTSEngine] ✅ Got PCM buffer with \(pcmBuffer.frameLength) frames")
+                        print("🎤 [AVSpeechTTSEngine] Input format: \(pcmBuffer.format)")
+                        #endif
+
                         do {
-                            // Create the file on first buffer using the buffer's format
+                            // Create the file on first buffer using 16-bit PCM format
+                            // We manually convert Float32 to Int16 to avoid AVAudioConverter crashes
                             if audioFile == nil {
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: pcmBuffer.format.settings)
+                                sampleRate = pcmBuffer.format.sampleRate
+                                let channels = pcmBuffer.format.channelCount
+
+                                // Create 16-bit PCM format for AVAudioPlayer compatibility
+                                // CRITICAL: Must use interleaved:true for AVAudioFile.write() compatibility
+                                guard let format16Bit = AVAudioFormat(
+                                    commonFormat: .pcmFormatInt16,
+                                    sampleRate: sampleRate,
+                                    channels: channels,
+                                    interleaved: true
+                                ) else {
+                                    #if DEBUG
+                                    print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
+                                    #endif
+                                    return
+                                }
+
+                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
+
+                                #if DEBUG
+                                print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
+                                #endif
                             }
 
-                            // Write this buffer to the file
+                            // Manual conversion from Float32 to Int16 (avoids AVAudioConverter crashes)
                             if let file = audioFile {
-                                try file.write(from: pcmBuffer)
+                                let converted = try self.convertFloat32ToInt16(pcmBuffer)
+                                try file.write(from: converted)
                                 bufferCount += 1
+                                totalFrames += converted.frameLength
+                                #if DEBUG
+                                print("🎤 [AVSpeechTTSEngine] ✅ Wrote buffer #\(bufferCount) (\(converted.frameLength) frames)")
+                                #endif
                             }
                         } catch {
                             #if DEBUG
-                            print("Error writing audio buffer: \(error)")
+                            print("🎤 [AVSpeechTTSEngine] ❌ Error writing audio buffer: \(error)")
                             #endif
                         }
                     }
+
+                    // CRITICAL: Wait for synthesis to complete before checking buffer count
+                    // The write() callback is asynchronous, so we need to wait for the delegate callback
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Waiting for synthesis completion...")
+                    #endif
+                    await delegate.waitForCompletion()
+
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount), Total frames: \(totalFrames)")
+                    #endif
 
                     // If no buffers were generated, fall back to placeholder
                     if bufferCount == 0 {
@@ -177,9 +342,24 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
                         #endif
                         let placeholderData = try await self.generatePlaceholderAudio(text: text)
-                        continuation.resume(returning: placeholderData)
+                        // Estimate duration for placeholder (14.5 chars/sec)
+                        let estimatedDuration = Double(text.count) / 14.5
+                        continuation.resume(returning: (placeholderData, estimatedDuration))
                         return
                     }
+
+                    // Calculate duration from frames and sample rate
+                    let duration = sampleRate > 0 ? Double(totalFrames) / sampleRate : 0.0
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] ✅ Calculated duration: \(String(format: "%.2f", duration))s from \(totalFrames) frames at \(sampleRate) Hz")
+                    #endif
+
+                    // CRITICAL: Deallocate AVAudioFile to finalize AIFF header with correct file size
+                    // If we read the file while AVAudioFile is still alive, the header won't be updated
+                    audioFile = nil
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] ✅ AVAudioFile deallocated, AIFF header finalized")
+                    #endif
 
                     // Read the complete synthesized audio file
                     let data = try Data(contentsOf: tempURL)
@@ -192,7 +372,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         throw VoiceProviderError.networkError("Generated audio is too short (\(data.count) bytes)")
                     }
 
-                    continuation.resume(returning: data)
+                    continuation.resume(returning: (data, duration))
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
                 }
@@ -211,33 +391,48 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension("aiff")
 
-                    let format = AVAudioFormat(standardFormatWithSampleRate: 22050, channels: 1)!
                     // Generate minimal audio based on text length (rough estimation)
                     let estimatedDuration = Double(text.count) / 14.5
-                    let frameCount = AVAudioFrameCount(22050 * estimatedDuration)
+                    let sampleRate = 22050.0
+                    let frameCount = AVAudioFrameCount(sampleRate * estimatedDuration)
 
-                    guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-                        throw VoiceProviderError.networkError("Failed to create audio buffer")
-                    }
-                    pcmBuffer.frameLength = frameCount
-
-                    // Fill the buffer with zeros (silence)
-                    if let channelData = pcmBuffer.floatChannelData {
-                        for channel in 0..<Int(pcmBuffer.format.channelCount) {
-                            memset(channelData[channel], 0, Int(frameCount) * MemoryLayout<Float>.size)
-                        }
-                    }
-
-                    // Write to AIFF file
+                    // Use explicit Int16 PCM format for maximum compatibility with AVAssetExportSession
+                    // This matches the format that AVSpeechSynthesizer typically generates
                     let settings: [String: Any] = [
                         AVFormatIDKey: kAudioFormatLinearPCM,
-                        AVSampleRateKey: 22050.0,
+                        AVSampleRateKey: sampleRate,
                         AVNumberOfChannelsKey: 1,
                         AVLinearPCMBitDepthKey: 16,
                         AVLinearPCMIsFloatKey: false,
-                        AVLinearPCMIsBigEndianKey: true
+                        AVLinearPCMIsBigEndianKey: false,
+                        AVLinearPCMIsNonInterleaved: false
                     ]
+
+                    guard let format = AVAudioFormat(settings: settings) else {
+                        throw VoiceProviderError.networkError("Failed to create audio format")
+                    }
+
+                    // Create audio file first
                     let audioFile = try AVAudioFile(forWriting: tempURL, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
+
+                    // Create buffer with proper capacity
+                    guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+                        throw VoiceProviderError.networkError("Failed to create audio buffer")
+                    }
+
+                    // CRITICAL: Set frameLength BEFORE accessing channel data
+                    // This ensures the internal AudioBufferList is properly configured
+                    pcmBuffer.frameLength = frameCount
+
+                    // Fill with silence (zeros) - use int16ChannelData for Int16 format
+                    if let channelData = pcmBuffer.int16ChannelData {
+                        let byteSize = Int(frameCount) * MemoryLayout<Int16>.size
+                        for channel in 0..<Int(pcmBuffer.format.channelCount) {
+                            memset(channelData[channel], 0, byteSize)
+                        }
+                    }
+
+                    // Write the buffer to file
                     try audioFile.write(from: pcmBuffer)
 
                     let data = try Data(contentsOf: tempURL)
@@ -310,4 +505,37 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
     }
 }
 
-#endif
+// MARK: - Synthesizer Delegate
+
+/// Delegate to track AVSpeechSynthesizer completion
+///
+/// Note: Not isolated to MainActor to avoid actor isolation conflicts with AVSpeechSynthesizerDelegate.
+/// The delegate methods can be called from any thread, so we use thread-safe continuation handling.
+private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    /// Wait for synthesis to complete
+    func waitForCompletion() async {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    /// Called when synthesis completes
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        #if DEBUG
+        print("🎤 [SynthesizerDelegate] didFinish called")
+        #endif
+        continuation?.resume()
+        continuation = nil
+    }
+
+    /// Called when synthesis is cancelled
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        #if DEBUG
+        print("🎤 [SynthesizerDelegate] didCancel called")
+        #endif
+        continuation?.resume()
+        continuation = nil
+    }
+}

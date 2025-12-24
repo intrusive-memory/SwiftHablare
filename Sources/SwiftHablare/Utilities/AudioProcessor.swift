@@ -202,18 +202,15 @@ public enum AudioProcessor {
 
         defer { try? FileManager.default.removeItem(at: tempOutputURL) }
 
-        // Create and configure export session
+        // Create export session
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
             throw AudioProcessingError.exportFailed("Could not create export session")
         }
 
-        exportSession.outputURL = tempOutputURL
-        exportSession.outputFileType = .m4a
-
-        // Export using async/await
-        await exportSession.export()
-
-        if let error = exportSession.error {
+        // Export using async/await with new API
+        do {
+            try await exportSession.export(to: tempOutputURL, as: .m4a)
+        } catch {
             throw AudioProcessingError.exportFailed(error.localizedDescription)
         }
 
@@ -243,14 +240,12 @@ public enum AudioProcessor {
             throw AudioProcessingError.exportFailed("Could not create export session")
         }
 
-        exportSession.outputURL = tempOutputURL
-        exportSession.outputFileType = .m4a
         exportSession.timeRange = timeRange
 
-        // Export using async/await
-        await exportSession.export()
-
-        if let error = exportSession.error {
+        // Export using async/await with new API
+        do {
+            try await exportSession.export(to: tempOutputURL, as: .m4a)
+        } catch {
             throw AudioProcessingError.exportFailed(error.localizedDescription)
         }
 

@@ -138,7 +138,7 @@ public actor VoiceProviderRegistry {
     /// - Parameter providerId: Identifier of the provider.
     /// - Returns: Configured provider ready for use.
     /// - Throws: `VoiceProviderRegistryError` if the provider is missing, disabled, or not configured.
-    public func configuredProvider(for providerId: String) throws -> VoiceProvider {
+    public func configuredProvider(for providerId: String) async throws -> VoiceProvider {
         guard let descriptor = descriptors[providerId] else {
             throw VoiceProviderRegistryError.providerNotRegistered(providerId)
         }
@@ -148,7 +148,7 @@ public actor VoiceProviderRegistry {
         }
 
         let provider = descriptor.makeProvider()
-        guard provider.isConfigured() else {
+        guard await provider.isConfigured() else {
             throw VoiceProviderRegistryError.providerNotConfigured(providerId)
         }
 
@@ -181,18 +181,22 @@ public actor VoiceProviderRegistry {
     }
 
     /// Retrieve all registered providers with their enablement and configuration status.
-    public func availableProviders() -> [RegisteredVoiceProvider] {
-        descriptors.values
+    public func availableProviders() async -> [RegisteredVoiceProvider] {
+        let sortedDescriptors = descriptors.values
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
-            .map { descriptor in
-                let provider = descriptor.makeProvider()
-                let enabled = isEnabled(descriptor: descriptor)
-                return RegisteredVoiceProvider(
-                    descriptor: descriptor,
-                    isEnabled: enabled,
-                    isConfigured: provider.isConfigured()
-                )
-            }
+
+        var result: [RegisteredVoiceProvider] = []
+        for descriptor in sortedDescriptors {
+            let provider = descriptor.makeProvider()
+            let enabled = isEnabled(descriptor: descriptor)
+            let configured = await provider.isConfigured()
+            result.append(RegisteredVoiceProvider(
+                descriptor: descriptor,
+                isEnabled: enabled,
+                isConfigured: configured
+            ))
+        }
+        return result
     }
 
     /// Instantiate all registered providers regardless of configuration state.
@@ -270,8 +274,9 @@ public actor VoiceProviderRegistry {
         "voiceProvider.enabled.\(providerId)"
     }
 
-    private func handleConfigurationResult(for descriptor: VoiceProviderDescriptor, provider: VoiceProvider, success: Bool) {
-        let shouldEnable = success && provider.isConfigured()
+    private func handleConfigurationResult(for descriptor: VoiceProviderDescriptor, provider: VoiceProvider, success: Bool) async {
+        let isConfigured = await provider.isConfigured()
+        let shouldEnable = success && isConfigured
         setEnabledIfNeeded(shouldEnable, descriptor: descriptor)
     }
 

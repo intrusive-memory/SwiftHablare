@@ -54,14 +54,12 @@ public enum TestFixtures {
     /// Create an in-memory ModelContainer for testing
     ///
     /// This container is configured with the standard SwiftHablare schema:
-    /// - VoiceCacheModel (voice caching)
     /// - TypedDataStorage (audio persistence from SwiftCompartido)
     ///
     /// - Returns: An in-memory ModelContainer for testing
     /// - Throws: If container creation fails
     public static func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -118,6 +116,29 @@ public enum TestFixtures {
     /// - Returns: An AppleVoiceProvider instance
     public static func makeAppleProvider() -> AppleVoiceProvider {
         return AppleVoiceProvider()
+    }
+
+    /// Get an available Apple TTS voice ID for testing
+    ///
+    /// Fetches available voices from AppleVoiceProvider and returns the first available voice ID.
+    /// Throws a descriptive error if no voices are available (common on GitHub Actions runners).
+    ///
+    /// - Returns: A valid voice ID that can be used for testing
+    /// - Throws: NoVoicesAvailableError if no voices are available
+    public static func getAvailableAppleVoiceId() async throws -> String {
+        let provider = makeAppleProvider()
+        let voices = try await provider.fetchVoices()
+
+        guard let voiceId = voices.first?.id else {
+            struct NoVoicesAvailableError: Error, CustomStringConvertible {
+                var description: String {
+                    "No Apple TTS voices available. This is expected on GitHub Actions runners."
+                }
+            }
+            throw NoVoicesAvailableError()
+        }
+
+        return voiceId
     }
 
     /// Create a custom mock provider with specific ID for testing
@@ -387,7 +408,7 @@ public final class MockConfiguredProvider: VoiceProvider, @unchecked Sendable {
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 
@@ -453,7 +474,7 @@ public final class MockUnconfiguredProvider: VoiceProvider, @unchecked Sendable 
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return false
     }
 
@@ -498,7 +519,7 @@ public final class MockErrorProvider: VoiceProvider, @unchecked Sendable {
 
     public init() {}
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 
@@ -546,7 +567,7 @@ public final class CustomMockProvider: VoiceProvider, @unchecked Sendable {
         self.displayName = "Custom Mock \(providerId)"
     }
 
-    public func isConfigured() -> Bool {
+    public func isConfigured() async -> Bool {
         return true
     }
 

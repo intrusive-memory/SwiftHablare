@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Pre-commit hook for SwiftHablare
+# Runs local audio tests that require real TTS voices and audio hardware
+
+set -e
+
+echo "🎤 Running local audio tests..."
+echo "   This validates 16-bit PCM format, AVAudioPlayer compatibility, and duration accuracy."
+echo ""
+
+# Skip on CI (these tests cannot run there)
+if [ -n "$CI" ]; then
+    echo "⏭️  Skipping local audio tests on CI environment"
+    exit 0
+fi
+
+# Check if we're on macOS (required for audio tests)
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    echo "⚠️  Warning: Local audio tests require macOS with TTS voices installed"
+    echo "   Skipping pre-commit audio tests"
+    exit 0
+fi
+
+# Run the 3 local audio tests that cannot run on CI:
+# 1. Audio generation produces 16-bit PCM format (AVAudioPlayer compatible)
+# 2. Generated audio is playable by AVAudioPlayer
+# 3. Generated audio with duration has correct format
+#
+# We run each test individually to provide clear output
+echo "Running 3 audio hardware tests..."
+echo ""
+
+TESTS=(
+    "AVSpeechTTSEngineTests.*16-bit PCM format"
+    "AVSpeechTTSEngineTests.*playable by AVAudioPlayer"
+    "AVSpeechTTSEngineTests.*duration has correct format"
+)
+
+FAILED=0
+for test_pattern in "${TESTS[@]}"; do
+    echo "▶ Running: $test_pattern"
+    if swift test --filter "$test_pattern" > /tmp/local-audio-test.log 2>&1; then
+        echo "  ✅ Passed"
+    else
+        echo "  ❌ Failed"
+        cat /tmp/local-audio-test.log
+        FAILED=1
+    fi
+    echo ""
+done
+
+if [ $FAILED -eq 0 ]; then
+    echo "✅ All local audio tests passed!"
+    echo ""
+    exit 0
+else
+    echo "❌ Some local audio tests FAILED!"
+    echo ""
+    echo "💡 Fix the failing tests before committing, or skip this hook with:"
+    echo "   git commit --no-verify"
+    echo ""
+    exit 1
+fi

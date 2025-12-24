@@ -46,27 +46,56 @@ public struct ProviderPickerView: View {
 
     public var body: some View {
         Picker("Voice Provider", selection: $selection) {
-            Text("Select Provider")
-                .tag(nil as String?)
-
-            ForEach(providers) { provider in
-                HStack {
-                    Text(provider.descriptor.displayName)
-
-                    if !provider.isEnabled {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    } else if !provider.isConfigured {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                            .font(.caption)
-                    }
-                }
-                .foregroundStyle(provider.isEnabled ? .primary : .secondary)
-                .tag(provider.descriptor.id as String?)
-                .disabled(!provider.isEnabled)
+            // CRITICAL: Always provide a tag for the current selection to prevent __SwiftValue wrapping
+            // This prevents crashes when selection is set before providers load
+            if providers.isEmpty, let selection = selection {
+                // Provide a temporary tag for the selected provider ID during loading
+                Text(selection)
+                    .foregroundStyle(.secondary)
+                    .tag(selection as String?)
             }
+
+            // Show loading placeholder if providers aren't loaded yet
+            if providers.isEmpty {
+                Text("Loading providers...")
+                    .foregroundStyle(.secondary)
+                    .tag(nil as String?)
+            }
+
+            // Continue with normal picker content
+            if !providers.isEmpty {
+                // CRITICAL: Provide fallback tag for selection if it doesn't match any provider
+                // This handles case where a provider was disabled after being saved
+                if let selection = selection,
+                   !providers.contains(where: { $0.descriptor.id == selection }) {
+                    Text(selection + " (unavailable)")
+                        .foregroundStyle(.secondary)
+                        .tag(selection as String?)
+                    Divider()
+                }
+
+                Text("Select Provider")
+                    .tag(nil as String?)
+
+                ForEach(providers) { provider in
+                    HStack {
+                        Text(provider.descriptor.displayName)
+
+                        if !provider.isEnabled {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        } else if !provider.isConfigured {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                        }
+                    }
+                    .foregroundStyle(provider.isEnabled ? .primary : .secondary)
+                    .tag(provider.descriptor.id as String?)
+                    .disabled(!provider.isEnabled)
+                }
+            } // End of if !providers.isEmpty
         }
         .task {
             await loadProviders()

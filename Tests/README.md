@@ -12,10 +12,29 @@ Comprehensive test suite for SwiftHablaré voice generation library using Swift 
 
 ## Test Organization
 
+### Test Plans
+
+SwiftHablare uses **Xcode Test Plans** to separate tests by audio hardware requirements:
+
+**CITests.xctestplan** (Default for CI):
+- All tests EXCEPT those requiring real audio hardware
+- Uses placeholder audio when TTS voices unavailable
+- Runs on GitHub Actions CI runners
+- ~270 tests, completes in 30-60 seconds
+
+**LocalAudioTests.xctestplan** (Local Development Only):
+- Only 3 tests requiring real TTS voices and audio hardware
+- Tests 16-bit PCM format validation
+- Tests AVAudioPlayer compatibility
+- Tests accurate duration calculation
+- **Cannot run on CI** (no audio hardware)
+
+See `Docs/TestPlans.md` for complete documentation.
+
 ### Test Types
 
 **Unit Tests** (Fast - ~30 seconds):
-- Run on every PR
+- Run on every PR via `CITests.xctestplan`
 - Skip integration tests that require real audio/API keys
 - Run on iOS Simulator and macOS
 - 250+ tests covering all core functionality
@@ -28,6 +47,12 @@ Comprehensive test suite for SwiftHablaré voice generation library using Swift 
 
 **Performance Tests**:
 - Run after unit tests pass on PRs
+
+**Audio Hardware Tests** (Local Only):
+- Run via `LocalAudioTests.xctestplan`
+- Require macOS with TTS voices installed
+- 3 tests validating real audio generation
+- **Never run on CI**
 - Benchmark audio generation, voice fetching, filtering
 - Track performance regressions
 - macOS only (Apple Silicon for consistent results)
@@ -88,6 +113,9 @@ let errorProvider = TestFixtures.makeMockErrorProvider()
 
 // Real Apple provider
 let appleProvider = TestFixtures.makeAppleProvider()
+
+// Get available Apple voice (throws if none available)
+let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 ```
 
 ### SpeakableItem Factories
@@ -177,6 +205,29 @@ xcodebuild test -scheme SwiftHablare \
 - Fast Tests (macOS)
 
 All must pass before merging to `main`.
+
+### GitHub Actions Limitations
+
+**Apple TTS Voice Availability:**
+
+GitHub Actions macOS runners do not have Apple TTS voices pre-installed. This affects tests that require real voices from `AppleVoiceProvider`:
+
+- **Expected Behavior**: Tests using `TestFixtures.getAvailableAppleVoiceId()` will throw `NoVoicesAvailableError` on CI
+- **Test Resilience**: Tests gracefully handle missing voices by recording issues instead of failing
+- **Local Development**: All tests pass normally on development machines with TTS voices installed
+
+**Affected Test Files:**
+- `SpeakableItemTests.swift` - Uses helper for voice-dependent tests
+- `SpeakableItemListTests.swift` - Uses helper for batch generation tests
+- `SpeakableGroupTests.swift` - Uses helper for group generation tests
+- `GenerateAudioButtonTests.swift` - Uses helper for UI integration tests
+- `AppleTTSEngineProtocolTests.swift` - Records issues when no voices available
+
+**Why This is OK:**
+- Tests use mock providers for most functionality testing
+- Integration tests with real voices run weekly on dedicated hardware
+- The test suite verifies error handling when voices aren't available
+- This ensures the library gracefully degrades on systems without TTS support
 
 ## Best Practices
 

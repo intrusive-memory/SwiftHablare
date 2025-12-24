@@ -72,8 +72,8 @@ Check the current version against the last Git tag:
 # Get the last tag
 git describe --tags --abbrev=0
 
-# Check version in source code (Package.swift or main source file)
-# Look for version string in SwiftHablare.swift or similar
+# Check version in source code (e.g., in Sources/SwiftHablare/SwiftHablare.swift)
+grep 'public static let version = ' Sources/SwiftHablare/SwiftHablare.swift
 ```
 
 The new version should be incremented appropriately:

@@ -9,7 +9,7 @@ import Foundation
 import Security
 
 /// Simple keychain manager for storing API keys
-public final class KeychainManager: @unchecked Sendable {
+public final class KeychainManager: @unchecked Sendable, KeychainManagerProtocol {
 
     // MARK: - Singleton
 
@@ -47,13 +47,13 @@ public final class KeychainManager: @unchecked Sendable {
     ///   - key: The API key to save
     ///   - account: Account identifier (e.g., "elevenlabs-api-key")
     /// - Throws: KeychainError if save fails
-    public func saveAPIKey(_ key: String, for account: String) throws {
+    public func saveAPIKey(_ key: String, for account: String) async throws {
         guard let data = key.data(using: .utf8) else {
             throw KeychainError.invalidData
         }
 
         // Delete existing key if present
-        try? deleteAPIKey(for: account)
+        try? await deleteAPIKey(for: account)
 
         // Add new key
         let query: [String: Any] = [
@@ -75,7 +75,7 @@ public final class KeychainManager: @unchecked Sendable {
     /// - Parameter account: Account identifier
     /// - Returns: The API key
     /// - Throws: KeychainError if not found or retrieval fails
-    public func getAPIKey(for account: String) throws -> String {
+    public func getAPIKey(for account: String) async throws -> String {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: account,
@@ -102,7 +102,7 @@ public final class KeychainManager: @unchecked Sendable {
     ///
     /// - Parameter account: Account identifier
     /// - Throws: KeychainError if deletion fails
-    public func deleteAPIKey(for account: String) throws {
+    public func deleteAPIKey(for account: String) async throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: account
@@ -119,7 +119,7 @@ public final class KeychainManager: @unchecked Sendable {
     ///
     /// - Parameter account: Account identifier
     /// - Returns: True if key exists
-    public func hasAPIKey(for account: String) -> Bool {
-        return (try? getAPIKey(for: account)) != nil
+    public func hasAPIKey(for account: String) async -> Bool {
+        return (try? await getAPIKey(for: account)) != nil
     }
 }

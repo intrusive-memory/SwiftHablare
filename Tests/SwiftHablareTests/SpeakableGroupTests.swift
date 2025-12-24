@@ -21,7 +21,6 @@ struct SpeakableGroupTests {
     /// Create an in-memory model container for testing
     func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -354,8 +353,7 @@ struct SpeakableGroupTests {
 
         // Fetch a valid voice ID for testing
         let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         // Create test group with valid voice ID
         let items = (1...2).map { index in

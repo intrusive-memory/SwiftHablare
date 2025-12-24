@@ -21,7 +21,6 @@ struct GenerateAudioButtonTests {
     /// Create an in-memory model container for testing
     func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -184,8 +183,7 @@ struct GenerateAudioButtonTests {
 
         // Fetch a valid voice ID for testing
         let provider = AppleVoiceProvider()
-        let voices = try await provider.fetchVoices()
-        let voiceId = voices.first?.id ?? "com.apple.voice.compact.en-US.Samantha"
+        let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
         // Create test item with valid voice ID
         let item = SimpleMessage(
@@ -299,7 +297,7 @@ struct GenerateAudioButtonTests {
             var requiresAPIKey: Bool { true }
             var mimeType: String { "audio/mpeg" }
 
-            func isConfigured() -> Bool { false }
+            func isConfigured() async -> Bool { false }
 
             func fetchVoices(languageCode: String) async throws -> [Voice] {
                 throw VoiceProviderError.notConfigured
@@ -514,7 +512,6 @@ struct GenerateAudioButtonTests {
     func testEstablishesElementRelationship() async throws {
         // Create container with GuionElementModel schema
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self,
             GuionElementModel.self,
             GuionDocumentModel.self
@@ -665,7 +662,6 @@ struct GenerateAudioButtonTests {
     func testMultipleElementRelationships() async throws {
         // Create container with GuionElementModel schema
         let schema = Schema([
-            VoiceCacheModel.self,
             TypedDataStorage.self,
             GuionElementModel.self,
             GuionDocumentModel.self

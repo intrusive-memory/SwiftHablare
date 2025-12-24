@@ -7,24 +7,17 @@
 
 import Foundation
 
-/// Protocol defining the interface for platform-specific Apple TTS engines
+/// Protocol defining the interface for Apple TTS engines
 ///
-/// This protocol abstracts the differences between iOS (`AVSpeechSynthesizer`)
-/// and macOS (`NSSpeechSynthesizer`) TTS implementations.
+/// This protocol provides a unified interface for Apple's text-to-speech
+/// functionality using `AVSpeechSynthesizer` on both iOS and macOS.
 ///
-/// ## Platform Implementations
-/// - **iOS**: `AVSpeechTTSEngine` - Uses `AVSpeechSynthesizer.write()`
-/// - **macOS**: `NSSpeechTTSEngine` - Uses `NSSpeechSynthesizer.startSpeaking(to:)`
+/// ## Platform Implementation
+/// - **iOS & macOS**: `AVSpeechTTSEngine` - Uses `AVSpeechSynthesizer.write()`
 ///
 /// ## Example Usage
 /// ```swift
-/// let engine: AppleTTSEngine
-/// #if canImport(UIKit)
-/// engine = AVSpeechTTSEngine()
-/// #elseif canImport(AppKit)
-/// engine = NSSpeechTTSEngine()
-/// #endif
-///
+/// let engine = AVSpeechTTSEngine()
 /// let audio = try await engine.generateAudio(text: "Hello", voiceId: "...")
 /// ```
 protocol AppleTTSEngine: Sendable {
@@ -38,6 +31,16 @@ protocol AppleTTSEngine: Sendable {
     /// - Returns: Audio data in AIFF or AIFC format
     /// - Throws: `VoiceProviderError` if synthesis fails
     func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data
+
+    /// Generate audio with accurate duration measured from buffer frames
+    ///
+    /// - Parameters:
+    ///   - text: The text to synthesize
+    ///   - voiceId: Platform-specific voice identifier
+    ///   - languageCode: The language code for generation (e.g., "en", "es", "fr")
+    /// - Returns: Tuple of (audio data, duration in seconds)
+    /// - Throws: `VoiceProviderError` if synthesis fails
+    func generateAudioWithDuration(text: String, voiceId: String, languageCode: String) async throws -> (Data, TimeInterval)
 
     /// Get all available voices for this platform
     ///

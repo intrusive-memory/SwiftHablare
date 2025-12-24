@@ -88,9 +88,6 @@ public actor GenerationService {
 
     // MARK: - Properties
 
-    /// Cache lifetime (default: 24 hours)
-    private let cacheLifetime: TimeInterval
-
     /// Voice provider registry for resolving providers
     private let providerRegistry: VoiceProviderRegistry
 
@@ -104,27 +101,10 @@ public actor GenerationService {
     /// let service = GenerationService()
     /// ```
     ///
-    /// ## Voice Caching
-    ///
-    /// To enable voice caching, pass a ModelContext when calling voice fetch methods.
-    /// The ModelContext must be configured with `VoiceCacheModel` in its schema:
-    ///
-    /// ```swift
-    /// @MainActor
-    /// let schema = Schema([VoiceCacheModel.self, TypedDataStorage.self])
-    /// let container = try ModelContainer(for: schema)
-    /// let context = ModelContext(container)
-    ///
-    /// // Fetch with caching
-    /// let voices = try await service.fetchVoices(from: "apple", using: context)
-    /// ```
-    ///
-    /// - Parameter cacheLifetime: How long to cache voices before refetching (default: 24 hours)
+    /// - Parameter providerRegistry: Voice provider registry (default: .shared)
     public init(
-        cacheLifetime: TimeInterval = 24 * 60 * 60,
         providerRegistry: VoiceProviderRegistry = .shared
     ) {
-        self.cacheLifetime = cacheLifetime
         self.providerRegistry = providerRegistry
     }
 
@@ -286,33 +266,13 @@ public actor GenerationService {
 
     /// Fetch voices from a specific provider by ID
     ///
-    /// This method uses SwiftData caching to avoid repeatedly polling the voice provider.
-    /// The cache expires after 24 hours (or the configured cacheLifetime).
-    ///
-    /// **Cache Behavior:**
-    /// - First call: Fetches from provider and caches to SwiftData
-    /// - Subsequent calls: Returns cached voices from SwiftData if valid
-    /// - After expiration: Fetches fresh voices and updates SwiftData cache
-    /// - Manual refresh: Use `refreshVoices(from:)` to force a refresh
-    /// - No ModelContext: Always fetches fresh voices (no caching)
-    ///
     /// ## Example
     ///
     /// ```swift
-    /// @MainActor
-    /// let service = GenerationService(
-    ///     voiceProvider: AppleVoiceProvider(),
-    ///     modelContext: modelContext
-    /// )
+    /// let service = GenerationService()
     ///
-    /// // First call - fetches from provider and caches
+    /// // Fetch voices from Apple provider
     /// let appleVoices = try await service.fetchVoices(from: "apple")
-    ///
-    /// // Second call - returns cached voices (fast)
-    /// let cachedVoices = try await service.fetchVoices(from: "apple")
-    ///
-    /// // Force refresh
-    /// let freshVoices = try await service.refreshVoices(from: "apple")
     /// ```
     ///
     /// - Parameters:
@@ -330,69 +290,6 @@ public actor GenerationService {
         return try await provider.fetchVoices(languageCode: finalLanguageCode)
     }
 
-    /// Fetch voices with caching support (MainActor-isolated)
-    ///
-    /// - Parameters:
-    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-    ///   - modelContext: ModelContext for voice caching (must be on MainActor)
-    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
-    /// - Returns: Array of available voices from that provider
-    /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-    @MainActor
-    public func fetchVoices(from providerId: String, using modelContext: ModelContext, languageCode: String? = nil) async throws -> [Voice] {
-        let provider = try await configuredProvider(for: providerId)
-
-        // Determine language code (use provided or default to system language)
-        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
-
-        // Check SwiftData cache first (with language code)
-        let cachedVoices = try fetchCachedVoices(for: providerId, languageCode: finalLanguageCode, using: modelContext)
-        if !cachedVoices.isEmpty {
-            return cachedVoices
-        }
-
-        // Cache miss - fetch fresh voices
-        let voices = try await provider.fetchVoices(languageCode: finalLanguageCode)
-
-        // Save to cache with language code
-        try saveCachedVoices(voices, for: providerId, languageCode: finalLanguageCode, using: modelContext)
-
-        return voices
-    }
-
-    /// Fetch cached voices from SwiftData
-    @MainActor
-    private func fetchCachedVoices(for providerId: String, languageCode: String, using modelContext: ModelContext) throws -> [Voice] {
-        let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId, languageCode: languageCode)
-        let cachedModels = try modelContext.fetch(descriptor)
-
-        // Filter out stale entries
-        let validModels = cachedModels.filter { !$0.isStale(after: cacheLifetime) }
-
-        // Convert to Voice objects
-        return validModels.map { $0.toVoice() }
-    }
-
-    /// Save voices to SwiftData cache
-    @MainActor
-    private func saveCachedVoices(_ voices: [Voice], for providerId: String, languageCode: String, using modelContext: ModelContext) throws {
-        // First, remove old cached voices for this provider and language code
-        let descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId, languageCode: languageCode)
-        let oldCached = try modelContext.fetch(descriptor)
-        for old in oldCached {
-            modelContext.delete(old)
-        }
-
-        // Insert new cached voices with the language code
-        for voice in voices {
-            let cacheModel = VoiceCacheModel(from: voice, cacheLanguageCode: languageCode)
-            modelContext.insert(cacheModel)
-        }
-
-        // Save changes
-        try modelContext.save()
-    }
-
     /// Fetch voices from all registered and configured providers
     ///
     /// Returns a dictionary mapping provider IDs to their available voices.
@@ -401,7 +298,7 @@ public actor GenerationService {
     /// ## Example
     ///
     /// ```swift
-    /// let service = GenerationService(voiceProvider: AppleVoiceProvider())
+    /// let service = GenerationService()
     /// let allVoices = try await service.fetchAllVoices()
     ///
     /// // Access voices by provider
@@ -432,161 +329,6 @@ public actor GenerationService {
         return voicesByProvider
     }
 
-    /// Fetch voices from all providers with caching support (MainActor-isolated)
-    ///
-    /// - Parameters:
-    ///   - modelContext: ModelContext for voice caching (must be on MainActor)
-    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
-    /// - Returns: Dictionary mapping provider IDs to voice arrays
-    @MainActor
-    public func fetchAllVoices(using modelContext: ModelContext, languageCode: String? = nil) async throws -> [String: [Voice]] {
-        var voicesByProvider: [String: [Voice]] = [:]
-
-        let providers = await providerRegistry.availableProviders()
-
-        for entry in providers where entry.isEnabled && entry.isConfigured {
-            let providerId = entry.descriptor.id
-
-            do {
-                let voices = try await fetchVoices(from: providerId, using: modelContext, languageCode: languageCode)
-                voicesByProvider[providerId] = voices
-            } catch {
-                // Skip providers that fail to fetch voices
-                continue
-            }
-        }
-
-        return voicesByProvider
-    }
-
-    // MARK: - Cache Management
-
-    /// Manually refresh voices for a specific provider
-    ///
-    /// This method bypasses the cache and fetches fresh voices from the provider,
-    /// then updates the SwiftData cache with the new results.
-    ///
-    /// Use this when you need to force a refresh before the cache expires,
-    /// such as after installing new voices or when you know the voice list has changed.
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// // User installed new voices
-    /// let freshVoices = try await service.refreshVoices(from: "apple", using: context)
-    /// ```
-    ///
-    /// - Parameters:
-    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
-    /// - Returns: Freshly fetched array of voices
-    /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-    public func refreshVoices(from providerId: String, languageCode: String? = nil) async throws -> [Voice] {
-        let provider = try await configuredProvider(for: providerId)
-
-        // Determine language code (use provided or default to system language)
-        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
-
-        // Fetch fresh voices
-        return try await provider.fetchVoices(languageCode: finalLanguageCode)
-    }
-
-    /// Refresh voices with cache update (MainActor-isolated)
-    ///
-    /// - Parameters:
-    ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-    ///   - modelContext: ModelContext to update cache (must be on MainActor)
-    ///   - languageCode: Language code to filter voices (optional, defaults to system language)
-    /// - Returns: Freshly fetched array of voices
-    /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-    @MainActor
-    public func refreshVoices(
-        from providerId: String,
-        using modelContext: ModelContext,
-        languageCode: String? = nil
-    ) async throws -> [Voice] {
-        let provider = try await configuredProvider(for: providerId)
-
-        // Determine language code (use provided or default to system language)
-        let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
-
-        // Fetch fresh voices
-        let voices = try await provider.fetchVoices(languageCode: finalLanguageCode)
-
-        // Update SwiftData cache with language code
-        try saveCachedVoices(voices, for: providerId, languageCode: finalLanguageCode, using: modelContext)
-
-        return voices
-    }
-
-    /// Clear the voice cache for a specific provider
-    ///
-    /// Removes cached voices for the specified provider from SwiftData.
-    /// If languageCode is provided, only that language's cache is cleared.
-    /// If languageCode is nil, all languages for the provider are cleared.
-    /// The next call to `fetchVoices(from:using:)` will fetch fresh voices from the provider.
-    ///
-    /// - Parameters:
-    ///   - providerId: Provider identifier to clear cache for
-    ///   - languageCode: Optional language code to clear specific language cache
-    ///   - modelContext: ModelContext to clear cache from (must be on MainActor)
-    @MainActor
-    public func clearVoiceCache(for providerId: String, languageCode: String? = nil, using modelContext: ModelContext) throws {
-        let descriptor: FetchDescriptor<VoiceCacheModel>
-        if let languageCode = languageCode {
-            // Clear only specific language cache
-            descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId, languageCode: languageCode)
-        } else {
-            // Clear all languages for this provider
-            descriptor = VoiceCacheModel.fetchDescriptor(forProvider: providerId)
-        }
-
-        let cachedModels = try modelContext.fetch(descriptor)
-
-        // Optimize deletion by batching in a single transaction
-        modelContext.autosaveEnabled = false
-        defer { modelContext.autosaveEnabled = true }  // Always restore autosave, even on error
-        cachedModels.forEach { modelContext.delete($0) }
-        try modelContext.save()
-    }
-
-    /// Clear all voice caches
-    ///
-    /// Removes all cached voices from SwiftData.
-    /// The next call to `fetchVoices(from:using:)` for any provider will fetch fresh voices.
-    ///
-    /// - Parameter modelContext: ModelContext to clear cache from (must be on MainActor)
-    @MainActor
-    public func clearAllVoiceCaches(using modelContext: ModelContext) throws {
-        let descriptor = FetchDescriptor<VoiceCacheModel>()
-        let allCached = try modelContext.fetch(descriptor)
-
-        // Optimize deletion by batching in a single transaction
-        modelContext.autosaveEnabled = false
-        defer { modelContext.autosaveEnabled = true }  // Always restore autosave, even on error
-        allCached.forEach { modelContext.delete($0) }
-        try modelContext.save()
-    }
-
-    /// Check if a provider's voice cache is valid
-    ///
-    /// Returns true if the provider has cached voices in SwiftData that haven't expired.
-    ///
-    /// - Parameters:
-    ///   - providerId: Provider identifier to check
-    ///   - languageCode: Language code to check (optional, defaults to system language)
-    ///   - modelContext: ModelContext to check cache in (must be on MainActor)
-    /// - Returns: True if cache exists and is still valid
-    @MainActor
-    public func hasValidCache(for providerId: String, languageCode: String? = nil, using modelContext: ModelContext) -> Bool {
-        do {
-            let finalLanguageCode = languageCode ?? (Locale.current.language.languageCode?.identifier ?? "en")
-            let cachedVoices = try fetchCachedVoices(for: providerId, languageCode: finalLanguageCode, using: modelContext)
-            return !cachedVoices.isEmpty
-        } catch {
-            return false
-        }
-    }
 
     /// Generate audio for all items in a SpeakableItemList
     ///
@@ -657,7 +399,7 @@ public actor GenerationService {
                 let providerId = provider.providerId
 
                 // Ensure provider is configured
-                guard provider.isConfigured() else {
+                guard await provider.isConfigured() else {
                     throw VoiceProviderError.notConfigured
                 }
 
