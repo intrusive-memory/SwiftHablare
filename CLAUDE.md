@@ -187,6 +187,150 @@ If you encounter 32-bit float AIFC files (from older SwiftHablare versions):
 
 Integration tests requiring real audio are skipped on simulators using `#if targetEnvironment(simulator)`.
 
+### AsyncStream Notification System
+
+**CRITICAL**: SwiftHablare uses an **event-driven notification system** for audio synthesis completion. This architecture is **deterministic** with **no timeouts or arbitrary waits**.
+
+#### Design Principles
+
+1. **No Timeouts**: Never wait for arbitrary durations. All waits are event-driven.
+2. **Deterministic Timing**: All timing is controlled by AVSpeechSynthesizer's callbacks.
+3. **Reactive Pattern**: Subscribers react to events as they occur.
+4. **Thread-Safe**: Uses AsyncStream for thread-safe event emission from arbitrary threads.
+
+#### Implementation Pattern
+
+**Step 1: Define Events**
+```swift
+private enum SynthesisEvent: Sendable {
+    case finished   // Synthesis completed successfully
+    case cancelled  // Synthesis was cancelled
+}
+```
+
+**Step 2: Create Delegate with AsyncStream**
+```swift
+private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    // Thread-safe continuation for emitting events
+    nonisolated(unsafe) private var eventContinuation: AsyncStream<SynthesisEvent>.Continuation?
+
+    // Stream of synthesis events
+    let events: AsyncStream<SynthesisEvent>
+
+    override init() {
+        var continuation: AsyncStream<SynthesisEvent>.Continuation?
+        self.events = AsyncStream { cont in
+            continuation = cont
+        }
+        self.eventContinuation = continuation
+        super.init()
+    }
+
+    // Emit events when AVSpeechSynthesizer completes
+    nonisolated func speechSynthesizer(_:didFinish:) {
+        eventContinuation?.yield(.finished)
+        eventContinuation?.finish()
+    }
+
+    nonisolated func speechSynthesizer(_:didCancel:) {
+        eventContinuation?.yield(.cancelled)
+        eventContinuation?.finish()
+    }
+
+    deinit {
+        eventContinuation?.finish()
+    }
+}
+```
+
+**Step 3: Subscribe to Events**
+```swift
+return try await withCheckedThrowingContinuation { continuation in
+    Task { @MainActor in
+        do {
+            let delegate = SynthesizerDelegate()
+            synthesizer.delegate = delegate
+            synthesizer.write(utterance) { buffer in ... }
+
+            // Wait deterministically for synthesis event (no timeout)
+            for await event in delegate.events {
+                switch event {
+                case .finished, .cancelled:
+                    // Process results and resume continuation
+                    continuation.resume(returning: (data, duration))
+                    return
+                }
+            }
+        } catch {
+            continuation.resume(throwing: error)
+        }
+    }
+}
+```
+
+#### Key Characteristics
+
+✅ **Thread-Safe**: `AsyncStream.Continuation` is thread-safe internally
+✅ **Happens-Before**: All buffer callbacks complete before `didFinish()` fires
+✅ **No Timeout Needed**: System waits indefinitely for AVSpeechSynthesizer (appropriate)
+✅ **Cancellable**: Caller can cancel the task externally if needed
+✅ **No Data Races**: Guaranteed ordering ensures safe shared state access
+
+#### Why AsyncStream vs Continuation?
+
+**Old (Continuation-Based):**
+```swift
+private var continuation: CheckedContinuation<Void, Never>?
+
+func waitForCompletion() async {
+    await withCheckedContinuation { cont in
+        self.continuation = cont
+    }
+}
+
+func didFinish() {
+    continuation?.resume()  // ⚠️ Must be called exactly once
+}
+```
+
+**Problems:**
+- ❌ Continuation must be resumed exactly once (easy to misuse)
+- ❌ No built-in timeout support
+- ❌ Difficult to handle multiple events
+- ❌ Manual state management
+
+**New (AsyncStream-Based):**
+```swift
+let events: AsyncStream<SynthesisEvent>
+
+for await event in delegate.events {
+    // Handle events as they arrive
+}
+```
+
+**Advantages:**
+- ✅ Can yield multiple events safely
+- ✅ Built-in cancellation support
+- ✅ Natural for event-driven programming
+- ✅ Stream lifecycle managed automatically
+- ✅ Type-safe event types
+
+#### Testing the Notification System
+
+See `Docs/NOTIFICATION_SYSTEM_TESTING.md` for comprehensive testing strategy.
+
+**Key Tests:**
+- Event emission timing (deterministic)
+- Concurrent synthesis operations
+- Task cancellation behavior
+- Stream lifecycle management
+- CI environment behavior (placeholder audio)
+
+**Documentation:**
+- `Docs/CONCURRENCY_MODEL.md` - Complete architecture diagrams
+- `Docs/NOTIFICATION_SYSTEM.md` - Implementation guide
+- `Docs/NOTIFICATION_SYSTEM_TESTING.md` - Testing strategy
+
 ## Core Protocols
 
 ### VoiceProvider
