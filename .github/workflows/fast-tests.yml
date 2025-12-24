@@ -146,9 +146,8 @@ jobs:
           # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
           # CI environment variable triggers placeholder audio generation
           # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Must export CI for test process to inherit it
-          export CI=true
-          xcodebuild test \
+          # IMPORTANT: Use TEST_RUNNER_CI to pass CI env var to test process
+          TEST_RUNNER_CI=true xcodebuild test \
             -scheme SwiftHablare \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
@@ -266,9 +265,8 @@ jobs:
 
           # CI environment variable triggers placeholder audio generation
           # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Must export CI for test process to inherit it
-          export CI=true
-          xcodebuild test \
+          # IMPORTANT: Use TEST_RUNNER_CI to pass CI env var to test process
+          TEST_RUNNER_CI=true xcodebuild test \
             -scheme SwiftHablare \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
