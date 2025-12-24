@@ -1221,7 +1221,7 @@ do {
 
 ## Testing
 
-SwiftHablaré has a comprehensive test suite with 259 passing tests and 96%+ coverage.
+SwiftHablaré has a comprehensive test suite with 390+ passing tests and 96%+ coverage.
 
 ### Test Organization
 
@@ -1295,6 +1295,29 @@ xcodebuild test \
 ```bash
 swift test --enable-code-coverage
 ```
+
+### Pre-Commit Hooks
+
+SwiftHablaré includes a pre-commit hook that validates local audio generation before commits:
+
+**Install the hooks:**
+```bash
+./.githooks/install.sh
+```
+
+**What it does:**
+- Runs 3 audio hardware tests (~5-10 seconds)
+- Validates 16-bit PCM audio format generation
+- Tests AVAudioPlayer compatibility
+- Verifies accurate duration calculation
+- Automatically skips on CI or non-macOS systems
+
+**Bypass (not recommended):**
+```bash
+git commit --no-verify
+```
+
+See `.githooks/README.md` for complete documentation.
 
 ### CI/CD Workflows
 

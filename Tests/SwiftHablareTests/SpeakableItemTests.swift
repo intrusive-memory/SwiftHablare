@@ -95,11 +95,8 @@ struct SimpleMessageTests {
     func isVoiceAvailable() async throws {
         // Skip on CI - TTS voices aren't available there
         let isCI = ProcessInfo.processInfo.environment["CI"] != nil
-        print("🧪 [VoiceAvailabilityTest] CI environment variable: \(ProcessInfo.processInfo.environment["CI"] ?? "not set")")
-        print("🧪 [VoiceAvailabilityTest] Is CI: \(isCI)")
 
         if isCI {
-            print("🧪 [VoiceAvailabilityTest] Skipping test on CI")
             return
         }
 

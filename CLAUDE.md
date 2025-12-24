@@ -151,7 +151,8 @@ if let converter = AVAudioConverter(from: inputFormat, to: format16Bit) {
    ```
 
 3. **CI environment handling**:
-   - Use `.enabled(if: !ProcessInfo.processInfo.environment.keys.contains("CI"))` trait
+   - Tests detect `CI` environment variable (automatically set by GitHub Actions)
+   - Skip audio format validation with early return: `if ProcessInfo.processInfo.environment["CI"] != nil { return }`
    - Skip audio generation tests in headless CI runners (no audio hardware)
 
 #### Benefits of 16-bit PCM
@@ -505,6 +506,26 @@ xcodebuild test -scheme SwiftHablare \
 xcodebuild test -scheme SwiftHablare \
   -destination 'platform=macOS'
 ```
+
+### CI Testing
+
+**Environment Variable Detection:**
+- GitHub Actions automatically sets `CI=true` environment variable
+- Tests detect this and skip hardware-dependent tests (audio format validation)
+- Pattern: `if ProcessInfo.processInfo.environment["CI"] != nil { return }`
+
+**Test Plans:**
+- Test plans (`.xctestplan` files) are **local development only**
+- They do NOT work with SPM packages via xcodebuild (require Xcode project/workspace)
+- See `Docs/TestPlans.md` for detailed test plan documentation
+
+**Tests that skip on CI:**
+- "Audio generation produces valid audio format" - requires real AIFC/AIFF format validation
+- "Generated audio is playable by AVAudioPlayer" - requires audio hardware
+- "Generated audio with duration has correct format" - requires real TTS duration
+- "Physical device generates real audio" - requires real TTS voices
+- "Speak with invalid voice ID" - expects errors that don't occur with placeholder audio
+- "Voice availability check" - requires real TTS voice availability
 
 ### Test Frameworks
 
