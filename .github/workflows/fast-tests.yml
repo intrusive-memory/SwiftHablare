@@ -94,8 +94,6 @@ jobs:
     name: Fast Tests (${{ matrix.platform }})
     runs-on: macos-26
     needs: [code-quality]
-    env:
-      CI: true  # Triggers placeholder audio generation (no TTS voices on CI)
     strategy:
       fail-fast: false
       matrix:
@@ -144,10 +142,10 @@ jobs:
           echo ""
 
           # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
-          # CI environment variable triggers placeholder audio generation
+          # Pass GitHub Actions' built-in CI variable to test process
           # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Use TEST_RUNNER_CI to pass CI env var to test process
-          TEST_RUNNER_CI=true xcodebuild test \
+          # IMPORTANT: Use TEST_RUNNER_CI to pass GitHub's CI env var to test process
+          TEST_RUNNER_CI="${CI}" xcodebuild test \
             -scheme SwiftHablare \
             -destination '${{ matrix.destination }}' \
             -skipPackagePluginValidation \
@@ -263,10 +261,10 @@ jobs:
           echo "Integration tests will run on the weekly schedule"
           echo ""
 
-          # CI environment variable triggers placeholder audio generation
+          # Pass GitHub Actions' built-in CI variable to test process
           # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Use TEST_RUNNER_CI to pass CI env var to test process
-          TEST_RUNNER_CI=true xcodebuild test \
+          # IMPORTANT: Use TEST_RUNNER_CI to pass GitHub's CI env var to test process
+          TEST_RUNNER_CI="${CI}" xcodebuild test \
             -scheme SwiftHablare \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
@@ -342,8 +340,6 @@ jobs:
     runs-on: macos-26
     needs: [fast-test, fast-test-macos]  # Wait for BOTH iOS and macOS unit tests to pass
     if: success()  # Only run if BOTH unit tests succeeded
-    env:
-      CI: true  # Triggers placeholder audio generation (no TTS voices on CI)
 
     steps:
       - name: Checkout code
