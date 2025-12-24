@@ -169,12 +169,13 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
         let channelCount = Int(inputBuffer.format.channelCount)
 
         // Create 16-bit output format
-        // CRITICAL: Must use interleaved:true for AVAudioFile.write() compatibility
+        // CRITICAL: Must use interleaved:false when accessing via int16ChannelData
+        // AVAudioPCMBuffer's channel data accessors expect non-interleaved format
         guard let format16Bit = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: inputBuffer.format.sampleRate,
             channels: inputBuffer.format.channelCount,
-            interleaved: true
+            interleaved: false
         ) else {
             throw VoiceProviderError.invalidResponse
         }
@@ -287,12 +288,13 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                 let channels = pcmBuffer.format.channelCount
 
                                 // Create 16-bit PCM format for AVAudioPlayer compatibility
-                                // CRITICAL: Must use interleaved:true for AVAudioFile.write() compatibility
+                                // CRITICAL: Must use interleaved:false to match the converted buffer format
+                                // AVAudioPCMBuffer's channel data accessors expect non-interleaved format
                                 guard let format16Bit = AVAudioFormat(
                                     commonFormat: .pcmFormatInt16,
                                     sampleRate: sampleRate,
                                     channels: channels,
-                                    interleaved: true
+                                    interleaved: false
                                 ) else {
                                     #if DEBUG
                                     print("🎤 [AVSpeechTTSEngine] ❌ Failed to create 16-bit PCM format")
@@ -300,7 +302,12 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                                     return
                                 }
 
-                                audioFile = try AVAudioFile(forWriting: tempURL, settings: format16Bit.settings)
+                                audioFile = try AVAudioFile(
+                                    forWriting: tempURL,
+                                    settings: format16Bit.settings,
+                                    commonFormat: .pcmFormatInt16,
+                                    interleaved: false
+                                )
 
                                 #if DEBUG
                                 print("🎤 [AVSpeechTTSEngine] ✅ Created audio file with 16-bit PCM at \(sampleRate) Hz")
@@ -324,55 +331,66 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         }
                     }
 
-                    // CRITICAL: Wait for synthesis to complete before checking buffer count
-                    // The write() callback is asynchronous, so we need to wait for the delegate callback
+                    // CRITICAL: Subscribe to synthesis events - no timeouts, purely event-driven
+                    // The delegate will emit events when synthesis completes or is cancelled
                     #if DEBUG
-                    print("🎤 [AVSpeechTTSEngine] Waiting for synthesis completion...")
-                    #endif
-                    await delegate.waitForCompletion()
-
-                    #if DEBUG
-                    print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount), Total frames: \(totalFrames)")
+                    print("🎤 [AVSpeechTTSEngine] Subscribing to synthesis events...")
                     #endif
 
-                    // If no buffers were generated, fall back to placeholder
-                    if bufferCount == 0 {
-                        try? FileManager.default.removeItem(at: tempURL)
+                    // Wait deterministically for synthesis event
+                    for await event in delegate.events {
                         #if DEBUG
-                        print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
+                        print("🎤 [AVSpeechTTSEngine] Received event: \(event)")
                         #endif
-                        let placeholderData = try await self.generatePlaceholderAudio(text: text)
-                        // Estimate duration for placeholder (14.5 chars/sec)
-                        let estimatedDuration = Double(text.count) / 14.5
-                        continuation.resume(returning: (placeholderData, estimatedDuration))
-                        return
+
+                        switch event {
+                        case .finished, .cancelled:
+                            // Synthesis completed (successfully or cancelled)
+                            #if DEBUG
+                            print("🎤 [AVSpeechTTSEngine] Synthesis complete. Buffer count: \(bufferCount), Total frames: \(totalFrames)")
+                            #endif
+
+                            // If no buffers were generated, fall back to placeholder
+                            if bufferCount == 0 {
+                                try? FileManager.default.removeItem(at: tempURL)
+                                #if DEBUG
+                                print("⚠️  No audio buffers generated. Falling back to placeholder audio...")
+                                #endif
+                                let placeholderData = try await self.generatePlaceholderAudio(text: text)
+                                // Estimate duration for placeholder (14.5 chars/sec)
+                                let estimatedDuration = Double(text.count) / 14.5
+                                continuation.resume(returning: (placeholderData, estimatedDuration))
+                                return
+                            }
+
+                            // Calculate duration from frames and sample rate
+                            let duration = sampleRate > 0 ? Double(totalFrames) / sampleRate : 0.0
+                            #if DEBUG
+                            print("🎤 [AVSpeechTTSEngine] ✅ Calculated duration: \(String(format: "%.2f", duration))s from \(totalFrames) frames at \(sampleRate) Hz")
+                            #endif
+
+                            // CRITICAL: Deallocate AVAudioFile to finalize AIFF header with correct file size
+                            // If we read the file while AVAudioFile is still alive, the header won't be updated
+                            audioFile = nil
+                            #if DEBUG
+                            print("🎤 [AVSpeechTTSEngine] ✅ AVAudioFile deallocated, AIFF header finalized")
+                            #endif
+
+                            // Read the complete synthesized audio file
+                            let data = try Data(contentsOf: tempURL)
+
+                            // Clean up temporary file
+                            try? FileManager.default.removeItem(at: tempURL)
+
+                            // Validate we got non-trivial audio data
+                            guard data.count > 1024 else {
+                                throw VoiceProviderError.networkError("Generated audio is too short (\(data.count) bytes)")
+                            }
+
+                            continuation.resume(returning: (data, duration))
+                            return
+                        }
                     }
-
-                    // Calculate duration from frames and sample rate
-                    let duration = sampleRate > 0 ? Double(totalFrames) / sampleRate : 0.0
-                    #if DEBUG
-                    print("🎤 [AVSpeechTTSEngine] ✅ Calculated duration: \(String(format: "%.2f", duration))s from \(totalFrames) frames at \(sampleRate) Hz")
-                    #endif
-
-                    // CRITICAL: Deallocate AVAudioFile to finalize AIFF header with correct file size
-                    // If we read the file while AVAudioFile is still alive, the header won't be updated
-                    audioFile = nil
-                    #if DEBUG
-                    print("🎤 [AVSpeechTTSEngine] ✅ AVAudioFile deallocated, AIFF header finalized")
-                    #endif
-
-                    // Read the complete synthesized audio file
-                    let data = try Data(contentsOf: tempURL)
-
-                    // Clean up temporary file
-                    try? FileManager.default.removeItem(at: tempURL)
-
-                    // Validate we got non-trivial audio data
-                    guard data.count > 1024 else {
-                        throw VoiceProviderError.networkError("Generated audio is too short (\(data.count) bytes)")
-                    }
-
-                    continuation.resume(returning: (data, duration))
                 } catch {
                     continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
                 }
@@ -384,8 +402,11 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
     private func generatePlaceholderAudio(text: String) async throws -> Data {
         return try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor in
-                do {
+            // CRITICAL: Use MainActor.run instead of Task { @MainActor in }
+            // Task { @MainActor in } causes unsafeForcedSync warnings in Swift 6.2
+            Task {
+                await MainActor.run {
+                    do {
                     // Create minimal valid AIFF audio for simulator testing
                     let tempURL = FileManager.default.temporaryDirectory
                         .appendingPathComponent(UUID().uuidString)
@@ -398,6 +419,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
 
                     // Use explicit Int16 PCM format for maximum compatibility with AVAssetExportSession
                     // This matches the format that AVSpeechSynthesizer typically generates
+                    // CRITICAL: Must use non-interleaved format to match AVAudioFile creation parameter
                     let settings: [String: Any] = [
                         AVFormatIDKey: kAudioFormatLinearPCM,
                         AVSampleRateKey: sampleRate,
@@ -405,7 +427,7 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                         AVLinearPCMBitDepthKey: 16,
                         AVLinearPCMIsFloatKey: false,
                         AVLinearPCMIsBigEndianKey: false,
-                        AVLinearPCMIsNonInterleaved: false
+                        AVLinearPCMIsNonInterleaved: true
                     ]
 
                     guard let format = AVAudioFormat(settings: settings) else {
@@ -443,8 +465,9 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                     print("   Note: Real TTS audio generation is not supported in iOS Simulator.")
                     #endif
                     continuation.resume(returning: data)
-                } catch {
-                    continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
+                    } catch {
+                        continuation.resume(throwing: VoiceProviderError.networkError("Audio generation failed: \(error.localizedDescription)"))
+                    }
                 }
             }
         }
@@ -505,37 +528,86 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
     }
 }
 
+// MARK: - Synthesis Events
+
+/// Events emitted by the synthesis process
+private enum SynthesisEvent: Sendable {
+    /// Synthesis completed successfully
+    case finished
+    /// Synthesis was cancelled
+    case cancelled
+}
+
 // MARK: - Synthesizer Delegate
 
-/// Delegate to track AVSpeechSynthesizer completion
+/// Delegate to track AVSpeechSynthesizer completion using AsyncStream notifications
 ///
-/// Note: Not isolated to MainActor to avoid actor isolation conflicts with AVSpeechSynthesizerDelegate.
-/// The delegate methods can be called from any thread, so we use thread-safe continuation handling.
+/// This delegate uses a notification system that allows subscribers to react deterministically
+/// to synthesis events without timeouts or arbitrary waits.
+///
+/// **Thread Safety:**
+/// - Not isolated to MainActor to avoid conflicts with AVSpeechSynthesizerDelegate
+/// - Delegate methods can be called from any thread
+/// - Uses AsyncStream.Continuation for thread-safe event emission
+///
+/// **Usage:**
+/// ```swift
+/// let delegate = SynthesizerDelegate()
+/// synthesizer.delegate = delegate
+///
+/// for await event in delegate.events {
+///     switch event {
+///     case .finished:
+///         // React to completion
+///     case .cancelled:
+///         // React to cancellation
+///     }
+/// }
+/// ```
 private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    private var continuation: CheckedContinuation<Void, Never>?
+    /// Thread-safe continuation for emitting synthesis events
+    /// Uses nonisolated(unsafe) because:
+    /// - AVSpeechSynthesizerDelegate methods are called from arbitrary threads
+    /// - AsyncStream.Continuation is thread-safe internally
+    /// - We only access it from delegate callbacks (happens-before ordering)
+    nonisolated(unsafe) private var eventContinuation: AsyncStream<SynthesisEvent>.Continuation?
 
-    /// Wait for synthesis to complete
-    func waitForCompletion() async {
-        await withCheckedContinuation { continuation in
-            self.continuation = continuation
+    /// Stream of synthesis events
+    /// Subscribers receive events deterministically when synthesis completes or is cancelled
+    let events: AsyncStream<SynthesisEvent>
+
+    override init() {
+        // Create AsyncStream and capture continuation for event emission
+        var continuation: AsyncStream<SynthesisEvent>.Continuation?
+        self.events = AsyncStream { cont in
+            continuation = cont
         }
+        self.eventContinuation = continuation
+        super.init()
     }
 
-    /// Called when synthesis completes
+    /// Called when synthesis completes successfully
+    /// Emits `.finished` event to all subscribers
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         #if DEBUG
-        print("🎤 [SynthesizerDelegate] didFinish called")
+        print("🎤 [SynthesizerDelegate] didFinish called - emitting .finished event")
         #endif
-        continuation?.resume()
-        continuation = nil
+        eventContinuation?.yield(.finished)
+        eventContinuation?.finish()
     }
 
     /// Called when synthesis is cancelled
+    /// Emits `.cancelled` event to all subscribers
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         #if DEBUG
-        print("🎤 [SynthesizerDelegate] didCancel called")
+        print("🎤 [SynthesizerDelegate] didCancel called - emitting .cancelled event")
         #endif
-        continuation?.resume()
-        continuation = nil
+        eventContinuation?.yield(.cancelled)
+        eventContinuation?.finish()
+    }
+
+    deinit {
+        // Clean up stream when delegate is deallocated
+        eventContinuation?.finish()
     }
 }
