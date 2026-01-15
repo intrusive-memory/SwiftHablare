@@ -148,6 +148,33 @@ private struct AppleVoiceProviderConfigurationView: View {
                 #endif
             }
             .cornerRadius(8)
+
+            #if os(macOS)
+            // Voice download button (macOS only)
+            if #available(macOS 26.0, *) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Voice Downloads")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    Text("Download Enhanced and Premium voices for the best Text-to-Speech quality.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    DownloadPremiumVoicesButton(label: "Download Premium Voices") { success in
+                        if success {
+                            // Refresh voice list after download
+                            onConfigured(true)
+                        }
+                    }
+                }
+                .padding()
+                .background {
+                    Color(nsColor: .controlBackgroundColor)
+                }
+                .cornerRadius(8)
+            }
+            #endif
         }
         .padding()
     }
