@@ -11,8 +11,11 @@ import AppKit
 
 /// Helper for downloading Enhanced and Premium system voices
 ///
-/// This utility launches an AppleScript that guides users through System Settings
+/// This utility uses the native macOS Help system to guide users through System Settings
 /// to download high-quality voices for Text-to-Speech.
+///
+/// Uses NSHelpManager to open Mac User Guide with visual screenshots and UI highlighting,
+/// which is much more reliable than AppleScript UI automation.
 ///
 /// Usage:
 /// ```swift
@@ -30,16 +33,13 @@ public enum VoiceDownloadHelper {
 
     /// Error types for voice download operations
     public enum VoiceDownloadError: LocalizedError {
-        case scriptNotFound
-        case scriptExecutionFailed(String)
+        case settingsOpenFailed
         case userCancelled
 
         public var errorDescription: String? {
             switch self {
-            case .scriptNotFound:
-                return "Voice download script not found. Please ensure download-premium-voices.applescript is in the Scripts directory."
-            case .scriptExecutionFailed(let message):
-                return "Failed to execute voice download script: \(message)"
+            case .settingsOpenFailed:
+                return "Failed to open System Settings. Please open it manually and navigate to Accessibility → Read & Speak → System voice."
             case .userCancelled:
                 return "User cancelled voice download"
             }
@@ -48,59 +48,36 @@ public enum VoiceDownloadHelper {
 
     /// Prompts user to download Enhanced and Premium voices for their system language
     ///
-    /// This launches an interactive AppleScript that:
-    /// 1. Opens System Settings → Accessibility → Read & Speak
-    /// 2. Opens the voice selection panel
-    /// 3. Guides user to download Enhanced/Premium voices
-    /// 4. Optionally attempts automatic download
+    /// This uses the native macOS Help system to:
+    /// 1. Open System Settings → Accessibility (via URL scheme)
+    /// 2. Open Mac User Guide with search for "download Siri voices"
+    /// 3. User follows visual guide with screenshots and UI highlights
     ///
-    /// - Parameter completion: Called when script completes or fails
-    public static func promptUserToDownloadPremiumVoices(completion: @escaping (Result<Bool, VoiceDownloadError>) -> Void) {
+    /// This is much more reliable than AppleScript UI automation as:
+    /// - Help content is maintained by Apple
+    /// - Automatically updates with macOS versions
+    /// - Provides visual guidance with screenshots
+    /// - No fragile UI element paths that break
+    ///
+    /// - Parameter completion: Called when help and settings are opened
+    public static func promptUserToDownloadPremiumVoices(completion: @escaping @Sendable (Result<Bool, VoiceDownloadError>) -> Void) {
 
-        // Find the script path
-        guard let scriptPath = findScriptPath() else {
-            completion(.failure(.scriptNotFound))
+        // Open Accessibility Settings using URL scheme
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.universalaccess") {
+            NSWorkspace.shared.open(url)
+        } else {
+            completion(.failure(.settingsOpenFailed))
             return
         }
 
-        // Execute the AppleScript
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            process.arguments = [scriptPath]
+        // Wait briefly for Settings to open before showing Help
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Search Mac User Guide for voice download instructions
+            // This opens Help window with visual guidance and screenshots
+            NSHelpManager.shared.find("download Siri voices", inBook: nil)
 
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-            process.standardOutput = outputPipe
-            process.standardError = errorPipe
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-
-                let exitCode = process.terminationStatus
-
-                if exitCode == 0 {
-                    DispatchQueue.main.async {
-                        completion(.success(true))
-                    }
-                } else {
-                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-
-                    DispatchQueue.main.async {
-                        if errorMessage.contains("User canceled") || errorMessage.contains("Cancel") {
-                            completion(.failure(.userCancelled))
-                        } else {
-                            completion(.failure(.scriptExecutionFailed(errorMessage)))
-                        }
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(.scriptExecutionFailed(error.localizedDescription)))
-                }
-            }
+            // Success - both Settings and Help are now open
+            completion(.success(true))
         }
     }
 
@@ -142,29 +119,6 @@ public enum VoiceDownloadHelper {
         return currentVoice.contains("premium") || currentVoice.contains("enhanced")
     }
 
-    // MARK: - Private Helpers
-
-    private static func findScriptPath() -> String? {
-        // Try multiple search paths
-        let searchPaths = [
-            // Same directory as executable (app bundle)
-            Bundle.main.bundlePath + "/Contents/Resources/Scripts/download-premium-voices.applescript",
-            // SPM package path (development)
-            #file.replacingOccurrences(of: "VoiceDownloadHelper.swift", with: "../../Scripts/download-premium-voices.applescript"),
-            // Relative to current working directory
-            FileManager.default.currentDirectoryPath + "/Scripts/download-premium-voices.applescript",
-            // User's home directory Scripts folder
-            NSHomeDirectory() + "/Scripts/download-premium-voices.applescript"
-        ]
-
-        for path in searchPaths {
-            if FileManager.default.fileExists(atPath: path) {
-                return path
-            }
-        }
-
-        return nil
-    }
 }
 
 // MARK: - SwiftUI Integration
