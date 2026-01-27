@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Build Automation** - Makefile with xcodebuild package resolution for Metal shader support
 
+
 ### Changed
 
 - **CI/CD Standardization** - Renamed workflow to match SwiftProyecto/SwiftBruja pattern
