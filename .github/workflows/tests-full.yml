@@ -1,8 +1,14 @@
-name: Full Test Suite (Manual)
+name: Full Test Suite (Manual) [DISABLED]
+
+# DISABLED: iOS tests and performance testing disabled per project requirements.
+# Only macOS unit tests, UI tests, and integration tests should run.
+# Use fast-tests.yml for PR testing (macOS only).
 
 on:
-  # Only run manually - replaced by fast-tests.yml (PR) and integration-tests.yml (weekly)
-  workflow_dispatch:
+  # DISABLED - this workflow includes iOS tests
+  # workflow_dispatch:
+  pull_request:
+    branches: [never-match-disabled]  # Effectively disabled
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

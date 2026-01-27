@@ -59,7 +59,6 @@ import Foundation
 /// Generated audio is saved using TypedDataStorage from SwiftCompartido,
 /// which provides:
 /// - Automatic file-based storage for large audio files
-/// - CloudKit sync support
 /// - Relationship to GuionElementModel
 ///
 /// ## Thread Safety

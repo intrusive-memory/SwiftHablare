@@ -1,14 +1,18 @@
-name: Performance Tests (Weekly Historical Tracking)
+name: Performance Tests (Weekly Historical Tracking) [DISABLED]
 
+# DISABLED: iOS tests and performance testing disabled per project requirements.
+# Only macOS unit tests, UI tests, and integration tests should run.
+#
 # This workflow runs performance tests weekly for long-term tracking.
 # Performance tests also run on every PR after unit tests pass.
 # This weekly run provides historical baseline data for comparison.
 
 on:
-  schedule:
-    # Run weekly on Saturdays at 3 AM UTC for historical tracking
-    - cron: '0 3 * * 6'
-  workflow_dispatch:  # Allow manual triggering
+  # DISABLED - performance testing disabled
+  # schedule:
+  #   # Run weekly on Saturdays at 3 AM UTC for historical tracking
+  #   - cron: '0 3 * * 6'
+  workflow_dispatch:  # Allow manual triggering only
     inputs:
       reason:
         description: 'Reason for running performance tests'
