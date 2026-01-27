@@ -1,0 +1,26 @@
+{
+  "model": "Qwen3-TTS-12Hz-1.7B-Base",
+  "component": "codec_decoder",
+  "format": "safetensors",
+  "dtype": "float16",
+  "sample_rate": 24000,
+  "frame_rate_hz": 12,
+  "num_codebooks": 16,
+  "num_tensors": 271,
+  "total_params": 114323137,
+  "files": {
+    "weights": "codec_decoder.safetensors",
+    "config": "config.json"
+  },
+  "validation": {
+    "output_shape": [
+      1,
+      1,
+      72405
+    ],
+    "output_min": -0.8149816393852234,
+    "output_max": 0.8574088215827942,
+    "output_rms": 0.13552068173885345,
+    "test_input_frames": 38
+  }
+}

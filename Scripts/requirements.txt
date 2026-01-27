@@ -1,5 +1,5 @@
-torch==2.5.0
-coremltools==8.3.0
+torch
+safetensors
 qwen-tts
 soundfile
-numpy==1.26.4
+numpy

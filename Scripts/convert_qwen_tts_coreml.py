@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-Convert Qwen3-TTS codec decoder (Qwen3TTSTokenizerV2Decoder) to CoreML .mlpackage format.
+Convert Qwen3-TTS codec decoder (Qwen3TTSTokenizerV2Decoder) weights to MLX format.
 
 Only the codec decoder is converted — the autoregressive LM stays as safetensors
-for mlx-swift-lm. The codec decoder is feed-forward (codes → waveform), ideal for
-CoreML / Apple Neural Engine.
+for mlx-swift-lm. Both components run on Apple Silicon via MLX at runtime.
+
+The script exports:
+  - Decoder weights as safetensors (float16)
+  - Model config JSON for the MLX-Swift decoder implementation
+  - Metadata JSON with model info
 
 Usage:
-    python convert_qwen_tts_coreml.py [--output-dir PATH] [--buckets 3,10,30,45]
+    python convert_qwen_tts_coreml.py [--output-dir PATH]
 """
 
 import argparse
@@ -16,242 +20,203 @@ import logging
 import sys
 from pathlib import Path
 
-import coremltools as ct
 import numpy as np
 import torch
-import torch.nn as nn
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# 12 Hz frame rate, 1920 samples per frame at 24 kHz
-FRAME_RATE_HZ = 12
-SAMPLES_PER_FRAME = 1920
 SAMPLE_RATE = 24000
+FRAME_RATE_HZ = 12
 NUM_CODEBOOKS = 16
-
-BUCKETS = {
-    3: 38,    # ~3 sec
-    10: 125,  # ~10 sec
-    30: 375,  # ~30 sec
-    45: 563,  # ~45 sec
-}
-
-
-class CodecDecoderWrapper(nn.Module):
-    """Wraps Qwen3TTSTokenizerV2Decoder for tracing.
-
-    - Replaces Dropout with Identity (inference mode)
-    - Casts int32 input to int64 for PyTorch Embedding compatibility
-      (CoreML integer inputs are int32)
-    """
-
-    def __init__(self, decoder: nn.Module):
-        super().__init__()
-        self.decoder = decoder
-        self._replace_dropout(self.decoder)
-        self.decoder.eval()
-
-    @staticmethod
-    def _replace_dropout(module: nn.Module):
-        for name, child in module.named_children():
-            if isinstance(child, nn.Dropout):
-                setattr(module, name, nn.Identity())
-            else:
-                CodecDecoderWrapper._replace_dropout(child)
-
-    def forward(self, codes: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            codes: int32 tensor of shape (1, 16, T) — audio codes from the LM.
-        Returns:
-            waveform: float32 tensor of shape (1, 1, T*1920) — PCM samples.
-        """
-        codes = codes.to(torch.int64)
-        return self.decoder(codes)
 
 
 def load_decoder():
     """Load the codec decoder from qwen-tts tokenizer."""
-    log.info("Loading Qwen3TTSTokenizer (this downloads ~200MB on first run)...")
+    log.info("Loading Qwen3TTSTokenizer...")
     from qwen_tts import Qwen3TTSTokenizer
 
-    tokenizer = Qwen3TTSTokenizer.from_pretrained(
-        "Qwen/Qwen3-TTS-Tokenizer-12Hz", device="cpu"
-    )
+    tokenizer = Qwen3TTSTokenizer.from_pretrained("Qwen/Qwen3-TTS-Tokenizer-12Hz")
     decoder = tokenizer.model.decoder
+    config = tokenizer.model.config
     log.info("Decoder loaded: %s", type(decoder).__name__)
-    return decoder
+    return decoder, config
 
 
-def trace_decoder(wrapper: CodecDecoderWrapper, T: int):
-    """Trace the decoder with dummy codes of shape (1, 16, T)."""
-    dummy = torch.randint(0, 1024, (1, NUM_CODEBOOKS, T), dtype=torch.int32)
-    log.info("Tracing with input shape %s ...", tuple(dummy.shape))
+def extract_config(decoder, config) -> dict:
+    """Extract decoder architecture config for MLX reimplementation."""
+    # Count parameters
+    total_params = sum(p.numel() for p in decoder.parameters())
 
-    try:
-        traced = torch.jit.trace(wrapper, dummy)
-        return traced
-    except Exception as e:
-        log.warning("Strict trace failed: %s. Trying strict=False...", e)
+    # Inspect structure to extract hyperparameters
+    mlx_config = {
+        "model_type": "qwen3_tts_codec_decoder",
+        "sample_rate": SAMPLE_RATE,
+        "frame_rate_hz": FRAME_RATE_HZ,
+        "num_codebooks": NUM_CODEBOOKS,
+        "total_params": total_params,
+    }
 
-    try:
-        traced = torch.jit.trace(wrapper, dummy, strict=False)
-        log.info("Traced with strict=False.")
-        return traced
-    except Exception as e:
-        log.error("Trace failed even with strict=False: %s", e)
-        log.error(
-            "Fallback: consider splitting decoder into sub-models or using ONNX intermediate."
-        )
-        raise
+    # Extract from HF config if available
+    for attr in [
+        "hidden_size", "num_attention_heads", "num_hidden_layers",
+        "intermediate_size", "num_quantizers", "codebook_size",
+        "n_q_semantic", "n_q_acoustic",
+        "upsample_ratios", "decoder_channels", "decoder_kernel_sizes",
+    ]:
+        val = getattr(config, attr, None)
+        if val is None:
+            # Try decoder_config sub-object
+            dc = getattr(config, "decoder_config", None)
+            if dc:
+                val = getattr(dc, attr, None)
+        if val is not None:
+            # Convert lists/tuples for JSON
+            if isinstance(val, (list, tuple)):
+                val = list(val)
+            mlx_config[attr] = val
+
+    # Infer from weights if config is sparse
+    if "hidden_size" not in mlx_config:
+        # pre_transformer.input_proj.weight is (hidden, input_dim)
+        try:
+            w = dict(decoder.named_parameters())["pre_transformer.input_proj.weight"]
+            mlx_config["transformer_hidden_size"] = w.shape[0]
+            mlx_config["transformer_input_dim"] = w.shape[1]
+        except KeyError:
+            pass
+
+    return mlx_config
 
 
-def convert_to_coreml(traced_model, T: int):
-    """Convert a traced PyTorch model to CoreML .mlpackage."""
-    input_shape = ct.Shape(shape=(1, NUM_CODEBOOKS, T))
-    expected_output_samples = T * SAMPLES_PER_FRAME
+def convert_weights_to_safetensors(decoder, output_path: Path):
+    """Export decoder weights as safetensors in float16."""
+    from safetensors.torch import save_file
 
-    log.info("Converting to CoreML (T=%d, output_samples=%d)...", T, expected_output_samples)
+    state_dict = {}
+    for name, param in decoder.named_parameters():
+        state_dict[name] = param.detach().half().contiguous()
 
-    mlmodel = ct.convert(
-        traced_model,
-        inputs=[ct.TensorType(name="codes", shape=input_shape, dtype=np.int32)],
-        outputs=[ct.TensorType(name="waveform")],
-        compute_precision=ct.precision.FLOAT16,
-        minimum_deployment_target=ct.target.iOS18,
-        convert_to="mlprogram",
-    )
-    return mlmodel
+    save_file(state_dict, str(output_path))
+    size_mb = output_path.stat().st_size / (1024 * 1024)
+    log.info("Saved weights: %s (%.1f MB)", output_path, size_mb)
+    return len(state_dict)
 
 
-def validate(
-    wrapper: CodecDecoderWrapper,
-    mlmodel,
-    T: int,
-    tolerance: float = 0.01,
-):
-    """Validate CoreML output against PyTorch output."""
-    log.info("Validating (T=%d)...", T)
-    dummy = torch.randint(0, 1024, (1, NUM_CODEBOOKS, T), dtype=torch.int32)
+def validate_weights(decoder, output_path: Path, tolerance: float = 1e-3):
+    """Validate saved weights can be loaded and match originals."""
+    from safetensors.torch import load_file
 
-    # PyTorch reference
+    log.info("Validating saved weights...")
+    loaded = load_file(str(output_path))
+
+    mismatches = 0
+    for name, param in decoder.named_parameters():
+        if name not in loaded:
+            log.warning("Missing key: %s", name)
+            mismatches += 1
+            continue
+        original = param.detach().half()
+        diff = (original - loaded[name]).abs().max().item()
+        if diff > tolerance:
+            log.warning("Mismatch for %s: max_diff=%.6f", name, diff)
+            mismatches += 1
+
+    if mismatches == 0:
+        log.info("All %d weight tensors validated OK.", len(loaded))
+    else:
+        log.warning("%d mismatches found.", mismatches)
+    return mismatches == 0
+
+
+def validate_forward_pass(decoder):
+    """Run a forward pass to verify the decoder works and capture output stats."""
+    log.info("Running validation forward pass...")
+    decoder.eval()
+    dummy = torch.randint(0, 1024, (1, NUM_CODEBOOKS, 38), dtype=torch.int64)
     with torch.no_grad():
-        pt_out = wrapper(dummy).numpy()
-
-    # CoreML prediction
-    prediction = mlmodel.predict({"codes": dummy.numpy()})
-    cm_out = prediction["waveform"]
-
-    # Shape check
-    expected_samples = T * SAMPLES_PER_FRAME
-    assert pt_out.shape[-1] == expected_samples, (
-        f"PyTorch output shape mismatch: {pt_out.shape}, expected last dim {expected_samples}"
+        out = decoder(dummy)
+    log.info(
+        "Forward pass OK: shape=%s, range=[%.4f, %.4f], rms=%.6f",
+        tuple(out.shape),
+        out.min().item(),
+        out.max().item(),
+        out.float().pow(2).mean().sqrt().item(),
     )
-    assert cm_out.shape[-1] == expected_samples, (
-        f"CoreML output shape mismatch: {cm_out.shape}, expected last dim {expected_samples}"
-    )
-
-    # Numeric parity
-    max_diff = np.max(np.abs(pt_out.astype(np.float32) - cm_out.astype(np.float32)))
-    log.info("Max absolute diff: %.6f (tolerance: %.4f)", max_diff, tolerance)
-    if max_diff > tolerance:
-        log.warning(
-            "Numeric parity FAILED: max_diff=%.6f exceeds tolerance=%.4f",
-            max_diff,
-            tolerance,
-        )
-        return False
-
-    # Non-silence check
-    rms = np.sqrt(np.mean(cm_out.astype(np.float32) ** 2))
-    if rms < 1e-6:
-        log.warning("Output appears silent (RMS=%.8f).", rms)
-        return False
-
-    log.info("Validation passed (max_diff=%.6f, rms=%.6f).", max_diff, rms)
-    return True
+    return {
+        "output_shape": list(out.shape),
+        "output_min": float(out.min()),
+        "output_max": float(out.max()),
+        "output_rms": float(out.float().pow(2).mean().sqrt()),
+        "test_input_frames": 38,
+    }
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert Qwen3-TTS codec decoder to CoreML")
+    parser = argparse.ArgumentParser(
+        description="Convert Qwen3-TTS codec decoder to MLX safetensors"
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path(__file__).resolve().parent.parent / "Resources" / "Models" / "QwenTTS",
     )
     parser.add_argument(
-        "--buckets",
-        type=str,
-        default="3,10,30,45",
-        help="Comma-separated bucket durations in seconds",
-    )
-    parser.add_argument(
         "--skip-validation",
         action="store_true",
-        help="Skip numeric validation (faster)",
+        help="Skip weight and forward-pass validation",
     )
     args = parser.parse_args()
 
-    bucket_durations = [int(b) for b in args.buckets.split(",")]
     output_dir: Path = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load and wrap
-    decoder = load_decoder()
-    wrapper = CodecDecoderWrapper(decoder)
+    # Load
+    decoder, config = load_decoder()
 
+    # Forward pass validation (before conversion, to ensure model works)
+    forward_stats = {}
+    if not args.skip_validation:
+        forward_stats = validate_forward_pass(decoder)
+
+    # Extract config
+    mlx_config = extract_config(decoder, config)
+    config_path = output_dir / "config.json"
+    config_path.write_text(json.dumps(mlx_config, indent=2))
+    log.info("Config written: %s", config_path)
+
+    # Convert weights
+    weights_path = output_dir / "codec_decoder.safetensors"
+    num_tensors = convert_weights_to_safetensors(decoder, weights_path)
+
+    # Validate weights roundtrip
+    if not args.skip_validation:
+        if not validate_weights(decoder, weights_path):
+            log.error("Weight validation failed!")
+            sys.exit(1)
+
+    # Write metadata
     metadata = {
         "model": "Qwen3-TTS-12Hz-1.7B-Base",
         "component": "codec_decoder",
+        "format": "safetensors",
+        "dtype": "float16",
         "sample_rate": SAMPLE_RATE,
         "frame_rate_hz": FRAME_RATE_HZ,
-        "samples_per_frame": SAMPLES_PER_FRAME,
         "num_codebooks": NUM_CODEBOOKS,
-        "buckets": {},
+        "num_tensors": num_tensors,
+        "total_params": mlx_config.get("total_params"),
+        "files": {
+            "weights": "codec_decoder.safetensors",
+            "config": "config.json",
+        },
+        "validation": forward_stats,
     }
-
-    all_passed = True
-
-    for dur in bucket_durations:
-        T = BUCKETS.get(dur)
-        if T is None:
-            T = dur * FRAME_RATE_HZ
-            log.info("Custom bucket %ds → T=%d frames", dur, T)
-
-        name = f"qwen_tts_codec_decoder_{dur}s"
-        out_path = output_dir / f"{name}.mlpackage"
-
-        log.info("=== Bucket %ds (T=%d) ===", dur, T)
-
-        traced = trace_decoder(wrapper, T)
-        mlmodel = convert_to_coreml(traced, T)
-
-        if not args.skip_validation:
-            passed = validate(wrapper, mlmodel, T)
-            if not passed:
-                all_passed = False
-
-        mlmodel.save(str(out_path))
-        log.info("Saved: %s", out_path)
-
-        metadata["buckets"][f"{dur}s"] = {
-            "frames": T,
-            "output_samples": T * SAMPLES_PER_FRAME,
-            "duration_sec": T / FRAME_RATE_HZ,
-            "file": f"{name}.mlpackage",
-        }
-
-    # Write metadata
     meta_path = output_dir / "metadata.json"
     meta_path.write_text(json.dumps(metadata, indent=2))
     log.info("Metadata written: %s", meta_path)
 
-    if not all_passed:
-        log.warning("Some validations failed — check output above.")
-        sys.exit(1)
-
-    log.info("Done. All buckets converted successfully.")
+    log.info("Done. MLX-compatible weights exported to %s", output_dir)
 
 
 if __name__ == "__main__":
