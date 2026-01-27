@@ -1,5 +1,9 @@
 # SwiftHablare
 
+<p align="center">
+    <img src="icon.jpg" alt="SwiftHablare" width="200" />
+</p>
+
 **Simple voice generation library** - Convert text into spoken audio using Apple TTS or ElevenLabs.
 
 ## Overview
