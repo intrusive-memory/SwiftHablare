@@ -13,17 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **QwenTTSEngine** - On-device TTS via MLX for Apple Silicon
+  - Two-stage pipeline: Talker LM (1.7B, 4-bit) generates audio tokens, Codec Decoder converts to 24kHz PCM
+  - HuggingFace model auto-download with caching
+  - SafeTensors and NPY weight loading
+  - Voice catalog with speaker embeddings
+
+- **hablare CLI** - Command-line tool for on-device TTS
+  - Commands: `generate`, `voices`, `download`, `info`
+  - Built via `make release` (xcodebuild with Metal shaders)
+  - Version 1.0.0
+
 - **Premium Voice Download Button** - SwiftUI button to launch System Settings for voice downloads
   - Uses NSHelpManager for cross-platform System Settings access
   - Replaces AppleScript-based approach for better sandbox compatibility
 
 - **Project Icons** - Added icon.jpg and SwiftHablare.jpg
 
+- **Build Automation** - Makefile with xcodebuild package resolution for Metal shader support
+
 ### Changed
 
-- **CI/CD Updates** - Disabled iOS tests and performance tests
-  - Only macOS unit tests run on PRs
-  - Branch protection updated to match
+- **CI/CD Standardization** - Renamed workflow to match SwiftProyecto/SwiftBruja pattern
+  - Workflow: `tests.yml` with jobs: Code Quality, macOS Tests, Integration Tests
+  - Integration tests build hablare CLI and verify `--version`/`--help`
+  - Unit tests use `swift test` instead of `xcodebuild test`
+  - Branch protection updated to match new job names
 
 ### Fixed
 
