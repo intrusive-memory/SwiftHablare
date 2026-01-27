@@ -1,8 +1,10 @@
 name: Fast Tests (PR)
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main, master]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main, master]
 
