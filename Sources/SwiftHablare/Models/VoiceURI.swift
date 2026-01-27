@@ -3,7 +3,7 @@
 //  SwiftHablare
 //
 //  Voice URI for portable voice references
-//  Format: hablare://<providerId>/<voiceId>?lang=<languageCode>
+//  Format: <providerId>://<voiceId>?lang=<languageCode>
 //
 
 import Foundation
@@ -11,7 +11,7 @@ import SwiftCompartido
 
 /// Voice URI for portable voice references across voice providers
 ///
-/// Format: `hablare://<providerId>/<voiceId>?lang=<languageCode>`
+/// Format: `<providerId>://<voiceId>?lang=<languageCode>`
 ///
 /// ## Examples
 ///
@@ -22,7 +22,7 @@ import SwiftCompartido
 ///     voiceId: "com.apple.voice.compact.en-US.Samantha",
 ///     languageCode: "en"
 /// )
-/// // => "hablare://apple/com.apple.voice.compact.en-US.Samantha?lang=en"
+/// // => "apple://com.apple.voice.compact.en-US.Samantha?lang=en"
 ///
 /// // ElevenLabs voice
 /// let uri2 = VoiceURI(
@@ -30,10 +30,10 @@ import SwiftCompartido
 ///     voiceId: "21m00Tcm4TlvDq8ikWAM",
 ///     languageCode: "en"
 /// )
-/// // => "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM?lang=en"
+/// // => "elevenlabs://21m00Tcm4TlvDq8ikWAM?lang=en"
 ///
 /// // Parse from string
-/// let uri3 = VoiceURI(uriString: "hablare://apple/voice-id?lang=es")
+/// let uri3 = VoiceURI(uriString: "apple://voice-id?lang=es")
 /// ```
 ///
 /// ## Usage with GenerationService
@@ -83,34 +83,28 @@ public struct VoiceURI: Codable, Hashable, Sendable {
 
     /// Parse a VoiceURI from a string
     ///
-    /// Parses URIs in the format: `hablare://providerId/voiceId?lang=languageCode`
+    /// Parses URIs in the format: `<providerId>://<voiceId>?lang=<languageCode>`
     ///
     /// ## Examples
     ///
     /// ```swift
-    /// let uri1 = VoiceURI(uriString: "hablare://apple/voice-id?lang=en")
-    /// let uri2 = VoiceURI(uriString: "hablare://elevenlabs/21m00Tcm4TlvDq8ikWAM")
+    /// let uri1 = VoiceURI(uriString: "apple://voice-id?lang=en")
+    /// let uri2 = VoiceURI(uriString: "elevenlabs://21m00Tcm4TlvDq8ikWAM")
     /// ```
     ///
     /// - Parameter uriString: URI string to parse
     /// - Returns: Parsed VoiceURI, or nil if invalid
     public init?(uriString: String) {
         guard let url = URL(string: uriString),
-              url.scheme == "hablare",
+              let scheme = url.scheme,
+              !scheme.isEmpty,
               let host = url.host,
-              !url.path.isEmpty else {
+              !host.isEmpty else {
             return nil
         }
 
-        self.providerId = host.lowercased()
-        let extractedVoiceId = String(url.path.dropFirst())  // Remove leading "/"
-
-        // Voice ID must not be empty
-        guard !extractedVoiceId.isEmpty else {
-            return nil
-        }
-
-        self.voiceId = extractedVoiceId
+        self.providerId = scheme.lowercased()
+        self.voiceId = host
 
         // Parse query parameters for language code
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -155,21 +149,20 @@ public struct VoiceURI: Codable, Hashable, Sendable {
     ///
     /// ## Format
     ///
-    /// - Without language: `hablare://providerId/voiceId`
-    /// - With language: `hablare://providerId/voiceId?lang=languageCode`
+    /// - Without language: `<providerId>://<voiceId>`
+    /// - With language: `<providerId>://<voiceId>?lang=<languageCode>`
     ///
     /// - Returns: URI string with properly encoded components
     public var uriString: String {
         var components = URLComponents()
-        components.scheme = "hablare"
-        components.host = providerId
-        components.path = "/\(voiceId)"
+        components.scheme = providerId
+        components.host = voiceId
 
         if let lang = languageCode {
             components.queryItems = [URLQueryItem(name: "lang", value: lang)]
         }
 
-        return components.string ?? "hablare://\(providerId)/\(voiceId)"
+        return components.string ?? "\(providerId)://\(voiceId)"
     }
 
     /// CustomStringConvertible conformance

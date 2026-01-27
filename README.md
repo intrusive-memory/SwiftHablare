@@ -1,5 +1,9 @@
 # SwiftHablare
 
+<p align="center">
+    <img src="icon.jpg" alt="SwiftHablare" width="200" />
+</p>
+
 **Simple voice generation library** - Convert text into spoken audio using Apple TTS or ElevenLabs.
 
 ## Overview
@@ -191,8 +195,8 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "4.2.0"),
-    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "4.2.0")
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "5.4.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "6.6.0")
 ]
 ```
 
@@ -200,7 +204,7 @@ dependencies: [
 
 - Swift 6.0+
 - iOS 26.0+ / macOS 26.0+
-- SwiftCompartido 2.1.0+
+- SwiftCompartido 6.6.0+
 - Cross-platform (iOS, macOS)
 
 **Platform Support**: SwiftHablaré provides first-class support for iOS 26+ and macOS 26+ with platform-specific TTS engines.

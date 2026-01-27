@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Premium Voice Download Button** - SwiftUI button to launch System Settings for voice downloads
+  - Uses NSHelpManager for cross-platform System Settings access
+  - Replaces AppleScript-based approach for better sandbox compatibility
+
+### Changed
+
+- **CI/CD Updates** - Disabled iOS tests and performance tests
+  - Only macOS unit tests run on PRs
+  - Branch protection updated to match
+
+### Fixed
+
+- **VoiceURI** - Various improvements to voice URI handling
+
 ## [5.4.0] - 2025-12-24
 
 ### Added

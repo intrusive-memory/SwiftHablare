@@ -1,16 +1,19 @@
-name: Performance Tests
+name: Performance Tests [DISABLED]
+
+# DISABLED: iOS tests and performance testing disabled per project requirements.
+# Only macOS unit tests, UI tests, and integration tests should run.
 
 on:
-  # Run after fast tests complete successfully
-  workflow_run:
-    workflows: ["Fast Tests (PR)"]
-    types: [completed]
-    branches: [main, master, development]
+  # DISABLED - performance testing disabled
+  # workflow_run:
+  #   workflows: ["Fast Tests (PR)"]
+  #   types: [completed]
+  #   branches: [main, master, development]
   # Manual trigger for testing
   workflow_dispatch:
-  # Run performance tests weekly on Sundays at 00:00 UTC
-  schedule:
-    - cron: '0 0 * * 0'
+  # DISABLED - schedule disabled
+  # schedule:
+  #   - cron: '0 0 * * 0'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}

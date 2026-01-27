@@ -237,11 +237,41 @@ final class AVSpeechTTSEngine: AppleTTSEngine {
                 do {
                     let utterance = AVSpeechUtterance(string: text)
 
+                    #if DEBUG
+                    print("🎤 [AVSpeechTTSEngine] ====== VOICE SELECTION DEBUG ======")
+                    print("🎤 [AVSpeechTTSEngine] Requested voice ID: '\(voiceId)'")
+                    print("🎤 [AVSpeechTTSEngine] Text to speak: '\(text.prefix(60))...'")
+                    #endif
+
                     // Set the voice - throw error if voice doesn't exist
                     guard let voice = AVSpeechSynthesisVoice(identifier: voiceId) else {
+                        #if DEBUG
+                        print("❌ [AVSpeechTTSEngine] Voice NOT FOUND for identifier: '\(voiceId)'")
+                        print("❌ [AVSpeechTTSEngine] Available voices:")
+                        let availableVoices = AVSpeechSynthesisVoice.speechVoices()
+                        for (index, availableVoice) in availableVoices.prefix(10).enumerated() {
+                            print("    [\(index)] \(availableVoice.name) - \(availableVoice.identifier)")
+                        }
+                        #endif
                         throw VoiceProviderError.invalidRequest("Voice not found: \(voiceId)")
                     }
+
+                    #if DEBUG
+                    print("✅ [AVSpeechTTSEngine] Voice FOUND and selected:")
+                    print("    - Name: \(voice.name)")
+                    print("    - Identifier: \(voice.identifier)")
+                    print("    - Language: \(voice.language)")
+                    print("    - Quality: \(voice.quality.rawValue)")
+                    #endif
+
                     utterance.voice = voice
+
+                    #if DEBUG
+                    print("✅ [AVSpeechTTSEngine] Utterance configured:")
+                    print("    - Voice assigned: \(utterance.voice?.name ?? "nil")")
+                    print("    - Voice identifier: \(utterance.voice?.identifier ?? "nil")")
+                    print("🎤 [AVSpeechTTSEngine] ====================================")
+                    #endif
 
                     let synthesizer = AVSpeechSynthesizer()
                     let tempURL = FileManager.default.temporaryDirectory

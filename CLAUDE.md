@@ -4,10 +4,10 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Quick Reference
 
-- **Current Version**: 5.3.0 (check `SwiftHablare.swift:84` for actual version string)
+- **Current Version**: 5.4.0 (check `SwiftHablare.swift:83` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
-- **Test Suite**: 289 passing tests
+- **Test Suite**: 390+ passing tests
 
 ## ⚠️ CRITICAL: Platform Version Enforcement
 

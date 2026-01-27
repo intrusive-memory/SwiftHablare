@@ -112,8 +112,8 @@ struct CastListPageExtensionsTests {
     func testValidateVoiceURIs() {
         var castList = CastListPage(title: "Test", position: 0)
 
-        // Add valid URI
-        castList.addMember(role: "ALICE", name: "hablare://apple/voice-1?lang=en")
+        // Add valid URI (format: <providerId>://<voiceId>?lang=<languageCode>)
+        castList.addMember(role: "ALICE", name: "apple://voice-1?lang=en")
 
         // Add invalid URI
         castList.addMember(role: "BOB", name: "invalid-uri")
@@ -145,13 +145,12 @@ struct CastListPageExtensionsTests {
         let json = String(data: data, encoding: .utf8)
 
         #expect(json != nil)
-        // URIs might be URL-encoded in JSON, so check for both formats
-        let containsApple = json?.contains("hablare://apple/voice-1?lang=en") == true ||
-                          json?.contains("hablare:\\/\\/apple\\/voice-1?lang=en") == true ||
-                          json?.contains("apple\\/voice-1") == true
-        let containsElevenLabs = json?.contains("hablare://elevenlabs/voice-2?lang=en") == true ||
-                                json?.contains("hablare:\\/\\/elevenlabs\\/voice-2?lang=en") == true ||
-                                json?.contains("elevenlabs\\/voice-2") == true
+        // URIs use format: <providerId>://<voiceId>?lang=<languageCode>
+        // Check for the URI components in the JSON
+        let containsApple = json?.contains("apple://voice-1") == true ||
+                          json?.contains("apple:\\/\\/voice-1") == true
+        let containsElevenLabs = json?.contains("elevenlabs://voice-2") == true ||
+                                json?.contains("elevenlabs:\\/\\/voice-2") == true
 
         #expect(containsApple == true)
         #expect(containsElevenLabs == true)
@@ -399,8 +398,8 @@ struct CastListPageExtensionsTests {
     func testExportIgnoresInvalidURIs() {
         var castList = CastListPage(title: "Test", position: 0)
 
-        // Add valid URI
-        castList.addMember(role: "ALICE", name: "hablare://apple/voice-1?lang=en")
+        // Add valid URI (format: <providerId>://<voiceId>?lang=<languageCode>)
+        castList.addMember(role: "ALICE", name: "apple://voice-1?lang=en")
 
         // Add invalid URI
         castList.addMember(role: "BOB", name: "invalid-uri")

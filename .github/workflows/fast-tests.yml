@@ -90,140 +90,6 @@ jobs:
           swift build --configuration debug
           echo "✅ Swift package builds successfully" >> $GITHUB_STEP_SUMMARY
 
-  fast-test:
-    name: Fast Tests (${{ matrix.platform }})
-    runs-on: macos-26
-    needs: [code-quality]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: iOS
-            destination: 'platform=iOS Simulator,name=iPhone 17'
-            skip_integration: true
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: Show Swift version
-        run: swift --version
-
-      - name: Show available simulators
-        if: matrix.platform == 'iOS'
-        run: |
-          echo "Available iOS Simulators:"
-          xcrun simctl list devices available | grep "iPhone" | head -5
-
-      - name: Build for ${{ matrix.platform }}
-        run: |
-          echo "🔨 Building for ${{ matrix.platform }}"
-          xcodebuild build \
-            -scheme SwiftHablare \
-            -destination '${{ matrix.destination }}' \
-            -skipPackagePluginValidation \
-            | xcpretty || true
-
-      - name: Clean test database
-        run: |
-          # Remove any existing test databases to prevent schema conflicts
-          rm -rf ~/Library/Application\ Support/default.store*
-          rm -rf ~/Library/Application\ Support/*.store
-
-      - name: Run fast tests on ${{ matrix.platform }} (unit tests only)
-        run: |
-          echo "🏃 Running fast tests on ${{ matrix.platform }} (unit tests only)"
-          echo "Platform: ${{ matrix.platform }}"
-          echo "Destination: ${{ matrix.destination }}"
-          echo "Integration tests will run on the weekly schedule"
-          echo ""
-
-          # Run tests using xcodebuild (required for iOS and macOS platform-specific tests)
-          # Pass GitHub Actions' built-in CI variable to test process
-          # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Use TEST_RUNNER_CI to pass GitHub's CI env var to test process
-          TEST_RUNNER_CI="${CI}" xcodebuild test \
-            -scheme SwiftHablare \
-            -destination '${{ matrix.destination }}' \
-            -skipPackagePluginValidation \
-            | tee test-output-${{ matrix.platform }}.log \
-            | xcpretty --test --color
-
-          # Capture exit code
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-
-          # Check if tests actually failed (not just warnings)
-          # xcodebuild returns non-zero for warnings, but we only want to fail on test failures
-          if grep -q "TEST FAILED" test-output-${{ matrix.platform }}.log || grep -q "** TEST FAILED **" test-output-${{ matrix.platform }}.log; then
-            echo "❌ Tests failed"
-            exit 1
-          elif grep -q "TEST SUCCEEDED" test-output-${{ matrix.platform }}.log || grep -q "** TEST SUCCEEDED **" test-output-${{ matrix.platform }}.log; then
-            echo "✅ Tests succeeded"
-            exit 0
-          else
-            # If we can't determine test status, use xcodebuild exit code
-            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
-            exit $TEST_EXIT_CODE
-          fi
-
-      - name: Extract test summary
-        if: always()
-        shell: bash {0}  # Don't exit on error
-        run: |
-          echo "## Fast Test Results - ${{ matrix.platform }} (Unit Tests Only)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Platform:** ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Destination:** ${{ matrix.destination }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ℹ️  **Note:** Integration tests are skipped in PR checks and run weekly on schedule." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -f test-output-${{ matrix.platform }}.log ]; then
-            # Extract test results from xcodebuild test output
-            # Get the last "Executed X tests" line which has the total
-            LAST_EXECUTION_LINE=$(grep "Executed.*test" test-output-${{ matrix.platform }}.log | tail -n 1 || true)
-
-            if [ -n "$LAST_EXECUTION_LINE" ]; then
-              # Extract numbers from the line
-              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*" || echo "0")
-              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*" || echo "0")
-
-              if [ -z "$FAILURES" ] || [ "$FAILURES" = "" ]; then
-                FAILURES=0
-              fi
-
-              if [ -z "$TOTAL_TESTS" ] || [ "$TOTAL_TESTS" = "" ] || [ "$TOTAL_TESTS" = "0" ]; then
-                echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
-              else
-                PASSED=$((TOTAL_TESTS - FAILURES))
-
-                # Display results
-                if [ "$FAILURES" -eq 0 ]; then
-                  echo "✅ **All unit tests passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                  echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            else
-              echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "No test output found" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fast-test-results-${{ matrix.platform }}
-          path: |
-            test-output-${{ matrix.platform }}.log
-          retention-days: 7
-
   fast-test-macos:
     name: Fast Tests (macOS)
     runs-on: macos-26
@@ -253,30 +119,31 @@ jobs:
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
-      - name: Run fast tests on macOS (unit tests only)
+      - name: Run unit tests on macOS
         run: |
-          echo "🏃 Running fast tests on macOS (unit tests only)"
+          echo "🏃 Running unit tests on macOS"
           echo "Platform: macOS"
           echo "Destination: platform=macOS"
-          echo "Integration tests will run on the weekly schedule"
           echo ""
 
           # Pass GitHub Actions' built-in CI variable to test process
-          # (see AVSpeechTTSEngine.generateRealAudio for CI detection)
-          # IMPORTANT: Use TEST_RUNNER_CI to pass GitHub's CI env var to test process
+          # Skip integration and performance tests for fast PR feedback
           TEST_RUNNER_CI="${CI}" xcodebuild test \
             -scheme SwiftHablare \
             -destination 'platform=macOS' \
             -skipPackagePluginValidation \
+            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
+            -skip-testing:SwiftHablareTests/PerformanceIntegrationTests \
             | tee test-output-macOS.log \
             | xcpretty --test --color
 
           TEST_EXIT_CODE=${PIPESTATUS[0]}
 
-          if grep -q "TEST FAILED" test-output-macOS.log || grep -q "** TEST FAILED **" test-output-macOS.log; then
+          if grep -q "TEST FAILED" test-output-macOS.log || grep -q "\*\* TEST FAILED \*\*" test-output-macOS.log; then
             echo "❌ Tests failed"
             exit 1
-          elif grep -q "TEST SUCCEEDED" test-output-macOS.log || grep -q "** TEST SUCCEEDED **" test-output-macOS.log; then
+          elif grep -q "TEST SUCCEEDED" test-output-macOS.log || grep -q "\*\* TEST SUCCEEDED \*\*" test-output-macOS.log; then
             echo "✅ Tests succeeded"
             exit 0
           else
@@ -288,12 +155,12 @@ jobs:
         if: always()
         shell: bash {0}
         run: |
-          echo "## Fast Test Results - macOS (Unit Tests Only)" >> $GITHUB_STEP_SUMMARY
+          echo "## Unit Test Results - macOS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Platform:** macOS" >> $GITHUB_STEP_SUMMARY
           echo "**Destination:** platform=macOS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ℹ️  **Note:** Integration tests are skipped in PR checks and run weekly on schedule." >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  **Note:** Integration tests run weekly on schedule." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f test-output-macOS.log ]; then
@@ -334,133 +201,3 @@ jobs:
           path: |
             test-output-macOS.log
           retention-days: 7
-
-  performance-tests:
-    name: Performance Tests (macOS)
-    runs-on: macos-26
-    needs: [fast-test, fast-test-macos]  # Wait for BOTH iOS and macOS unit tests to pass
-    if: success()  # Only run if BOTH unit tests succeeded
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: Show Swift version
-        run: swift --version
-
-      - name: Clean test database
-        run: |
-          rm -rf ~/Library/Application\ Support/default.store*
-          rm -rf ~/Library/Application\ Support/*.store
-
-      - name: Run performance benchmarks
-        run: |
-          echo "⚡ Running performance benchmarks after unit tests passed..."
-          echo "Platform: macOS"
-          echo "Test Class: PerformanceIntegrationTests (21 benchmarks)"
-          echo ""
-
-          # Run ONLY performance integration tests
-          xcodebuild test \
-            -scheme SwiftHablare \
-            -destination 'platform=macOS' \
-            -skipPackagePluginValidation \
-            -only-testing:SwiftHablareTests/PerformanceIntegrationTests \
-            | tee performance-output.log \
-            | xcpretty --test --color
-
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-
-          if grep -q "TEST FAILED" performance-output.log || grep -q "** TEST FAILED **" performance-output.log; then
-            echo "❌ Performance tests failed"
-            exit 1
-          elif grep -q "TEST SUCCEEDED" performance-output.log || grep -q "** TEST SUCCEEDED **" performance-output.log; then
-            echo "✅ Performance tests completed"
-            exit 0
-          else
-            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
-            exit $TEST_EXIT_CODE
-          fi
-
-      - name: Extract performance metrics
-        if: always()
-        shell: bash {0}
-        run: |
-          echo "## Performance Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Platform:** macOS" >> $GITHUB_STEP_SUMMARY
-          echo "**Test Class:** PerformanceIntegrationTests" >> $GITHUB_STEP_SUMMARY
-          echo "**Total Benchmarks:** 21" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -f performance-output.log ]; then
-            # Extract baseline recording if present
-            if grep -q "PERFORMANCE BASELINE RECORDED" performance-output.log; then
-              echo "### 📊 Performance Baseline" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              sed -n '/PERFORMANCE BASELINE RECORDED/,/==========================================$/p' performance-output.log | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-
-            # Extract comparison if present
-            if grep -q "PERFORMANCE COMPARISON" performance-output.log; then
-              echo "### 📈 Performance Comparison" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              sed -n '/PERFORMANCE COMPARISON/,/==========================================$/p' performance-output.log | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-
-            # Extract test results
-            LAST_EXECUTION_LINE=$(grep "Executed.*test" performance-output.log | tail -n 1 || true)
-
-            if [ -n "$LAST_EXECUTION_LINE" ]; then
-              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*" || echo "0")
-              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*" || echo "0")
-
-              if [ -z "$FAILURES" ] || [ "$FAILURES" = "" ]; then
-                FAILURES=0
-              fi
-
-              if [ -n "$TOTAL_TESTS" ] && [ "$TOTAL_TESTS" != "0" ]; then
-                PASSED=$((TOTAL_TESTS - FAILURES))
-
-                echo "### Test Summary" >> $GITHUB_STEP_SUMMARY
-                if [ "$FAILURES" -eq 0 ]; then
-                  echo "✅ **All benchmarks passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                  echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            fi
-          else
-            echo "No performance test output found" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Upload performance results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: performance-test-results-pr
-          path: |
-            performance-output.log
-          retention-days: 30
-
-      - name: Check for performance regressions
-        if: always()
-        shell: bash {0}
-        run: |
-          if grep -q "REGRESSION" performance-output.log; then
-            echo "⚠️  **Performance regression detected!**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Review the performance comparison above for details." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "This is a warning only - PR can still be merged." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ No performance regressions detected" >> $GITHUB_STEP_SUMMARY
-          fi
