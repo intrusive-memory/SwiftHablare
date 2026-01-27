@@ -1,4 +1,4 @@
-name: Fast Tests (PR)
+name: Tests
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   code-quality:
-    name: Code Quality Checks
+    name: Code Quality
     runs-on: macos-26
 
     steps:
@@ -92,8 +92,8 @@ jobs:
           swift build --configuration debug
           echo "✅ Swift package builds successfully" >> $GITHUB_STEP_SUMMARY
 
-  fast-test-macos:
-    name: Fast Tests (macOS)
+  macos-tests:
+    name: macOS Tests
     runs-on: macos-26
     needs: [code-quality]
     steps:
@@ -108,7 +108,6 @@ jobs:
 
       - name: Clean test database
         run: |
-          # Remove any existing test databases to prevent schema conflicts
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
@@ -125,8 +124,6 @@ jobs:
           echo "## Unit Test Results - macOS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f test-output-macOS.log ]; then
-            PASSED=$(grep -c "passed" test-output-macOS.log || echo "0")
-            FAILED=$(grep -c "failed" test-output-macOS.log || echo "0")
             echo "Tests completed. See job logs for details." >> $GITHUB_STEP_SUMMARY
           else
             echo "No test output found" >> $GITHUB_STEP_SUMMARY
@@ -136,12 +133,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fast-test-results-macOS
+          name: macos-test-results
           path: |
             test-output-macOS.log
           retention-days: 7
 
-  # Step 3: Integration Tests (CLI binary smoke test)
   integration-tests:
     name: Integration Tests
     runs-on: macos-26
