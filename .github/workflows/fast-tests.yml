@@ -1,8 +1,10 @@
 name: Fast Tests (PR)
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main, master]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main, master]
 
@@ -201,4 +203,3 @@ jobs:
           path: |
             test-output-macOS.log
           retention-days: 7
-# Trigger CI
