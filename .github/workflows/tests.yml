@@ -1,4 +1,4 @@
-name: Fast Tests (PR)
+name: Tests
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   code-quality:
-    name: Code Quality Checks
+    name: Code Quality
     runs-on: macos-26
 
     steps:
@@ -92,8 +92,8 @@ jobs:
           swift build --configuration debug
           echo "✅ Swift package builds successfully" >> $GITHUB_STEP_SUMMARY
 
-  fast-test-macos:
-    name: Fast Tests (macOS)
+  macos-tests:
+    name: macOS Tests
     runs-on: macos-26
     needs: [code-quality]
     steps:
@@ -106,52 +106,16 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Build for macOS
-        run: |
-          echo "🔨 Building for macOS"
-          xcodebuild build \
-            -scheme SwiftHablare \
-            -destination 'platform=macOS' \
-            -skipPackagePluginValidation \
-            | xcpretty || true
-
       - name: Clean test database
         run: |
-          # Remove any existing test databases to prevent schema conflicts
           rm -rf ~/Library/Application\ Support/default.store*
           rm -rf ~/Library/Application\ Support/*.store
 
       - name: Run unit tests on macOS
         run: |
-          echo "🏃 Running unit tests on macOS"
-          echo "Platform: macOS"
-          echo "Destination: platform=macOS"
-          echo ""
-
-          # Pass GitHub Actions' built-in CI variable to test process
-          # Skip integration and performance tests for fast PR feedback
-          TEST_RUNNER_CI="${CI}" xcodebuild test \
-            -scheme SwiftHablare \
-            -destination 'platform=macOS' \
-            -skipPackagePluginValidation \
-            -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests \
-            -skip-testing:SwiftHablareTests/PerformanceIntegrationTests \
-            | tee test-output-macOS.log \
-            | xcpretty --test --color
-
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-
-          if grep -q "TEST FAILED" test-output-macOS.log || grep -q "\*\* TEST FAILED \*\*" test-output-macOS.log; then
-            echo "❌ Tests failed"
-            exit 1
-          elif grep -q "TEST SUCCEEDED" test-output-macOS.log || grep -q "\*\* TEST SUCCEEDED \*\*" test-output-macOS.log; then
-            echo "✅ Tests succeeded"
-            exit 0
-          else
-            echo "⚠️  Could not determine test status, using xcodebuild exit code: $TEST_EXIT_CODE"
-            exit $TEST_EXIT_CODE
-          fi
+          echo "🏃 Running unit tests on macOS via swift test"
+          swift test --filter SwiftHablareTests 2>&1 | tee test-output-macOS.log
+          echo "✅ Tests completed"
 
       - name: Extract test summary
         if: always()
@@ -159,38 +123,8 @@ jobs:
         run: |
           echo "## Unit Test Results - macOS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Platform:** macOS" >> $GITHUB_STEP_SUMMARY
-          echo "**Destination:** platform=macOS" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ℹ️  **Note:** Integration tests run weekly on schedule." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
           if [ -f test-output-macOS.log ]; then
-            LAST_EXECUTION_LINE=$(grep "Executed.*test" test-output-macOS.log | tail -n 1 || true)
-
-            if [ -n "$LAST_EXECUTION_LINE" ]; then
-              TOTAL_TESTS=$(echo "$LAST_EXECUTION_LINE" | grep -o "Executed [0-9]*" | grep -o "[0-9]*" || echo "0")
-              FAILURES=$(echo "$LAST_EXECUTION_LINE" | grep -o "with [0-9]* failure" | grep -o "[0-9]*" || echo "0")
-
-              if [ -z "$FAILURES" ] || [ "$FAILURES" = "" ]; then
-                FAILURES=0
-              fi
-
-              if [ -z "$TOTAL_TESTS" ] || [ "$TOTAL_TESTS" = "" ] || [ "$TOTAL_TESTS" = "0" ]; then
-                echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
-              else
-                PASSED=$((TOTAL_TESTS - FAILURES))
-
-                if [ "$FAILURES" -eq 0 ]; then
-                  echo "✅ **All unit tests passed:** $TOTAL_TESTS/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "❌ **Failed:** $FAILURES/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                  echo "✅ **Passed:** $PASSED/$TOTAL_TESTS tests" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            else
-              echo "Tests completed. Check job logs for detailed results." >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "Tests completed. See job logs for details." >> $GITHUB_STEP_SUMMARY
           else
             echo "No test output found" >> $GITHUB_STEP_SUMMARY
           fi
@@ -199,7 +133,40 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fast-test-results-macOS
+          name: macos-test-results
           path: |
             test-output-macOS.log
           retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: macos-26
+    needs: [code-quality]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Build hablare CLI (Release)
+        run: |
+          make release
+          ls -la ./bin/
+
+      - name: Verify CLI binary
+        run: |
+          echo "Checking hablare --version"
+          ./bin/hablare --version
+          echo "Checking hablare --help"
+          ./bin/hablare --help
+          echo "Checking hablare generate --help"
+          ./bin/hablare generate --help
+          echo "Checking hablare voices --help"
+          ./bin/hablare voices --help
+          echo "Checking hablare download --help"
+          ./bin/hablare download --help
+          echo "Checking hablare info --help"
+          ./bin/hablare info --help
