@@ -4,10 +4,11 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 
 ## Quick Reference
 
-- **Current Version**: 5.4.0 (check `SwiftHablare.swift:83` for actual version string)
+- **Current Version**: 5.5.0 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 390+ passing tests
+- **Products**: SwiftHablare (library), QwenTTSEngine (library), hablare (CLI executable)
 
 ## ⚠️ CRITICAL: Platform Version Enforcement
 
@@ -87,9 +88,43 @@ SwiftHablare/
     └── GuionElementSpeakableExamples.swift # 6 GuionElement adapters
 ```
 
+### QwenTTSEngine (On-Device TTS via MLX)
+
+```
+Sources/QwenTTSEngine/
+├── QwenTTSEngine.swift              # Public actor: load model → generate speech
+├── AudioWriter.swift                # MLX tensor → WAV file (24kHz, 16-bit PCM)
+├── ModelDownloader.swift            # HuggingFace model download with caching
+├── SafetensorsLoader.swift          # Load .safetensors weight files
+├── NPYLoader.swift                  # Load .npy speaker embeddings
+├── VoiceCatalog.swift               # Voice ID and language mapping
+└── Models/
+    ├── QwenCodecDecoder.swift       # RVQ dequant → waveform (Snake activation, causal conv)
+    ├── QwenTTSTalker.swift          # Autoregressive LM for token generation
+    ├── QwenTTSTransformerBlock.swift # Multi-head attention + FFN + RoPE
+    └── QwenTTSConfig.swift          # Codable model configuration
+```
+
+**Architecture**: Two-stage pipeline — Talker LM (1.7B, 4-bit) generates audio tokens, Codec Decoder (114M) converts tokens to 24kHz PCM waveform. Uses MLX for Apple Silicon GPU inference (not CoreML).
+
+**Dependencies**: mlx-swift (0.30.0+), swift-transformers (0.1.0+)
+
+### hablare CLI
+
+```
+Sources/hablare/
+├── HablareCLI.swift                 # CLI entry point (ArgumentParser)
+├── QwenTTSVoiceProvider.swift       # VoiceProvider protocol bridge
+└── QwenTTSVoiceProvider+Descriptor.swift
+```
+
+**Commands**: `hablare generate <text>`, `hablare voices`, `hablare download`, `hablare info`
+
+**Build**: `make release` (requires xcodebuild for Metal shaders)
+
 ### Key Features
 
-- **Multi-Provider Support**: Apple TTS (built-in) and ElevenLabs (API-based)
+- **Multi-Provider Support**: Apple TTS (built-in), ElevenLabs (API-based), Qwen TTS (on-device MLX)
 - **Engine Boundary Protocol**: Platform-agnostic voice engine abstraction (v3.5.1+)
 - **Voice URI**: Portable voice references with `hablare://` URI scheme
 - **Cast List Export**: Character-to-voice mapping export (JSON format)
@@ -572,8 +607,8 @@ list.statusMessage // "Processing...", "Complete", etc.
 
 **Current Required CI Checks:**
 - `Code Quality Checks` - Build, linting, code quality
-- `Fast Tests (iOS)` - Unit tests on iOS Simulator
 - `Fast Tests (macOS)` - Unit tests on macOS
+- `Integration Tests` - Build hablare CLI via `make release`, verify `--version` and `--help`
 
 Update branch protection when CI workflow changes:
 ```bash
