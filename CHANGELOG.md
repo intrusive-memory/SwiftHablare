@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.5.0] - 2026-01-27
+
 ### Added
 
 - **Premium Voice Download Button** - SwiftUI button to launch System Settings for voice downloads
   - Uses NSHelpManager for cross-platform System Settings access
   - Replaces AppleScript-based approach for better sandbox compatibility
+
+- **Project Icons** - Added icon.jpg and SwiftHablare.jpg
 
 ### Changed
 
@@ -21,7 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **VoiceURI** - Various improvements to voice URI handling
+- **VoiceURI Format** - Fixed URI parsing and generation to use correct format
+  - Format: `<providerId>://<voiceId>?lang=<languageCode>`
+  - Updated tests to match implementation
+
+---
 
 ## [5.4.0] - 2025-12-24
 
