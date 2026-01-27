@@ -7,7 +7,7 @@ public actor ModelDownloader {
 
     public static let defaultCacheDirectory: URL = {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return caches.appendingPathComponent("SwiftHablare/QwenTTS", isDirectory: true)
+        return caches.appendingPathComponent("intrusive-memory/Models/QwenTTS", isDirectory: true)
     }()
 
     /// HuggingFace repo for quantized weights
