@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.5.1] - 2026-01-27
+
+### Changed
+
+- **Shared Models Directory** - Moved QwenTTS model cache from `~/Library/Caches/SwiftHablare/QwenTTS/` to `~/Library/Caches/intrusive-memory/Models/QwenTTS/` for shared access across intrusive-memory tools
+
+---
+
 ## [5.5.0] - 2026-01-27
 
 ### Added
