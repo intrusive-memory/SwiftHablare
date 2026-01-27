@@ -201,3 +201,4 @@ jobs:
           path: |
             test-output-macOS.log
           retention-days: 7
+# Trigger CI
