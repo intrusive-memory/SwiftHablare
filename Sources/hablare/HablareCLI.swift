@@ -10,7 +10,7 @@ struct HablareCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "hablare",
         abstract: "Text-to-speech using Qwen3-TTS on Apple Silicon via MLX",
-        version: "1.0.1",
+        version: "5.5.1",
         subcommands: [Generate.self, Voices.self, Download.self, Info.self],
         defaultSubcommand: Generate.self
     )
