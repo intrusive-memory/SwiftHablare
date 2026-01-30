@@ -31,15 +31,17 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
         .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "development"),
+        .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "development"),
         .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.0"),
-        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "0.1.0"),
+        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.6"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
         .target(
             name: "SwiftHablare",
             dependencies: [
-                .product(name: "SwiftCompartido", package: "SwiftCompartido")
+                .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+                .product(name: "SwiftProyecto", package: "SwiftProyecto")
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
