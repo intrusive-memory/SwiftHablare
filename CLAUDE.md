@@ -7,7 +7,7 @@ This document provides guidance for AI assistants (particularly Claude Code) wor
 - **Current Version**: 5.5.1 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
-- **Test Suite**: 390+ passing tests
+- **Test Suite**: 229+ passing tests (SwiftHablare), plus QwenTTSEngine tests
 - **Products**: SwiftHablare (library), QwenTTSEngine (library), hablare (CLI executable)
 
 ## ⚠️ CRITICAL: Platform Version Enforcement
@@ -65,7 +65,6 @@ SwiftHablare/
 │   └── SpeakableGroup.swift         # Protocol for grouped speakable items
 ├── Models/
 │   ├── Voice.swift                  # Voice model (id, name, language, etc.)
-│   ├── VoiceURI.swift               # Portable voice references (hablare:// scheme)
 │   └── SpeakableItemList.swift      # Batch generation with progress
 ├── Providers/
 │   ├── AppleVoiceProvider.swift     # Apple TTS implementation
@@ -126,8 +125,6 @@ Sources/hablare/
 
 - **Multi-Provider Support**: Apple TTS (built-in), ElevenLabs (API-based), Qwen TTS (on-device MLX)
 - **Engine Boundary Protocol**: Platform-agnostic voice engine abstraction (v3.5.1+)
-- **Voice URI**: Portable voice references with `hablare://` URI scheme
-- **Cast List Export**: Character-to-voice mapping export (JSON format)
 - **Protocol-Oriented Design**: `SpeakableItem` and `SpeakableGroup` protocols
 - **Thread-Safe Generation**: Actor-based concurrency (GenerationService)
 - **SwiftData Integration**: Uses `TypedDataStorage` from SwiftCompartido
@@ -475,52 +472,18 @@ public final class SpeakableItemList {
 - **Note**: Audio is automatically processed to M4A with silence trimming via `generateProcessedAudio()`
 - **Test Coverage**: 30 unit tests (95%+), 5 integration tests
 
-## Voice URI & Cast List Export
-
-**VoiceURI** provides portable voice references using the `hablare://` URI scheme:
-
-```swift
-// Format: hablare://<providerId>/<voiceId>?lang=<languageCode>
-let uri = VoiceURI(providerId: "apple", voiceId: "voice-id", languageCode: "en")
-
-// Parse from string (failable initializer)
-guard let parsed = VoiceURI(uriString: "hablare://elevenlabs/voice-id?lang=en") else {
-    throw VoiceError.invalidURI
-}
-
-// Resolve to Voice with automatic fallback
-let voice = try await uri.resolve(using: service)
-
-// Check availability
-let isAvailable = await uri.isAvailable(using: service)
-```
-
-**CastListPage Integration** (from SwiftCompartido):
-
-```swift
-// Create cast list from voice mappings
-let voiceMappings: [String: VoiceURI] = [
-    "ALICE": VoiceURI(from: voice1, languageCode: "en"),
-    "BOB": VoiceURI(from: voice2, languageCode: "en")
-]
-let castList = CastListPage.fromVoiceMapping(title: "Cast", mapping: voiceMappings)
-
-// Export to JSON (SwiftCompartido custom-pages.json format)
-try castList.exportToJSON(url: jsonURL)
-
-// Import from JSON
-let imported = try CastListPage.importFromJSON(url: jsonURL)
-let mappings = imported.exportVoiceMappings()
-```
-
-**Test Coverage**: 48 tests in `VoiceURITests.swift` (100%)
-
 ## SwiftCompartido Integration
 
 SwiftHablaré integrates with SwiftCompartido for:
 - **TypedDataStorage**: Generated audio persistence
 - **GuionElement**: Screenplay/markdown element voice generation
-- **CastListPage**: Character-to-voice mapping export/import
+
+## SwiftProyecto Integration
+
+SwiftHablaré depends on SwiftProyecto for project-level cast/voice configuration:
+- **CastMember**: Character-to-voice mapping with plain URI strings (e.g., `apple://en-US/Aaron`)
+- **ProjectFrontMatter**: PROJECT.md metadata including cast lists
+- Voice URIs are simple strings in `CastMember.voices` — no custom URI type needed
 
 ### GuionElement Support
 
@@ -824,7 +787,7 @@ actor MyService {
 - ❌ Audio file I/O (apps handle file storage)
 - ❌ Screenplay processing or domain-specific models (use SwiftCompartido)
 - ❌ Background task management
-- ❌ Character-to-voice mapping (provided via VoiceURI + CastListPage)
+- ❌ Character-to-voice mapping (provided via SwiftProyecto's CastMember)
 - ❌ Complex UI workflows beyond generation
 
 ## Quality Gates
