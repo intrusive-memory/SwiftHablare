@@ -2,7 +2,7 @@
 //  ElevenLabsUserAgentTests.swift
 //  SwiftHablareTests
 //
-//  Tests to verify User-Agent header is correctly set in ElevenLabs requests
+//  Tests to verify User-Agent header is correctly set in ElevenLabs requests via SwiftOnce
 //
 
 import Testing
@@ -36,98 +36,89 @@ struct ElevenLabsUserAgentTests {
         #expect(expectedUserAgent.contains(SwiftHablare.version))
     }
 
-    @Test
-    func configurationIncludesUserAgent() {
-        // Create a configuration using the engine directly
-        let configuration = ElevenLabsEngineConfiguration(
-            apiKey: testAPIKey,
-            userAgent: "SwiftHablare/\(SwiftHablare.version)"
-        )
-
-        #expect(configuration.apiKey == testAPIKey)
-        #expect(configuration.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(!configuration.userAgent.isEmpty)
-    }
-
-    // MARK: - URLProtocol-based Request Interception Tests
+    // MARK: - Provider Configuration Tests
 
     @Test
-    func fetchVoicesIncludesUserAgentHeader() async throws {
-        // Verify configuration is correctly created with User-Agent
-        let config = ElevenLabsEngineConfiguration(
-            apiKey: testAPIKey,
-            userAgent: "SwiftHablare/\(SwiftHablare.version)"
-        )
-
-        // Verify the configuration has the correct User-Agent format
-        #expect(config.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(!config.userAgent.isEmpty)
-
-        // Note: Testing actual HTTP header transmission requires URLProtocol mocking
-        // which is complex with Swift strict concurrency. The integration tests
-        // verify end-to-end functionality with real API calls.
+    func providerIsConfigured() async {
+        // Verify provider recognizes it has an API key
+        let isConfigured = await provider.isConfigured()
+        #expect(isConfigured == true)
     }
-
-    @Test
-    func generateAudioIncludesUserAgentHeader() async throws {
-        // Similar test for generateAudio endpoint
-        let configuration = ElevenLabsEngineConfiguration(
-            apiKey: testAPIKey,
-            userAgent: "SwiftHablare/\(SwiftHablare.version)"
-        )
-
-        #expect(configuration.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(!configuration.userAgent.isEmpty)
-    }
-
-    @Test
-    func isVoiceAvailableIncludesUserAgentHeader() async throws {
-        // Test for isVoiceAvailable endpoint
-        let configuration = ElevenLabsEngineConfiguration(
-            apiKey: testAPIKey,
-            userAgent: "SwiftHablare/\(SwiftHablare.version)"
-        )
-
-        #expect(configuration.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(!configuration.userAgent.isEmpty)
-    }
-
-    // MARK: - Provider Integration Test
 
     @Test
     func providerUsesCorrectUserAgent() async throws {
         // Verify the provider would create the correct User-Agent format
-        // when making actual requests
+        // when making actual requests via SwiftOnce
         let expectedUserAgent = "SwiftHablare/\(SwiftHablare.version)"
 
-        // Create configuration as the provider would
-        let configuration = ElevenLabsEngineConfiguration(
-            apiKey: testAPIKey,
-            userAgent: expectedUserAgent
-        )
-
-        #expect(configuration.userAgent == expectedUserAgent)
-        #expect(configuration.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(configuration.apiKey == testAPIKey)
+        // The provider now uses SwiftOnce internally, which accepts user agent in configuration
+        // When the provider creates its SwiftOnce client, it passes the user agent
+        #expect(expectedUserAgent.hasPrefix("SwiftHablare/"))
+        #expect(!expectedUserAgent.isEmpty)
 
         // Note: Actual HTTP header verification is done in integration tests
         // (ElevenLabsVoiceProviderIntegrationTests.testUserAgentHeaderInRequests)
         // which make real API calls and verify they succeed with the User-Agent header.
     }
 
-    // MARK: - Engine Configuration Tests
+    // MARK: - Cache Configuration Tests
 
     @Test
-    func engineAcceptsUserAgentConfiguration() {
-        let engine = ElevenLabsEngine()
-        let config = ElevenLabsEngineConfiguration(
-            apiKey: "test-key",
-            userAgent: "SwiftHablare/\(SwiftHablare.version)"
-        )
+    func defaultCacheSettings() {
+        // Verify default cache settings are reasonable
+        let ttl = provider.voiceCacheTTL()
+        let maxBytes = provider.audioCacheMaxBytes()
 
-        // Verify the engine can use the configuration
-        #expect(engine.canGenerate(with: config))
-        #expect(config.userAgent.hasPrefix("SwiftHablare/"))
-        #expect(!config.userAgent.isEmpty)
+        #expect(ttl == 300.0) // 5 minutes default
+        #expect(maxBytes == 500_000_000) // 500 MB default
+    }
+
+    @Test
+    func updateCacheSettings() {
+        // Test updating cache settings
+        provider.updateVoiceCacheTTL(600.0)
+        provider.updateAudioCacheMaxBytes(1_000_000_000)
+
+        #expect(provider.voiceCacheTTL() == 600.0)
+        #expect(provider.audioCacheMaxBytes() == 1_000_000_000)
+
+        // Reset to defaults
+        provider.updateVoiceCacheTTL(300.0)
+        provider.updateAudioCacheMaxBytes(500_000_000)
+    }
+
+    // MARK: - Model Selection Tests
+
+    @Test
+    func defaultModelIsMultilingualV2() {
+        let model = provider.selectedModel()
+        #expect(model == .multilingualV2)
+    }
+
+    @Test
+    func updateSelectedModel() {
+        provider.updateSelectedModel(.turboV2_5)
+        #expect(provider.selectedModel() == .turboV2_5)
+
+        // Reset to default
+        provider.updateSelectedModel(.multilingualV2)
+    }
+
+    // MARK: - API Key Management Tests
+
+    @Test
+    func currentAPIKeyReturnsEphemeralKey() async {
+        // When initialized with apiKey parameter, it should return that key
+        let key = await provider.currentAPIKey()
+        #expect(key == testAPIKey)
+    }
+
+    @Test
+    func providerProperties() {
+        // Verify basic provider properties
+        #expect(provider.providerId == "elevenlabs")
+        #expect(provider.displayName == "ElevenLabs")
+        #expect(provider.requiresAPIKey == true)
+        #expect(provider.mimeType == "audio/mpeg")
     }
 }

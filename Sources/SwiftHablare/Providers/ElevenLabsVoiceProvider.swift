@@ -2,10 +2,11 @@
 //  ElevenLabsVoiceProvider.swift
 //  SwiftHablare
 //
-//  ElevenLabs implementation of VoiceProvider
+//  ElevenLabs implementation of VoiceProvider using SwiftOnce
 //
 
 import Foundation
+import SwiftOnce
 #if canImport(SwiftUI)
 import SwiftUI
 #endif
@@ -67,17 +68,44 @@ public enum ElevenLabsModel: String, CaseIterable, Identifiable {
     }
 }
 
-/// ElevenLabs implementation of VoiceProvider
+// Thread-safe wrapper for SwiftOnce actor reference
+private final class SwiftOnceClientBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _client: SwiftOnce?
+
+    var client: SwiftOnce? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _client
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            _client = newValue
+        }
+    }
+}
+
+/// ElevenLabs implementation of VoiceProvider using SwiftOnce
 public final class ElevenLabsVoiceProvider: VoiceProvider {
     public let providerId = "elevenlabs"
     public let displayName = "ElevenLabs"
     public let requiresAPIKey = true
-    public let mimeType = "audio/mpeg"  // MP3 format from API (processed to M4A by AudioProcessor)
+    public let mimeType = "audio/mpeg"  // MP3 format from API
 
     private let keychainManager: KeychainManagerProtocol
     private let apiKeyAccount = "elevenlabs-api-key"
     private let ephemeralAPIKey: String?
-    private let engine = ElevenLabsEngine()
+
+    // SwiftOnce client (created lazily when API key is available)
+    // Stored in a thread-safe box since SwiftOnce is an actor
+    private let clientBox = SwiftOnceClientBox()
+
+    private var swiftOnceClient: SwiftOnce? {
+        get { clientBox.client }
+        set { clientBox.client = newValue }
+    }
 
     /// Initialize with optional keychain manager and API key
     /// - Parameters:
@@ -93,6 +121,32 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         "\(SwiftHablare.name)/\(SwiftHablare.version)"
     }
 
+    /// Get or create SwiftOnce client with API key
+    private func client() async throws -> SwiftOnce {
+        // Return cached client if available
+        if let client = swiftOnceClient {
+            return client
+        }
+
+        // Get API key
+        let apiKey = try await getAPIKey()
+
+        // Create configuration with user settings
+        let selectedModel = self.selectedModel().toSwiftOnceModel()
+        let config = SwiftOnceConfiguration(
+            userAgent: userAgent,
+            voiceCacheTTL: voiceCacheTTL(),
+            audioCacheMaxBytes: audioCacheMaxBytes(),
+            defaultModel: selectedModel,
+            defaultOutputFormat: .mp3_44100_128  // Match current behavior
+        )
+
+        // Create and cache client
+        let client = SwiftOnce(apiKey: apiKey, configuration: config)
+        self.swiftOnceClient = client
+        return client
+    }
+
     /// Get API key from ephemeral storage (test) or keychain (production)
     private func getAPIKey() async throws -> String {
         if let ephemeralKey = ephemeralAPIKey {
@@ -101,46 +155,74 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
         return try await keychainManager.getAPIKey(for: apiKeyAccount)
     }
 
+    // MARK: - VoiceProvider Protocol
+
     public func isConfigured() async -> Bool {
-        guard let apiKey = try? await getAPIKey() else {
+        do {
+            _ = try await getAPIKey()
+            return true
+        } catch {
             return false
         }
-        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
-        return engine.canGenerate(with: configuration)
     }
 
     public func fetchVoices(languageCode: String) async throws -> [Voice] {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try await getAPIKey(), userAgent: userAgent)
-        return try await engine.fetchVoices(languageCode: languageCode, configuration: configuration)
+        let client = try await client()
+
+        // Fetch all voices from SwiftOnce
+        let response = try await client.voices()
+
+        // Filter by language if needed and convert to Hablare Voice model
+        let filtered = response.voices.filter { voice in
+            // If no verified languages, include the voice
+            guard let verifiedLanguages = voice.verifiedLanguages else {
+                return true
+            }
+
+            // Check if any verified language matches the requested language code
+            return verifiedLanguages.contains { verifiedLang in
+                if let locale = verifiedLang.locale {
+                    return locale.lowercased().hasPrefix(languageCode.lowercased())
+                }
+                if let language = verifiedLang.language {
+                    return language.lowercased().hasPrefix(languageCode.lowercased())
+                }
+                return false
+            }
+        }
+
+        return filtered.map { convertToHablareVoice($0) }
     }
 
     public func generateAudio(text: String, voiceId: String, languageCode: String) async throws -> Data {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: try await getAPIKey(), userAgent: userAgent)
-        let selectedModel = selectedModel()
-        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: languageCode, options: [
-            "model_id": selectedModel.rawValue,
-            "stability": "0.5",
-            "similarity_boost": "0.5"
-        ])
-        let output = try await engine.generateAudio(request: request, configuration: configuration)
-        return output.audioData
+        let client = try await client()
+
+        // Generate audio using SwiftOnce
+        return try await client.speak(
+            text,
+            voice: voiceId,
+            languageCode: languageCode
+        )
     }
 
     public func estimateDuration(text: String, voiceId: String) async -> TimeInterval {
-        let configuration = ElevenLabsEngineConfiguration(apiKey: (try? await getAPIKey()) ?? "", userAgent: userAgent)
-        let request = engine.makeRequest(text: text, voiceId: voiceId, languageCode: LanguageCodeResolver.systemLanguageCode, options: [
-            "stability": "0.5"
-        ])
-        return engine.estimateDuration(request: request, configuration: configuration)
+        // Heuristic estimation: ~150 words per minute for English
+        // Roughly 2.5 words per second, or 0.4 seconds per word
+        let words = text.split(separator: " ").count
+        return Double(words) * 0.4
     }
 
     public func isVoiceAvailable(voiceId: String) async -> Bool {
-        guard let apiKey = try? await getAPIKey() else {
+        do {
+            let client = try await client()
+            _ = try await client.voice(voiceId)
+            return true
+        } catch {
             return false
         }
-        let configuration = ElevenLabsEngineConfiguration(apiKey: apiKey, userAgent: userAgent)
-        return await engine.isVoiceAvailable(voiceId: voiceId, configuration: configuration)
     }
+
+    // MARK: - API Key Management
 
     /// Retrieve the current API key if one exists.
     public func currentAPIKey() async -> String? {
@@ -156,6 +238,8 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
             return
         }
         try await keychainManager.saveAPIKey(apiKey, for: apiKeyAccount)
+        // Invalidate cached client so new key is used
+        swiftOnceClient = nil
     }
 
     /// Remove the stored API key from secure storage.
@@ -164,7 +248,11 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
             return
         }
         try await keychainManager.deleteAPIKey(for: apiKeyAccount)
+        // Invalidate cached client
+        swiftOnceClient = nil
     }
+
+    // MARK: - Model Selection
 
     /// Get the currently selected ElevenLabs model
     public func selectedModel() -> ElevenLabsModel {
@@ -178,6 +266,62 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     /// Update the selected ElevenLabs model
     public func updateSelectedModel(_ model: ElevenLabsModel) {
         UserDefaults.standard.set(model.rawValue, forKey: "elevenlabs-selected-model")
+        // Invalidate cached client so new model is used
+        swiftOnceClient = nil
+    }
+
+    // MARK: - Cache Configuration
+
+    /// Get voice cache TTL (time-to-live) in seconds
+    public func voiceCacheTTL() -> TimeInterval {
+        // Default: 5 minutes (300 seconds)
+        return UserDefaults.standard.double(forKey: "elevenlabs-voice-cache-ttl").nonZero ?? 300.0
+    }
+
+    /// Update voice cache TTL
+    public func updateVoiceCacheTTL(_ ttl: TimeInterval) {
+        UserDefaults.standard.set(ttl, forKey: "elevenlabs-voice-cache-ttl")
+        // Invalidate cached client so new TTL is used
+        swiftOnceClient = nil
+    }
+
+    /// Get audio cache max size in bytes
+    public func audioCacheMaxBytes() -> Int64 {
+        // Default: 500 MB
+        let defaultSize: Int64 = 500_000_000
+        let stored = UserDefaults.standard.object(forKey: "elevenlabs-audio-cache-max-bytes") as? Int64
+        return stored ?? defaultSize
+    }
+
+    /// Update audio cache max size in bytes
+    public func updateAudioCacheMaxBytes(_ bytes: Int64) {
+        UserDefaults.standard.set(bytes, forKey: "elevenlabs-audio-cache-max-bytes")
+        // Invalidate cached client so new cache size is used
+        swiftOnceClient = nil
+    }
+
+    /// Clear audio cache
+    public func clearAudioCache() async throws {
+        guard let client = swiftOnceClient else {
+            return
+        }
+        try await client.clearAudioCache()
+    }
+
+    /// Get current audio cache size
+    public func audioCacheSize() async throws -> Int64 {
+        guard let client = swiftOnceClient else {
+            return 0
+        }
+        return try await client.audioCacheSize()
+    }
+
+    /// Invalidate voice cache
+    public func invalidateVoiceCache() async {
+        guard let client = swiftOnceClient else {
+            return
+        }
+        await client.invalidateVoiceCache()
     }
 
 #if canImport(SwiftUI)
@@ -188,11 +332,15 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
 #endif
 }
 
+// MARK: - SwiftUI Configuration View
+
 #if canImport(SwiftUI)
 @MainActor
 private struct ElevenLabsVoiceProviderConfigurationView: View {
     @State private var apiKey: String = ""
     @State private var selectedModel: ElevenLabsModel
+    @State private var voiceCacheTTL: Double
+    @State private var audioCacheMaxMB: Double
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var hasAPIKey = false
@@ -204,6 +352,8 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
         self.provider = provider
         self.onConfigured = onConfigured
         _selectedModel = State(initialValue: provider.selectedModel())
+        _voiceCacheTTL = State(initialValue: provider.voiceCacheTTL())
+        _audioCacheMaxMB = State(initialValue: Double(provider.audioCacheMaxBytes()) / 1_000_000)
     }
 
     var body: some View {
@@ -244,6 +394,37 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
                 Text("Voice Model")
             } footer: {
                 Text(selectedModel.description)
+                    .font(.footnote)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Voice Cache TTL: \(Int(voiceCacheTTL))s")
+                        .font(.subheadline)
+                    Slider(value: $voiceCacheTTL, in: 60...3600, step: 60)
+                        .onChange(of: voiceCacheTTL) { _, newValue in
+                            provider.updateVoiceCacheTTL(newValue)
+                        }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Audio Cache Max: \(Int(audioCacheMaxMB)) MB")
+                        .font(.subheadline)
+                    Slider(value: $audioCacheMaxMB, in: 100...2000, step: 100)
+                        .onChange(of: audioCacheMaxMB) { _, newValue in
+                            provider.updateAudioCacheMaxBytes(Int64(newValue * 1_000_000))
+                        }
+                }
+
+                Button {
+                    clearCaches()
+                } label: {
+                    Label("Clear Caches", systemImage: "trash")
+                }
+            } header: {
+                Text("Cache Settings")
+            } footer: {
+                Text("Voice cache stores voice lists temporarily. Audio cache stores generated audio files.")
                     .font(.footnote)
             }
 
@@ -313,8 +494,21 @@ private struct ElevenLabsVoiceProviderConfigurationView: View {
             isProcessing = false
         }
     }
+
+    private func clearCaches() {
+        Task {
+            do {
+                try await provider.clearAudioCache()
+                await provider.invalidateVoiceCache()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
 }
 #endif
+
+// MARK: - Provider Descriptor
 
 extension ElevenLabsVoiceProvider {
     public static var descriptor: VoiceProviderDescriptor {
@@ -325,5 +519,13 @@ extension ElevenLabsVoiceProvider {
             requiresConfiguration: true,
             makeProvider: { ElevenLabsVoiceProvider() }
         )
+    }
+}
+
+// MARK: - Helpers
+
+private extension Double {
+    var nonZero: Double? {
+        self > 0 ? self : nil
     }
 }
