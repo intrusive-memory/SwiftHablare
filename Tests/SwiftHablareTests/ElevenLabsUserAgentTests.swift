@@ -9,7 +9,7 @@ import Testing
 import Foundation
 @testable import SwiftHablare
 
-@Suite
+@Suite(.serialized)
 struct ElevenLabsUserAgentTests {
 
     var provider: ElevenLabsVoiceProvider!
@@ -65,6 +65,10 @@ struct ElevenLabsUserAgentTests {
 
     @Test
     func defaultCacheSettings() {
+        // Clear any persisted values to test true defaults
+        UserDefaults.standard.removeObject(forKey: "elevenlabs-voice-cache-ttl")
+        UserDefaults.standard.removeObject(forKey: "elevenlabs-audio-cache-max-bytes")
+
         // Verify default cache settings are reasonable
         let ttl = provider.voiceCacheTTL()
         let maxBytes = provider.audioCacheMaxBytes()
@@ -82,9 +86,9 @@ struct ElevenLabsUserAgentTests {
         #expect(provider.voiceCacheTTL() == 600.0)
         #expect(provider.audioCacheMaxBytes() == 1_000_000_000)
 
-        // Reset to defaults
-        provider.updateVoiceCacheTTL(300.0)
-        provider.updateAudioCacheMaxBytes(500_000_000)
+        // Clean up - remove test values
+        UserDefaults.standard.removeObject(forKey: "elevenlabs-voice-cache-ttl")
+        UserDefaults.standard.removeObject(forKey: "elevenlabs-audio-cache-max-bytes")
     }
 
     // MARK: - Model Selection Tests
