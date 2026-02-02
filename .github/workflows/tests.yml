@@ -86,11 +86,14 @@ jobs:
             echo "✅ No print statements found" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Swift build check
+      - name: Xcodebuild check
         run: |
-          echo "🔨 Verifying Swift package builds..."
-          swift build --configuration debug
-          echo "✅ Swift package builds successfully" >> $GITHUB_STEP_SUMMARY
+          echo "🔨 Verifying package builds..."
+          xcodebuild build \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -configuration Debug
+          echo "✅ Package builds successfully" >> $GITHUB_STEP_SUMMARY
 
   macos-tests:
     name: macOS Tests
@@ -113,8 +116,12 @@ jobs:
 
       - name: Run unit tests on macOS
         run: |
-          echo "🏃 Running unit tests on macOS via swift test"
-          swift test --filter SwiftHablareTests 2>&1 | tee test-output-macOS.log
+          echo "🏃 Running unit tests on macOS via xcodebuild"
+          xcodebuild test \
+            -scheme SwiftHablare \
+            -destination 'platform=macOS' \
+            -only-testing:SwiftHablareTests \
+            2>&1 | tee test-output-macOS.log
           echo "✅ Tests completed"
 
       - name: Extract test summary

@@ -5,7 +5,7 @@ All notable changes to SwiftHablaré will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.6.0] - 2026-02-01
 
 ### Removed
 
@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **SwiftProyecto dependency** - Added SwiftProyecto as a dependency for project-level cast/voice configuration types (`CastMember`, `ProjectFrontMatter`)
+- **AGENTS.md** - Comprehensive project documentation for AI agents (moved from CLAUDE.md)
+- **LICENSE** (MIT)
+- **CONTRIBUTING.md**
+- **SwiftOnce integration** - Replaced ElevenLabs engine with SwiftOnce
+
+### Changed
+
+- **CLAUDE.md** now serves as a stub referencing AGENTS.md
 
 ---
 
