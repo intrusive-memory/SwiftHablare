@@ -32,6 +32,7 @@ let package = Package(
         .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
         .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "development"),
+        .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "development"),
         .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.6"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
@@ -41,7 +42,8 @@ let package = Package(
             name: "SwiftHablare",
             dependencies: [
                 .product(name: "SwiftCompartido", package: "SwiftCompartido"),
-                .product(name: "SwiftProyecto", package: "SwiftProyecto")
+                .product(name: "SwiftProyecto", package: "SwiftProyecto"),
+                .product(name: "SwiftOnce", package: "SwiftOnce")
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
@@ -67,7 +69,8 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
             swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
+                .enableUpcomingFeature("StrictConcurrency"),
+                .unsafeFlags(["-parse-as-library"])
             ]
         ),
         .testTarget(
