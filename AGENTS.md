@@ -375,6 +375,7 @@ public protocol VoiceProvider {
     var displayName: String { get }
     var requiresAPIKey: Bool { get }
     var mimeType: String { get }
+    var defaultVoiceId: String? { get }  // nil by default; ElevenLabs overrides
 
     func isConfigured() -> Bool
     func fetchVoices(languageCode: String?) async throws -> [Voice]
@@ -385,6 +386,8 @@ public protocol VoiceProvider {
 ```
 
 **Implementations**: `AppleVoiceProvider` (always configured), `ElevenLabsVoiceProvider` (requires API key)
+
+**`defaultVoiceId`**: Optional property with a `nil` default in the protocol extension. Only `ElevenLabsVoiceProvider` overrides it, returning `ElevenLabsDefaults.defaultVoiceId` from SwiftOnce (single source of truth). Apple and Qwen providers inherit the `nil` default.
 
 ### VoiceEngine
 
