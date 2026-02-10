@@ -7,8 +7,8 @@ This file provides comprehensive documentation for AI agents working with the Sw
 - **Current Version**: 5.6.0 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
-- **Test Suite**: 229+ passing tests (SwiftHablare), plus QwenTTSEngine tests
-- **Products**: SwiftHablare (library), QwenTTSEngine (library), hablare (CLI executable)
+- **Test Suite**: 229+ passing tests (SwiftHablare)
+- **Products**: SwiftHablare (library)
 
 ## ⚠️ CRITICAL: Platform Version Enforcement
 
@@ -52,6 +52,56 @@ This file provides comprehensive documentation for AI agents working with the Sw
 
 **Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 
+---
+
+## 📦 Extending PROJECT.md with App-Specific Settings
+
+SwiftHablare uses **SwiftProyecto** for PROJECT.md parsing. SwiftProyecto 3.0+ provides a **plugin architecture** that allows apps to define their own settings sections in PROJECT.md frontmatter.
+
+### How It Works
+
+Apps define their own settings structs conforming to `AppFrontMatterSettings`:
+
+```swift
+import SwiftProyecto
+
+struct MyAppSettings: AppFrontMatterSettings {
+    static let sectionKey = "myapp"  // Unique YAML key
+    var theme: String?
+    var generation: GenerationPreferences?
+}
+```
+
+Settings are stored in namespaced YAML sections:
+
+```yaml
+---
+type: project
+title: "My Project"
+
+myapp:
+  theme: "dark"
+  generation:
+    enabled: true
+---
+```
+
+**📖 Complete Guide**: See [**SwiftProyecto/Docs/EXTENDING_PROJECT_MD.md**](https://github.com/stovak/SwiftProyecto/blob/main/Docs/EXTENDING_PROJECT_MD.md) for:
+- Step-by-step implementation guide
+- Complete examples (podcast app, screenplay tools)
+- Best practices: defaults, migration, UserDefaults sync
+- Troubleshooting common issues
+
+**For Produciesta Integration**: See [`.claude/GENERATION_PREFERENCES_EXECUTION_LIST.md`](.claude/GENERATION_PREFERENCES_EXECUTION_LIST.md) for the execution plan to add Produciesta-specific generation preferences to PROJECT.md.
+
+**Key Benefits:**
+- ✅ Type-safe with Codable
+- ✅ No coupling between SwiftProyecto and apps
+- ✅ Multiple apps can coexist in same PROJECT.md
+- ✅ Backward compatible
+
+---
+
 ## Core Architecture
 
 ### Key Components
@@ -87,43 +137,9 @@ SwiftHablare/
     └── GuionElementSpeakableExamples.swift # 6 GuionElement adapters
 ```
 
-### QwenTTSEngine (On-Device TTS via MLX)
-
-```
-Sources/QwenTTSEngine/
-├── QwenTTSEngine.swift              # Public actor: load model → generate speech
-├── AudioWriter.swift                # MLX tensor → WAV file (24kHz, 16-bit PCM)
-├── ModelDownloader.swift            # HuggingFace model download with caching
-├── SafetensorsLoader.swift          # Load .safetensors weight files
-├── NPYLoader.swift                  # Load .npy speaker embeddings
-├── VoiceCatalog.swift               # Voice ID and language mapping
-└── Models/
-    ├── QwenCodecDecoder.swift       # RVQ dequant → waveform (Snake activation, causal conv)
-    ├── QwenTTSTalker.swift          # Autoregressive LM for token generation
-    ├── QwenTTSTransformerBlock.swift # Multi-head attention + FFN + RoPE
-    └── QwenTTSConfig.swift          # Codable model configuration
-```
-
-**Architecture**: Two-stage pipeline — Talker LM (1.7B, 4-bit) generates audio tokens, Codec Decoder (114M) converts tokens to 24kHz PCM waveform. Uses MLX for Apple Silicon GPU inference (not CoreML).
-
-**Dependencies**: mlx-swift (0.30.0+), swift-transformers (0.1.0+)
-
-### hablare CLI
-
-```
-Sources/hablare/
-├── HablareCLI.swift                 # CLI entry point (ArgumentParser)
-├── QwenTTSVoiceProvider.swift       # VoiceProvider protocol bridge
-└── QwenTTSVoiceProvider+Descriptor.swift
-```
-
-**Commands**: `hablare generate <text>`, `hablare voices`, `hablare download`, `hablare info`
-
-**Build**: `make release` (requires xcodebuild for Metal shaders)
-
 ### Key Features
 
-- **Multi-Provider Support**: Apple TTS (built-in), ElevenLabs (API-based), Qwen TTS (on-device MLX)
+- **Multi-Provider Support**: Apple TTS (built-in), ElevenLabs (API-based)
 - **Engine Boundary Protocol**: Platform-agnostic voice engine abstraction (v3.5.1+)
 - **Protocol-Oriented Design**: `SpeakableItem` and `SpeakableGroup` protocols
 - **Thread-Safe Generation**: Actor-based concurrency (GenerationService)
@@ -387,7 +403,7 @@ public protocol VoiceProvider {
 
 **Implementations**: `AppleVoiceProvider` (always configured), `ElevenLabsVoiceProvider` (requires API key)
 
-**`defaultVoiceId`**: Optional property with a `nil` default in the protocol extension. Only `ElevenLabsVoiceProvider` overrides it, returning `ElevenLabsDefaults.defaultVoiceId` from SwiftOnce (single source of truth). Apple and Qwen providers inherit the `nil` default.
+**`defaultVoiceId`**: Optional property with a `nil` default in the protocol extension. Only `ElevenLabsVoiceProvider` overrides it, returning `ElevenLabsDefaults.defaultVoiceId` from SwiftOnce (single source of truth). Apple provider inherits the `nil` default.
 
 ### VoiceEngine
 

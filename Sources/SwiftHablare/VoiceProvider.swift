@@ -26,7 +26,7 @@ public protocol VoiceProvider: Sendable {
     var mimeType: String { get }
 
     /// The default voice ID for this provider, if one exists.
-    /// Returns `nil` for providers that have no meaningful default (e.g., Apple, Qwen).
+    /// Returns `nil` for providers that have no meaningful default (e.g., Apple).
     var defaultVoiceId: String? { get }
 
     /// Check if the provider is properly configured

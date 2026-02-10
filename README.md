@@ -446,15 +446,13 @@ Voice URIs are plain strings with no special parsing required:
 // Examples from SwiftProyecto CastMember
 let voiceURIs = [
     "apple://en-US/Aaron",
-    "elevenlabs://en/wise-elder",
-    "qwen://en/narrative-1"
+    "elevenlabs://en/wise-elder"
 ]
 ```
 
 **Provider Prefixes:**
 - `apple://` - Apple TTS voices (format: `apple://<language>/<voiceName>`)
 - `elevenlabs://` - ElevenLabs API voices (format: `elevenlabs://<language>/<voiceId>`)
-- `qwen://` - Qwen on-device TTS voices (format: `qwen://<language>/<voiceId>`)
 
 ### Character-to-Voice Mapping with SwiftProyecto
 
@@ -470,8 +468,7 @@ let cast = [
         actor: "Ian McKellen",
         voices: [
             "apple://en-US/Aaron",        // Try Apple voice first
-            "elevenlabs://en/wise-elder",  // Fallback to ElevenLabs
-            "qwen://en/narrative-1"        // Final fallback to Qwen
+            "elevenlabs://en/wise-elder"  // Fallback to ElevenLabs
         ]
     ),
     CastMember(

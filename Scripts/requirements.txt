@@ -1,5 +1,4 @@
 torch
 safetensors
-qwen-tts
 soundfile
 numpy

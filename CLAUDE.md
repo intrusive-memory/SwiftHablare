@@ -11,11 +11,10 @@ For detailed project documentation, architecture, and development guidelines, se
 **Platforms**: iOS 26.0+, macOS 26.0+
 
 **Key Components**:
-- Multi-provider voice generation (Apple TTS, ElevenLabs, Qwen TTS)
+- Multi-provider voice generation (Apple TTS, ElevenLabs)
 - Protocol-oriented SpeakableItem/SpeakableGroup design
 - Actor-based GenerationService for thread-safe audio generation
 - SwiftUI voice/provider pickers and generation buttons
-- `hablare` CLI for on-device TTS via MLX
 
 **Important Notes**:
 - ONLY supports iOS 26.0+ and macOS 26.0+ (NEVER add code for older platforms)
