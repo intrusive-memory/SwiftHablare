@@ -93,6 +93,7 @@ public final class ElevenLabsVoiceProvider: VoiceProvider {
     public let displayName = "ElevenLabs"
     public let requiresAPIKey = true
     public let mimeType = "audio/mpeg"  // MP3 format from API
+    public var defaultVoiceId: String? { ElevenLabsDefaults.defaultVoiceId }
 
     private let keychainManager: KeychainManagerProtocol
     private let apiKeyAccount = "elevenlabs-api-key"

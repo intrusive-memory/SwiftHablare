@@ -19,10 +19,6 @@ let package = Package(
             name: "SwiftHablare",
             targets: ["SwiftHablare"]
         ),
-        .library(
-            name: "QwenTTSEngine",
-            targets: ["QwenTTSEngine"]
-        ),
         .executable(
             name: "hablare",
             targets: ["hablare"]
@@ -33,8 +29,6 @@ let package = Package(
         .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "development"),
-        .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.0"),
-        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.6"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
@@ -49,22 +43,9 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        .target(
-            name: "QwenTTSEngine",
-            dependencies: [
-                .product(name: "MLX", package: "mlx-swift"),
-                .product(name: "MLXNN", package: "mlx-swift"),
-                .product(name: "MLXFast", package: "mlx-swift"),
-                .product(name: "Transformers", package: "swift-transformers"),
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
-        ),
         .executableTarget(
             name: "hablare",
             dependencies: [
-                "QwenTTSEngine",
                 "SwiftHablare",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
@@ -79,15 +60,6 @@ let package = Package(
                 "SwiftHablare",
                 .product(name: "SwiftFijos", package: "SwiftFijos"),
                 .product(name: "SwiftCompartido", package: "SwiftCompartido")
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
-        ),
-        .testTarget(
-            name: "QwenTTSEngineTests",
-            dependencies: [
-                "QwenTTSEngine",
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")

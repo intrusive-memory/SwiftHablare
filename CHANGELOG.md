@@ -5,7 +5,25 @@ All notable changes to SwiftHablaré will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.6.0] - 2026-02-01
+
+### Removed
+
+- **VoiceURI model** - Removed `VoiceURI.swift` and `hablare://` URI scheme. Voice URIs are now plain strings managed by SwiftProyecto's `CastMember.voices`
+- **CastListPage+VoiceURI extension** - Removed `CastListPage+VoiceURI.swift`. Cast-to-voice mapping for project config is handled by SwiftProyecto
+- **VoiceURI tests** - Removed `VoiceURITests.swift` and `CastListPageExtensionsTests.swift` (48+ tests)
+
+### Added
+
+- **SwiftProyecto dependency** - Added SwiftProyecto as a dependency for project-level cast/voice configuration types (`CastMember`, `ProjectFrontMatter`)
+- **AGENTS.md** - Comprehensive project documentation for AI agents (moved from CLAUDE.md)
+- **LICENSE** (MIT)
+- **CONTRIBUTING.md**
+- **SwiftOnce integration** - Replaced ElevenLabs engine with SwiftOnce
+
+### Changed
+
+- **CLAUDE.md** now serves as a stub referencing AGENTS.md
 
 ### Removed
 
