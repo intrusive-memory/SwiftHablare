@@ -195,7 +195,7 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "5.4.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "5.7.0"),
     .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "6.6.0")
 ]
 ```
@@ -445,13 +445,13 @@ Voice URIs are plain strings with no special parsing required:
 ```swift
 // Examples from SwiftProyecto CastMember
 let voiceURIs = [
-    "apple://en-US/Aaron",
+    "apple://com.apple.voice.premium.en-US.Aaron",
     "elevenlabs://en/wise-elder"
 ]
 ```
 
 **Provider Prefixes:**
-- `apple://` - Apple TTS voices (format: `apple://<language>/<voiceName>`)
+- `apple://` - Apple TTS voices (format: `apple://com.apple.voice.{quality}.{locale}.{name}`)
 - `elevenlabs://` - ElevenLabs API voices (format: `elevenlabs://<language>/<voiceId>`)
 
 ### Character-to-Voice Mapping with SwiftProyecto
@@ -467,20 +467,20 @@ let cast = [
         character: "GANDALF",
         actor: "Ian McKellen",
         voices: [
-            "apple://en-US/Aaron",        // Try Apple voice first
-            "elevenlabs://en/wise-elder"  // Fallback to ElevenLabs
+            "apple://com.apple.voice.premium.en-US.Aaron",  // Try Apple voice first
+            "elevenlabs://en/wise-elder"                     // Fallback to ElevenLabs
         ]
     ),
     CastMember(
         character: "FRODO",
         actor: "Elijah Wood",
-        voices: ["apple://en-US/Samantha"]
+        voices: ["apple://com.apple.voice.enhanced.en-US.Samantha"]
     )
 ]
 
 // Filter voices by provider
 let gandalfAppleVoices = cast[0].filterVoices(provider: "apple")
-// Returns: ["apple://en-US/Aaron"]
+// Returns: ["apple://com.apple.voice.premium.en-US.Aaron"]
 
 let gandalfElevenLabsVoices = cast[0].filterVoices(provider: "elevenlabs")
 // Returns: ["elevenlabs://en/wise-elder"]

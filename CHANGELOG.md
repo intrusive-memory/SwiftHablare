@@ -5,6 +5,32 @@ All notable changes to SwiftHablaré will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.7.0] - 2026-02-11
+
+### Removed
+
+- **QwenTTSEngine** - Removed entire QwenTTSEngine target/product (3,255 lines). This was an incomplete, hand-rolled implementation being replaced by SwiftVoxAlta integration
+  - Removed `Sources/QwenTTSEngine/` (10 source files)
+  - Removed `Tests/QwenTTSEngineTests/` (4 test files)
+  - Removed 228MB of model weights, scripts, and configuration files
+  - Removed QwenTTSVoiceProvider from hablare CLI
+
+### Added
+
+- **defaultVoiceId property** - Added optional `defaultVoiceId` property to `VoiceProvider` protocol with nil default. ElevenLabs provider returns default from SwiftOnce
+
+### Changed
+
+- **Documentation updates** - Removed all QwenTTS references from docs, fixed voice URI documentation to match actual implementation
+
+### Fixed
+
+- **CI workflow** - Removed redundant push trigger from CI workflow
+- **VoiceURI** - Restored VoiceURI for portable voice references after removal
+- **Test interference** - Resolved test interference in ElevenLabsUserAgentTests
+
+---
+
 ## [5.6.0] - 2026-02-01
 
 ### Removed

@@ -18,6 +18,5 @@ For detailed project documentation, architecture, and development guidelines, se
 
 **Important Notes**:
 - ONLY supports iOS 26.0+ and macOS 26.0+ (NEVER add code for older platforms)
-- `hablare` CLI MUST be built with `xcodebuild`, NOT `swift build` (requires Metal shaders)
 - All generated audio MUST be 16-bit integer PCM format
 - See [AGENTS.md](AGENTS.md) for complete development workflow, architecture, and integration patterns
