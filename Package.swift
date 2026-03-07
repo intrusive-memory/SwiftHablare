@@ -25,7 +25,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
+        .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "development"),
         .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "development"),
