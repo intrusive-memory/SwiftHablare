@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 
-import PackageDescription
 import Foundation
+import PackageDescription
 
 // MARK: - Package Dependencies
 //
@@ -9,61 +9,61 @@ import Foundation
 //
 
 let package = Package(
-    name: "SwiftHablare",
-    platforms: [
-        .iOS(.v26),
-        .macOS(.v26)
-    ],
-    products: [
-        .library(
-            name: "SwiftHablare",
-            targets: ["SwiftHablare"]
-        ),
-        .executable(
-            name: "hablare",
-            targets: ["hablare"]
-        ),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
-        .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main"),
-        .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "main"),
-        .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "main"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
-    ],
-    targets: [
-        .target(
-            name: "SwiftHablare",
-            dependencies: [
-                .product(name: "SwiftCompartido", package: "SwiftCompartido"),
-                .product(name: "SwiftProyecto", package: "SwiftProyecto"),
-                .product(name: "SwiftOnce", package: "SwiftOnce")
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
-        ),
-        .executableTarget(
-            name: "hablare",
-            dependencies: [
-                "SwiftHablare",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency"),
-                .unsafeFlags(["-parse-as-library"])
-            ]
-        ),
-        .testTarget(
-            name: "SwiftHablareTests",
-            dependencies: [
-                "SwiftHablare",
-                .product(name: "SwiftFijos", package: "SwiftFijos"),
-                .product(name: "SwiftCompartido", package: "SwiftCompartido")
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
-        ),
-    ]
+  name: "SwiftHablare",
+  platforms: [
+    .iOS(.v26),
+    .macOS(.v26),
+  ],
+  products: [
+    .library(
+      name: "SwiftHablare",
+      targets: ["SwiftHablare"]
+    ),
+    .executable(
+      name: "hablare",
+      targets: ["hablare"]
+    ),
+  ],
+  dependencies: [
+    .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "main"),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+  ],
+  targets: [
+    .target(
+      name: "SwiftHablare",
+      dependencies: [
+        .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+        .product(name: "SwiftProyecto", package: "SwiftProyecto"),
+        .product(name: "SwiftOnce", package: "SwiftOnce"),
+      ],
+      swiftSettings: [
+        .enableUpcomingFeature("StrictConcurrency")
+      ]
+    ),
+    .executableTarget(
+      name: "hablare",
+      dependencies: [
+        "SwiftHablare",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ],
+      swiftSettings: [
+        .enableUpcomingFeature("StrictConcurrency"),
+        .unsafeFlags(["-parse-as-library"]),
+      ]
+    ),
+    .testTarget(
+      name: "SwiftHablareTests",
+      dependencies: [
+        "SwiftHablare",
+        .product(name: "SwiftFijos", package: "SwiftFijos"),
+        .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+      ],
+      swiftSettings: [
+        .enableUpcomingFeature("StrictConcurrency")
+      ]
+    ),
+  ]
 )

@@ -18,10 +18,10 @@ import UniformTypeIdentifiers
 /// - Uses SwiftData for in-memory document model
 @main
 struct HablareApp: App {
-    var body: some Scene {
-        DocumentGroup(newDocument: { HablareDocument.createEmpty() }) { file in
-            ContentView(document: file.document)
-        }
-        .defaultSize(width: 1000, height: 800)
+  var body: some Scene {
+    DocumentGroup(newDocument: { HablareDocument.createEmpty() }) { file in
+      ContentView(document: file.document)
     }
+    .defaultSize(width: 1000, height: 800)
+  }
 }
