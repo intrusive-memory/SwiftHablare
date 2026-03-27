@@ -118,7 +118,7 @@ jobs:
           xcodebuild test \
             -scheme SwiftHablare \
             -destination 'platform=macOS' \
-            -only-testing:SwiftHablareTests \
+            -testPlan CITests \
             2>&1 | tee test-output-macOS.log
           echo "✅ Tests completed"
 

@@ -7,7 +7,7 @@ BIN_DIR = ./bin
 DESTINATION = platform=macOS,arch=arm64
 DERIVED_DATA = $(HOME)/Library/Developer/Xcode/DerivedData
 
-.PHONY: all build release install clean test resolve help
+.PHONY: all build release install clean test resolve lint help
 
 all: install
 
@@ -62,7 +62,11 @@ install: resolve
 
 # Run tests
 test:
-	swift test
+	xcodebuild test -scheme SwiftHablare -destination '$(DESTINATION)' -testPlan CITests
+
+# Format Swift source files
+lint:
+	swift format -i -r .
 
 # Clean build artifacts
 clean:
@@ -81,6 +85,7 @@ help:
 	@echo "  install  - Debug build with xcodebuild + copy to ./bin (default)"
 	@echo "  release  - Release build with xcodebuild + copy to ./bin"
 	@echo "  test     - Run tests"
+	@echo "  lint     - Format Swift source files"
 	@echo "  clean    - Clean build artifacts"
 	@echo "  help     - Show this help"
 	@echo ""
