@@ -11,115 +11,116 @@ import Security
 /// Simple keychain manager for storing API keys
 public final class KeychainManager: @unchecked Sendable, KeychainManagerProtocol {
 
-    // MARK: - Singleton
+  // MARK: - Singleton
 
-    public static let shared = KeychainManager()
+  public static let shared = KeychainManager()
 
-    private init() {}
+  private init() {}
 
-    // MARK: - Errors
+  // MARK: - Errors
 
-    public enum KeychainError: LocalizedError {
-        case notFound
-        case saveFailed(OSStatus)
-        case deleteFailed(OSStatus)
-        case invalidData
+  public enum KeychainError: LocalizedError {
+    case notFound
+    case saveFailed(OSStatus)
+    case deleteFailed(OSStatus)
+    case invalidData
 
-        public var errorDescription: String? {
-            switch self {
-            case .notFound:
-                return "API key not found in keychain"
-            case .saveFailed(let status):
-                return "Failed to save API key to keychain (status: \(status))"
-            case .deleteFailed(let status):
-                return "Failed to delete API key from keychain (status: \(status))"
-            case .invalidData:
-                return "Invalid data retrieved from keychain"
-            }
-        }
+    public var errorDescription: String? {
+      switch self {
+      case .notFound:
+        return "API key not found in keychain"
+      case .saveFailed(let status):
+        return "Failed to save API key to keychain (status: \(status))"
+      case .deleteFailed(let status):
+        return "Failed to delete API key from keychain (status: \(status))"
+      case .invalidData:
+        return "Invalid data retrieved from keychain"
+      }
+    }
+  }
+
+  // MARK: - API Key Management
+
+  /// Save an API key to the keychain
+  ///
+  /// - Parameters:
+  ///   - key: The API key to save
+  ///   - account: Account identifier (e.g., "elevenlabs-api-key")
+  /// - Throws: KeychainError if save fails
+  public func saveAPIKey(_ key: String, for account: String) async throws {
+    guard let data = key.data(using: .utf8) else {
+      throw KeychainError.invalidData
     }
 
-    // MARK: - API Key Management
+    // Delete existing key if present
+    try? await deleteAPIKey(for: account)
 
-    /// Save an API key to the keychain
-    ///
-    /// - Parameters:
-    ///   - key: The API key to save
-    ///   - account: Account identifier (e.g., "elevenlabs-api-key")
-    /// - Throws: KeychainError if save fails
-    public func saveAPIKey(_ key: String, for account: String) async throws {
-        guard let data = key.data(using: .utf8) else {
-            throw KeychainError.invalidData
-        }
+    // Add new key
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrAccount as String: account,
+      kSecValueData as String: data,
+      kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+    ]
 
-        // Delete existing key if present
-        try? await deleteAPIKey(for: account)
+    let status = SecItemAdd(query as CFDictionary, nil)
 
-        // Add new key
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
-        ]
+    guard status == errSecSuccess else {
+      throw KeychainError.saveFailed(status)
+    }
+  }
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+  /// Retrieve an API key from the keychain
+  ///
+  /// - Parameter account: Account identifier
+  /// - Returns: The API key
+  /// - Throws: KeychainError if not found or retrieval fails
+  public func getAPIKey(for account: String) async throws -> String {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrAccount as String: account,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
 
-        guard status == errSecSuccess else {
-            throw KeychainError.saveFailed(status)
-        }
+    var result: AnyObject?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+    guard status == errSecSuccess else {
+      throw KeychainError.notFound
     }
 
-    /// Retrieve an API key from the keychain
-    ///
-    /// - Parameter account: Account identifier
-    /// - Returns: The API key
-    /// - Throws: KeychainError if not found or retrieval fails
-    public func getAPIKey(for account: String) async throws -> String {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        guard status == errSecSuccess else {
-            throw KeychainError.notFound
-        }
-
-        guard let data = result as? Data,
-              let key = String(data: data, encoding: .utf8) else {
-            throw KeychainError.invalidData
-        }
-
-        return key
+    guard let data = result as? Data,
+      let key = String(data: data, encoding: .utf8)
+    else {
+      throw KeychainError.invalidData
     }
 
-    /// Delete an API key from the keychain
-    ///
-    /// - Parameter account: Account identifier
-    /// - Throws: KeychainError if deletion fails
-    public func deleteAPIKey(for account: String) async throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: account
-        ]
+    return key
+  }
 
-        let status = SecItemDelete(query as CFDictionary)
+  /// Delete an API key from the keychain
+  ///
+  /// - Parameter account: Account identifier
+  /// - Throws: KeychainError if deletion fails
+  public func deleteAPIKey(for account: String) async throws {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrAccount as String: account,
+    ]
 
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw KeychainError.deleteFailed(status)
-        }
+    let status = SecItemDelete(query as CFDictionary)
+
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      throw KeychainError.deleteFailed(status)
     }
+  }
 
-    /// Check if an API key exists
-    ///
-    /// - Parameter account: Account identifier
-    /// - Returns: True if key exists
-    public func hasAPIKey(for account: String) async -> Bool {
-        return (try? await getAPIKey(for: account)) != nil
-    }
+  /// Check if an API key exists
+  ///
+  /// - Parameter account: Account identifier
+  /// - Returns: True if key exists
+  public func hasAPIKey(for account: String) async -> Bool {
+    return (try? await getAPIKey(for: account)) != nil
+  }
 }

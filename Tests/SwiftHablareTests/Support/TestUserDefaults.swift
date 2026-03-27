@@ -10,22 +10,22 @@ extension UserDefaults: @unchecked @retroactive Sendable {}
 ///   platform supports custom suites.
 /// - Returns: Tuple containing the defaults instance and a cleanup closure.
 func makeTestUserDefaults(suiteName: String) -> (defaults: UserDefaults, cleanup: () -> Void) {
-    if let defaults = UserDefaults(suiteName: suiteName) {
-        defaults.removePersistentDomain(forName: suiteName)
-        let cleanup = {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
-        return (defaults, cleanup)
-    }
-
-    let defaults = UserDefaults.standard
+  if let defaults = UserDefaults(suiteName: suiteName) {
+    defaults.removePersistentDomain(forName: suiteName)
     let cleanup = {
-        let keys = defaults.dictionaryRepresentation().keys
-            .filter { $0.hasPrefix("voiceProvider.") }
-        for key in keys {
-            defaults.removeObject(forKey: key)
-        }
+      defaults.removePersistentDomain(forName: suiteName)
     }
-    cleanup()
     return (defaults, cleanup)
+  }
+
+  let defaults = UserDefaults.standard
+  let cleanup = {
+    let keys = defaults.dictionaryRepresentation().keys
+      .filter { $0.hasPrefix("voiceProvider.") }
+    for key in keys {
+      defaults.removeObject(forKey: key)
+    }
+  }
+  cleanup()
+  return (defaults, cleanup)
 }

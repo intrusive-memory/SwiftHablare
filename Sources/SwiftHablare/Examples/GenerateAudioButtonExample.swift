@@ -5,10 +5,10 @@
 //  Complete example demonstrating GenerateAudioButton usage
 //
 
-import SwiftUI
-import SwiftData
 import AVFoundation
 import SwiftCompartido
+import SwiftData
+import SwiftUI
 
 /// Example view demonstrating GenerateAudioButton with multiple items
 ///
@@ -21,271 +21,272 @@ import SwiftCompartido
 @MainActor
 public struct GenerateAudioButtonExample: View {
 
-    // MARK: - Dependencies
+  // MARK: - Dependencies
 
-    /// SwiftData model context (required for persistence)
-    @Environment(\.modelContext) private var modelContext
+  /// SwiftData model context (required for persistence)
+  @Environment(\.modelContext) private var modelContext
 
-    /// Generation service (create once, reuse)
-    @State private var service: GenerationService?
+  /// Generation service (create once, reuse)
+  @State private var service: GenerationService?
 
-    // MARK: - State
+  // MARK: - State
 
-    /// List of messages to generate audio for
-    @State private var messages: [SimpleMessage] = []
+  /// List of messages to generate audio for
+  @State private var messages: [SimpleMessage] = []
 
-    /// Selected provider ID
-    @State private var selectedProviderId: String?
+  /// Selected provider ID
+  @State private var selectedProviderId: String?
 
-    /// Selected voice ID
-    @State private var selectedVoiceId: String?
+  /// Selected voice ID
+  @State private var selectedVoiceId: String?
 
-    /// Audio player (app's responsibility to manage)
-    @State private var audioPlayer: AVAudioPlayer?
+  /// Audio player (app's responsibility to manage)
+  @State private var audioPlayer: AVAudioPlayer?
 
-    /// Currently playing item ID
-    @State private var playingItemId: String?
+  /// Currently playing item ID
+  @State private var playingItemId: String?
 
-    // MARK: - Body
+  // MARK: - Body
 
-    public var body: some View {
-        NavigationStack {
-            Form {
-                // Provider Selection
-                providerSection
+  public var body: some View {
+    NavigationStack {
+      Form {
+        // Provider Selection
+        providerSection
 
-                // Voice Selection
-                if let providerId = selectedProviderId {
-                    voiceSection(providerId: providerId)
-                }
-
-                // Messages List
-                if !messages.isEmpty {
-                    messagesSection
-                }
-
-                // Add Message Button
-                addMessageSection
-            }
-            .navigationTitle("Audio Generation Example")
-            .task {
-                setupService()
-            }
+        // Voice Selection
+        if let providerId = selectedProviderId {
+          voiceSection(providerId: providerId)
         }
+
+        // Messages List
+        if !messages.isEmpty {
+          messagesSection
+        }
+
+        // Add Message Button
+        addMessageSection
+      }
+      .navigationTitle("Audio Generation Example")
+      .task {
+        setupService()
+      }
     }
+  }
 
-    // MARK: - View Sections
+  // MARK: - View Sections
 
-    /// Provider selection section
-    private var providerSection: some View {
-        Section("1. Select Provider") {
-            if let service {
-                ProviderPickerView(
-                    service: service,
-                    selection: $selectedProviderId
-                )
-            } else {
-                Text("Loading providers...")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    /// Voice selection section
-    private func voiceSection(providerId: String) -> some View {
-        Section("2. Select Voice") {
-            if let service {
-                VoicePickerView(
-                    service: service,
-                    providerId: providerId,
-                    selection: $selectedVoiceId
-                )
-            }
-        }
-    }
-
-    /// Messages section with generate buttons
-    private var messagesSection: some View {
-        Section("3. Generated Messages") {
-            ForEach(messages, id: \.id) { message in
-                messageRow(message)
-            }
-            .onDelete(perform: deleteMessages)
-        }
-    }
-
-    /// Add message section
-    private var addMessageSection: some View {
-        Section("4. Add Message") {
-            Button {
-                Task {
-                    await addMessage()
-                }
-            } label: {
-                Label("Add Random Message", systemImage: "plus.circle.fill")
-            }
-            .disabled(selectedProviderId == nil || selectedVoiceId == nil)
-        }
-    }
-
-    /// Individual message row with generate/play button
-    private func messageRow(_ message: SimpleMessage) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(message.content)
-                    .font(.body)
-
-                Text("Voice: \(message.voiceId)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            Spacer()
-
-            if let service {
-                GenerateAudioButton(
-                    item: message,
-                    service: service,
-                    modelContext: modelContext,
-                    onPlay: { record in
-                        playAudio(from: record, for: message.id)
-                    }
-                )
-            }
-        }
-        .padding(.vertical, 4)
-        .background(
-            playingItemId == message.id
-                ? Color.accentColor.opacity(0.1)
-                : Color.clear
+  /// Provider selection section
+  private var providerSection: some View {
+    Section("1. Select Provider") {
+      if let service {
+        ProviderPickerView(
+          service: service,
+          selection: $selectedProviderId
         )
+      } else {
+        Text("Loading providers...")
+          .foregroundStyle(.secondary)
+      }
     }
+  }
 
-    // MARK: - Actions
-
-    /// Setup generation service
-    private func setupService() {
-        if service == nil {
-            service = GenerationService()
-        }
-    }
-
-    /// Add a new message with random content
-    private func addMessage() async {
-        guard let providerId = selectedProviderId,
-              let voiceId = selectedVoiceId,
-              let service = service else {
-            return
-        }
-
-        guard let provider = await service.provider(withId: providerId) else {
-            return
-        }
-
-        let samples = [
-            "Hello, this is a test message.",
-            "Welcome to SwiftHablare audio generation!",
-            "This is an example of text-to-speech.",
-            "Press play to hear this message.",
-            "Audio generation is working perfectly.",
-            "This demonstrates the GenerateAudioButton component."
-        ]
-
-        let randomContent = samples.randomElement() ?? "Test message"
-
-        let message = SimpleMessage(
-            content: randomContent,
-            voiceProvider: provider,
-            voiceId: voiceId
+  /// Voice selection section
+  private func voiceSection(providerId: String) -> some View {
+    Section("2. Select Voice") {
+      if let service {
+        VoicePickerView(
+          service: service,
+          providerId: providerId,
+          selection: $selectedVoiceId
         )
+      }
+    }
+  }
 
-        withAnimation {
-            messages.append(message)
+  /// Messages section with generate buttons
+  private var messagesSection: some View {
+    Section("3. Generated Messages") {
+      ForEach(messages, id: \.id) { message in
+        messageRow(message)
+      }
+      .onDelete(perform: deleteMessages)
+    }
+  }
+
+  /// Add message section
+  private var addMessageSection: some View {
+    Section("4. Add Message") {
+      Button {
+        Task {
+          await addMessage()
         }
+      } label: {
+        Label("Add Random Message", systemImage: "plus.circle.fill")
+      }
+      .disabled(selectedProviderId == nil || selectedVoiceId == nil)
+    }
+  }
+
+  /// Individual message row with generate/play button
+  private func messageRow(_ message: SimpleMessage) -> some View {
+    HStack(spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(message.content)
+          .font(.body)
+
+        Text("Voice: \(message.voiceId)")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .truncationMode(.middle)
+      }
+
+      Spacer()
+
+      if let service {
+        GenerateAudioButton(
+          item: message,
+          service: service,
+          modelContext: modelContext,
+          onPlay: { record in
+            playAudio(from: record, for: message.id)
+          }
+        )
+      }
+    }
+    .padding(.vertical, 4)
+    .background(
+      playingItemId == message.id
+        ? Color.accentColor.opacity(0.1)
+        : Color.clear
+    )
+  }
+
+  // MARK: - Actions
+
+  /// Setup generation service
+  private func setupService() {
+    if service == nil {
+      service = GenerationService()
+    }
+  }
+
+  /// Add a new message with random content
+  private func addMessage() async {
+    guard let providerId = selectedProviderId,
+      let voiceId = selectedVoiceId,
+      let service = service
+    else {
+      return
     }
 
-    /// Delete messages
-    private func deleteMessages(at offsets: IndexSet) {
-        withAnimation {
-            messages.remove(atOffsets: offsets)
-        }
+    guard let provider = await service.provider(withId: providerId) else {
+      return
     }
 
-    /// Play audio from a TypedDataStorage record
-    ///
-    /// **Note**: SwiftHablare does NOT handle playback.
-    /// This is the app's responsibility.
-    private func playAudio(from record: TypedDataStorage, for itemId: String) {
-        guard let audioData = record.binaryValue else {
-            #if DEBUG
-            print("No audio data in record")
-            #endif
-            return
-        }
+    let samples = [
+      "Hello, this is a test message.",
+      "Welcome to SwiftHablare audio generation!",
+      "This is an example of text-to-speech.",
+      "Press play to hear this message.",
+      "Audio generation is working perfectly.",
+      "This demonstrates the GenerateAudioButton component.",
+    ]
 
-        do {
-            // Stop current playback
-            audioPlayer?.stop()
+    let randomContent = samples.randomElement() ?? "Test message"
 
-            // Create new player
-            audioPlayer = try AVAudioPlayer(data: audioData)
-            audioPlayer?.prepareToPlay()
+    let message = SimpleMessage(
+      content: randomContent,
+      voiceProvider: provider,
+      voiceId: voiceId
+    )
 
-            // Update playing state
-            playingItemId = itemId
-
-            // Play audio
-            audioPlayer?.play()
-
-            // Clear playing state when done
-            DispatchQueue.main.asyncAfter(deadline: .now() + (audioPlayer?.duration ?? 0)) {
-                if playingItemId == itemId {
-                    playingItemId = nil
-                }
-            }
-
-        } catch {
-            #if DEBUG
-            print("Failed to play audio: \(error)")
-            #endif
-            playingItemId = nil
-        }
+    withAnimation {
+      messages.append(message)
     }
+  }
+
+  /// Delete messages
+  private func deleteMessages(at offsets: IndexSet) {
+    withAnimation {
+      messages.remove(atOffsets: offsets)
+    }
+  }
+
+  /// Play audio from a TypedDataStorage record
+  ///
+  /// **Note**: SwiftHablare does NOT handle playback.
+  /// This is the app's responsibility.
+  private func playAudio(from record: TypedDataStorage, for itemId: String) {
+    guard let audioData = record.binaryValue else {
+      #if DEBUG
+        print("No audio data in record")
+      #endif
+      return
+    }
+
+    do {
+      // Stop current playback
+      audioPlayer?.stop()
+
+      // Create new player
+      audioPlayer = try AVAudioPlayer(data: audioData)
+      audioPlayer?.prepareToPlay()
+
+      // Update playing state
+      playingItemId = itemId
+
+      // Play audio
+      audioPlayer?.play()
+
+      // Clear playing state when done
+      DispatchQueue.main.asyncAfter(deadline: .now() + (audioPlayer?.duration ?? 0)) {
+        if playingItemId == itemId {
+          playingItemId = nil
+        }
+      }
+
+    } catch {
+      #if DEBUG
+        print("Failed to play audio: \(error)")
+      #endif
+      playingItemId = nil
+    }
+  }
 }
 
 // MARK: - SimpleMessage Extension
 
 extension SimpleMessage {
-    /// Unique identifier for SwiftUI list
-    var id: String {
-        "\(voiceId)-\(content)".hashValue.description
-    }
+  /// Unique identifier for SwiftUI list
+  var id: String {
+    "\(voiceId)-\(content)".hashValue.description
+  }
 }
 
 // MARK: - Preview
 
 #if DEBUG
-struct GenerateAudioButtonExample_Previews: PreviewProvider {
+  struct GenerateAudioButtonExample_Previews: PreviewProvider {
     static var previews: some View {
-        if let container = try? makePreviewContainer() {
-            GenerateAudioButtonExample()
-                .modelContainer(container)
-        } else {
-            Text("Unable to create preview")
-        }
+      if let container = try? makePreviewContainer() {
+        GenerateAudioButtonExample()
+          .modelContainer(container)
+      } else {
+        Text("Unable to create preview")
+      }
     }
 
     @MainActor
     static func makePreviewContainer() throws -> ModelContainer {
-        let schema = Schema([
-            TypedDataStorage.self
-        ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [config])
+      let schema = Schema([
+        TypedDataStorage.self
+      ])
+      let config = ModelConfiguration(isStoredInMemoryOnly: true)
+      return try ModelContainer(for: schema, configurations: [config])
     }
-}
+  }
 #endif
 
 // MARK: - Usage Documentation

@@ -50,26 +50,26 @@ import SwiftCompartido
 /// }
 /// ```
 public struct GuionElementSpeakable: SpeakableItem {
-    public let element: GuionElement
-    public let voiceProvider: VoiceProvider
-    public let voiceId: String
-    public let languageCode: String
+  public let element: GuionElement
+  public let voiceProvider: VoiceProvider
+  public let voiceId: String
+  public let languageCode: String
 
-    public var textToSpeak: String {
-        element.elementText
-    }
+  public var textToSpeak: String {
+    element.elementText
+  }
 
-    public init(
-        element: GuionElement,
-        voiceProvider: VoiceProvider,
-        voiceId: String,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.element = element
-        self.voiceProvider = voiceProvider
-        self.voiceId = voiceId
-        self.languageCode = languageCode
-    }
+  public init(
+    element: GuionElement,
+    voiceProvider: VoiceProvider,
+    voiceId: String,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.element = element
+    self.voiceProvider = voiceProvider
+    self.voiceId = voiceId
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Dialogue Pair SpeakableItem
@@ -98,35 +98,35 @@ public struct GuionElementSpeakable: SpeakableItem {
 /// }
 /// ```
 public struct DialoguePairSpeakable: SpeakableItem {
-    public let character: GuionElement  // ElementType.character
-    public let dialogue: GuionElement   // ElementType.dialogue
-    public let voiceProvider: VoiceProvider
-    public let voiceId: String
-    public let includeCharacterName: Bool
-    public let languageCode: String
+  public let character: GuionElement  // ElementType.character
+  public let dialogue: GuionElement  // ElementType.dialogue
+  public let voiceProvider: VoiceProvider
+  public let voiceId: String
+  public let includeCharacterName: Bool
+  public let languageCode: String
 
-    public var textToSpeak: String {
-        if includeCharacterName {
-            return "\(character.elementText): \(dialogue.elementText)"
-        }
-        return dialogue.elementText
+  public var textToSpeak: String {
+    if includeCharacterName {
+      return "\(character.elementText): \(dialogue.elementText)"
     }
+    return dialogue.elementText
+  }
 
-    public init(
-        character: GuionElement,
-        dialogue: GuionElement,
-        voiceProvider: VoiceProvider,
-        voiceId: String,
-        includeCharacterName: Bool = false,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.character = character
-        self.dialogue = dialogue
-        self.voiceProvider = voiceProvider
-        self.voiceId = voiceId
-        self.includeCharacterName = includeCharacterName
-        self.languageCode = languageCode
-    }
+  public init(
+    character: GuionElement,
+    dialogue: GuionElement,
+    voiceProvider: VoiceProvider,
+    voiceId: String,
+    includeCharacterName: Bool = false,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.character = character
+    self.dialogue = dialogue
+    self.voiceProvider = voiceProvider
+    self.voiceId = voiceId
+    self.includeCharacterName = includeCharacterName
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Section Heading SpeakableItem
@@ -159,50 +159,50 @@ public struct DialoguePairSpeakable: SpeakableItem {
 /// )
 /// ```
 public struct SectionHeadingSpeakable: SpeakableItem {
-    public let heading: GuionElement
-    public let voiceProvider: VoiceProvider
-    public let voiceId: String
-    public let announceLevel: Bool
-    public let languageCode: String
+  public let heading: GuionElement
+  public let voiceProvider: VoiceProvider
+  public let voiceId: String
+  public let announceLevel: Bool
+  public let languageCode: String
 
-    public var textToSpeak: String {
-        guard case .sectionHeading(let level) = heading.elementType else {
-            return heading.elementText
-        }
-
-        if announceLevel {
-            let levelName = levelName(for: level)
-            return "\(levelName): \(heading.elementText)"
-        }
-
-        return heading.elementText
+  public var textToSpeak: String {
+    guard case .sectionHeading(let level) = heading.elementType else {
+      return heading.elementText
     }
 
-    private func levelName(for level: Int) -> String {
-        switch level {
-        case 1: return "Title"
-        case 2: return "Act"
-        case 3: return "Sequence"
-        case 4: return "Scene Group"
-        case 5: return "Sub-scene"
-        case 6: return "Beat"
-        default: return "Section"
-        }
+    if announceLevel {
+      let levelName = levelName(for: level)
+      return "\(levelName): \(heading.elementText)"
     }
 
-    public init(
-        heading: GuionElement,
-        voiceProvider: VoiceProvider,
-        voiceId: String,
-        announceLevel: Bool = false,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.heading = heading
-        self.voiceProvider = voiceProvider
-        self.voiceId = voiceId
-        self.announceLevel = announceLevel
-        self.languageCode = languageCode
+    return heading.elementText
+  }
+
+  private func levelName(for level: Int) -> String {
+    switch level {
+    case 1: return "Title"
+    case 2: return "Act"
+    case 3: return "Sequence"
+    case 4: return "Scene Group"
+    case 5: return "Sub-scene"
+    case 6: return "Beat"
+    default: return "Section"
     }
+  }
+
+  public init(
+    heading: GuionElement,
+    voiceProvider: VoiceProvider,
+    voiceId: String,
+    announceLevel: Bool = false,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.heading = heading
+    self.voiceProvider = voiceProvider
+    self.voiceId = voiceId
+    self.announceLevel = announceLevel
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Scene SpeakableGroup
@@ -243,44 +243,44 @@ public struct SectionHeadingSpeakable: SpeakableItem {
 /// }
 /// ```
 public struct SceneSpeakable: SpeakableGroup {
-    public let sceneHeading: GuionElement
-    public let elements: [GuionElement]
-    public let voiceMapping: (GuionElement) -> String  // Maps element to voiceId
-    public let voiceProvider: VoiceProvider
-    public let languageCode: String
+  public let sceneHeading: GuionElement
+  public let elements: [GuionElement]
+  public let voiceMapping: (GuionElement) -> String  // Maps element to voiceId
+  public let voiceProvider: VoiceProvider
+  public let languageCode: String
 
-    public var groupName: String {
-        sceneHeading.elementText
-    }
+  public var groupName: String {
+    sceneHeading.elementText
+  }
 
-    public var groupDescription: String? {
-        "\(elements.count) elements"
-    }
+  public var groupDescription: String? {
+    "\(elements.count) elements"
+  }
 
-    public func getGroupedElements() -> [any SpeakableItem] {
-        return elements.map { element in
-            GuionElementSpeakable(
-                element: element,
-                voiceProvider: voiceProvider,
-                voiceId: voiceMapping(element),
-                languageCode: languageCode
-            )
-        }
+  public func getGroupedElements() -> [any SpeakableItem] {
+    return elements.map { element in
+      GuionElementSpeakable(
+        element: element,
+        voiceProvider: voiceProvider,
+        voiceId: voiceMapping(element),
+        languageCode: languageCode
+      )
     }
+  }
 
-    public init(
-        sceneHeading: GuionElement,
-        elements: [GuionElement],
-        voiceMapping: @escaping (GuionElement) -> String,
-        voiceProvider: VoiceProvider,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.sceneHeading = sceneHeading
-        self.elements = elements
-        self.voiceMapping = voiceMapping
-        self.voiceProvider = voiceProvider
-        self.languageCode = languageCode
-    }
+  public init(
+    sceneHeading: GuionElement,
+    elements: [GuionElement],
+    voiceMapping: @escaping (GuionElement) -> String,
+    voiceProvider: VoiceProvider,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.sceneHeading = sceneHeading
+    self.elements = elements
+    self.voiceMapping = voiceMapping
+    self.voiceProvider = voiceProvider
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Chapter SpeakableGroup
@@ -321,54 +321,54 @@ public struct SceneSpeakable: SpeakableGroup {
 /// }
 /// ```
 public struct ChapterSpeakable: SpeakableGroup {
-    public let chapterHeading: GuionElement?
-    public let elements: [GuionElement]
-    public let voiceMapping: (GuionElement) -> String  // Maps element to voiceId
-    public let voiceProvider: VoiceProvider
-    public let languageCode: String
+  public let chapterHeading: GuionElement?
+  public let elements: [GuionElement]
+  public let voiceMapping: (GuionElement) -> String  // Maps element to voiceId
+  public let voiceProvider: VoiceProvider
+  public let languageCode: String
 
-    public var groupName: String {
-        chapterHeading?.elementText ?? "Chapter"
+  public var groupName: String {
+    chapterHeading?.elementText ?? "Chapter"
+  }
+
+  public var groupDescription: String? {
+    let sceneCount = elements.filter { element in
+      if case .sceneHeading = element.elementType { return true }
+      return false
+    }.count
+
+    let dialogueCount = elements.filter { element in
+      if case .dialogue = element.elementType { return true }
+      return false
+    }.count
+
+    return "\(elements.count) elements (\(sceneCount) scenes, \(dialogueCount) dialogue lines)"
+  }
+
+  public func getGroupedElements() -> [any SpeakableItem] {
+    return elements.map { element in
+      GuionElementSpeakable(
+        element: element,
+        voiceProvider: voiceProvider,
+        voiceId: voiceMapping(element),
+        languageCode: languageCode
+      )
     }
+  }
 
-    public var groupDescription: String? {
-        let sceneCount = elements.filter { element in
-            if case .sceneHeading = element.elementType { return true }
-            return false
-        }.count
-
-        let dialogueCount = elements.filter { element in
-            if case .dialogue = element.elementType { return true }
-            return false
-        }.count
-
-        return "\(elements.count) elements (\(sceneCount) scenes, \(dialogueCount) dialogue lines)"
-    }
-
-    public func getGroupedElements() -> [any SpeakableItem] {
-        return elements.map { element in
-            GuionElementSpeakable(
-                element: element,
-                voiceProvider: voiceProvider,
-                voiceId: voiceMapping(element),
-                languageCode: languageCode
-            )
-        }
-    }
-
-    public init(
-        chapterHeading: GuionElement?,
-        elements: [GuionElement],
-        voiceMapping: @escaping (GuionElement) -> String,
-        voiceProvider: VoiceProvider,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.chapterHeading = chapterHeading
-        self.elements = elements
-        self.voiceMapping = voiceMapping
-        self.voiceProvider = voiceProvider
-        self.languageCode = languageCode
-    }
+  public init(
+    chapterHeading: GuionElement?,
+    elements: [GuionElement],
+    voiceMapping: @escaping (GuionElement) -> String,
+    voiceProvider: VoiceProvider,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.chapterHeading = chapterHeading
+    self.elements = elements
+    self.voiceMapping = voiceMapping
+    self.voiceProvider = voiceProvider
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Markdown Document SpeakableGroup
@@ -404,87 +404,87 @@ public struct ChapterSpeakable: SpeakableGroup {
 /// let audioFiles = try await document.getGroupedElements().speakAll()
 /// ```
 public struct MarkdownDocumentSpeakable: SpeakableGroup {
-    public let filename: String
-    public let elements: [GuionElement]
-    public let voiceProvider: VoiceProvider
-    public let defaultVoiceId: String
-    public let languageCode: String
+  public let filename: String
+  public let elements: [GuionElement]
+  public let voiceProvider: VoiceProvider
+  public let defaultVoiceId: String
+  public let languageCode: String
 
-    public var groupName: String {
-        filename
+  public var groupName: String {
+    filename
+  }
+
+  public var groupDescription: String? {
+    let headingCount = elements.filter { element in
+      if case .sectionHeading = element.elementType { return true }
+      return false
+    }.count
+
+    let paragraphCount = elements.filter { element in
+      if case .action = element.elementType { return true }
+      return false
+    }.count
+
+    return "\(elements.count) elements (\(headingCount) headings, \(paragraphCount) paragraphs)"
+  }
+
+  public func getGroupedElements() -> [any SpeakableItem] {
+    return elements.map { element in
+      GuionElementSpeakable(
+        element: element,
+        voiceProvider: voiceProvider,
+        voiceId: defaultVoiceId,
+        languageCode: languageCode
+      )
     }
+  }
 
-    public var groupDescription: String? {
-        let headingCount = elements.filter { element in
-            if case .sectionHeading = element.elementType { return true }
-            return false
-        }.count
-
-        let paragraphCount = elements.filter { element in
-            if case .action = element.elementType { return true }
-            return false
-        }.count
-
-        return "\(elements.count) elements (\(headingCount) headings, \(paragraphCount) paragraphs)"
-    }
-
-    public func getGroupedElements() -> [any SpeakableItem] {
-        return elements.map { element in
-            GuionElementSpeakable(
-                element: element,
-                voiceProvider: voiceProvider,
-                voiceId: defaultVoiceId,
-                languageCode: languageCode
-            )
-        }
-    }
-
-    public init(
-        filename: String,
-        elements: [GuionElement],
-        voiceProvider: VoiceProvider,
-        defaultVoiceId: String,
-        languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
-    ) {
-        self.filename = filename
-        self.elements = elements
-        self.voiceProvider = voiceProvider
-        self.defaultVoiceId = defaultVoiceId
-        self.languageCode = languageCode
-    }
+  public init(
+    filename: String,
+    elements: [GuionElement],
+    voiceProvider: VoiceProvider,
+    defaultVoiceId: String,
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "en"
+  ) {
+    self.filename = filename
+    self.elements = elements
+    self.voiceProvider = voiceProvider
+    self.defaultVoiceId = defaultVoiceId
+    self.languageCode = languageCode
+  }
 }
 
 // MARK: - Helper Extensions
 
 extension GuionElement {
-    /// Returns true if this element should be spoken (has non-empty text)
-    public var isSpeakable: Bool {
-        !elementText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+  /// Returns true if this element should be spoken (has non-empty text)
+  public var isSpeakable: Bool {
+    !elementText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
 
-    /// Returns the recommended voice type for this element
-    public var recommendedVoiceType: VoiceType {
-        switch elementType {
-        case .dialogue, .character:
-            return .character
-        case .action, .sceneHeading, .transition:
-            return .narrator
-        case .sectionHeading:
-            return .narrator
-        case .parenthetical:
-            return .narrator
-        case .synopsis:
-            return .narrator
-        case .lyrics:
-            return .character
-        default:
-            return .narrator
-        }
+  /// Returns the recommended voice type for this element
+  public var recommendedVoiceType: VoiceType {
+    switch elementType {
+    case .dialogue, .character:
+      return .character
+    case .action, .sceneHeading, .transition:
+      return .narrator
+    case .sectionHeading:
+      return .narrator
+    case .parenthetical:
+      return .narrator
+    case .synopsis:
+      return .narrator
+    case .lyrics:
+      return .character
+    default:
+      return .narrator
     }
+  }
 }
 
 /// Voice type classification for screenplay elements
 public enum VoiceType {
-    case character  // Character dialogue
-    case narrator   // Action, scene headings, etc.
+  case character  // Character dialogue
+  case narrator  // Action, scene headings, etc.
 }
