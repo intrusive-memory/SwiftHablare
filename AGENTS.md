@@ -4,7 +4,7 @@ This file provides comprehensive documentation for AI agents working with the Sw
 
 ## Quick Reference
 
-- **Current Version**: 5.7.0 (check `SwiftHablare.swift` for actual version string)
+- **Current Version**: 5.7.2 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 229+ passing tests (SwiftHablare)

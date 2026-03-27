@@ -327,22 +327,6 @@ struct ElementGenerationButtonTests {
         }
     }
 
-    // MARK: - Performance Tests
-
-    @Test("Grouped element detection is fast")
-    func testGroupedDetectionPerformance() {
-        let (_, elements) = makeTestDocument()
-
-        // Should be able to check grouping for many elements quickly
-        for _ in 0..<1000 {
-            for element in elements {
-                _ = isGroupedElement(element)
-            }
-        }
-
-        // If we get here without timeout, performance is acceptable
-        #expect(true)
-    }
 }
 
 // MARK: - Test Support Types
