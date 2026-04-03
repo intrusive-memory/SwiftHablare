@@ -25,10 +25,10 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", branch: "main"),
-    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", branch: "main"),
-    .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", branch: "main"),
-    .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", branch: "main"),
+    .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", from: "1.0.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "7.0.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", from: "3.0.0"),
+    .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
   ],
   targets: [
