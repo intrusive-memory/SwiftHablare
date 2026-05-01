@@ -4,7 +4,7 @@ This file provides comprehensive documentation for AI agents working with the Sw
 
 ## Quick Reference
 
-- **Current Version**: 6.0.0 (check `SwiftHablare.swift` for actual version string)
+- **Current Version**: 6.1.0 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 229+ passing tests (SwiftHablare)
@@ -589,15 +589,11 @@ list.statusMessage // "Processing...", "Complete", etc.
 
 ### Branch Protection
 
-**Current Required CI Checks:**
-- `Code Quality Checks` - Build, linting, code quality
-- `Fast Tests (macOS)` - Unit tests on macOS
-- `Integration Tests` - Build hablare CLI via `make release`, verify `--version` and `--help`
+**Current CI Checks:**
+- `Code Quality` - Build, linting, code quality
+- `macOS Tests` - Unit tests on macOS
 
-Update branch protection when CI workflow changes:
-```bash
-gh api repos/intrusive-memory/SwiftHablare/branches/main/protection/required_status_checks
-```
+**Note**: SwiftHablare 6.0+ is a library-only package (CLI distribution dropped). Required status checks are not currently enforced on the main branch.
 
 ### Git Hooks
 

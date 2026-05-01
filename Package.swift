@@ -27,11 +27,7 @@ let package = Package(
     .library(
       name: "SwiftHablare",
       targets: ["SwiftHablare"]
-    ),
-    .executable(
-      name: "hablare",
-      targets: ["hablare"]
-    ),
+    )
   ],
   dependencies: [
     sibling(
@@ -49,7 +45,6 @@ let package = Package(
       remote: "https://github.com/intrusive-memory/SwiftProyecto.git",
       from: "3.5.0"
     ),
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
   ],
   targets: [
     .target(
@@ -60,17 +55,6 @@ let package = Package(
       ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
-      ]
-    ),
-    .executableTarget(
-      name: "hablare",
-      dependencies: [
-        "SwiftHablare",
-        .product(name: "ArgumentParser", package: "swift-argument-parser"),
-      ],
-      swiftSettings: [
-        .enableUpcomingFeature("StrictConcurrency"),
-        .unsafeFlags(["-parse-as-library"]),
       ]
     ),
     .testTarget(
