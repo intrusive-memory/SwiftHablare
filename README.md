@@ -197,6 +197,11 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
 
 ## Installation
 
+> **No CLI distributed.** SwiftHablare 6.0 ships as a library only. The historical
+> `hablare` Homebrew formula is deprecated — for an on-device TTS command-line tool, use
+> [`diga`](https://github.com/intrusive-memory/SwiftVoxAlta) from SwiftVoxAlta
+> (`brew install intrusive-memory/tap/diga`).
+
 ### Swift Package Manager
 
 ```swift

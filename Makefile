@@ -1,68 +1,27 @@
 # SwiftHablare Makefile
-# Build and install the hablare CLI with full Metal shader support
+# Library-only build/test orchestration via xcodebuild.
 
-SCHEME = hablare
-BINARY = hablare
-BIN_DIR = ./bin
+SCHEME = SwiftHablare
 DESTINATION = platform=macOS,arch=arm64
 DERIVED_DATA = $(HOME)/Library/Developer/Xcode/DerivedData
 
-.PHONY: all build release install clean test resolve lint help
+.PHONY: all build test resolve lint clean help
 
-all: install
+all: build
 
 # Resolve all SPM package dependencies via xcodebuild
 resolve:
 	xcodebuild -resolvePackageDependencies -scheme $(SCHEME) -destination '$(DESTINATION)'
 	@echo "Package dependencies resolved."
 
-# Development build (swift build - fast but no Metal shaders)
-build:
-	swift build --product $(SCHEME)
+# Library build with xcodebuild (default)
+build: resolve
+	xcodebuild build -scheme $(SCHEME) -destination '$(DESTINATION)'
+	@echo "Build complete."
 
-# Release build with xcodebuild + copy to bin
-release: resolve
-	xcodebuild -scheme $(SCHEME) -destination '$(DESTINATION)' -configuration Release build
-	@mkdir -p $(BIN_DIR)
-	@PRODUCT_DIR=$$(find $(DERIVED_DATA)/SwiftHablare-*/Build/Products/Release -name $(BINARY) -type f 2>/dev/null | head -1 | xargs dirname); \
-	if [ -n "$$PRODUCT_DIR" ]; then \
-		cp "$$PRODUCT_DIR/$(BINARY)" $(BIN_DIR)/; \
-		if [ -d "$$PRODUCT_DIR/mlx-swift_Cmlx.bundle" ]; then \
-			rm -rf $(BIN_DIR)/mlx-swift_Cmlx.bundle; \
-			cp -R "$$PRODUCT_DIR/mlx-swift_Cmlx.bundle" $(BIN_DIR)/; \
-			echo "Installed $(BINARY) + Metal bundle to $(BIN_DIR)/ (Release)"; \
-		else \
-			echo "Warning: Metal bundle not found, binary may not work"; \
-			echo "Installed $(BINARY) to $(BIN_DIR)/ (Release, no Metal bundle)"; \
-		fi; \
-	else \
-		echo "Error: Could not find $(BINARY) in DerivedData"; \
-		exit 1; \
-	fi
-
-# Debug build with xcodebuild + copy to bin (default)
-install: resolve
-	xcodebuild -scheme $(SCHEME) -destination '$(DESTINATION)' build
-	@mkdir -p $(BIN_DIR)
-	@PRODUCT_DIR=$$(find $(DERIVED_DATA)/SwiftHablare-*/Build/Products/Debug -name $(BINARY) -type f 2>/dev/null | head -1 | xargs dirname); \
-	if [ -n "$$PRODUCT_DIR" ]; then \
-		cp "$$PRODUCT_DIR/$(BINARY)" $(BIN_DIR)/; \
-		if [ -d "$$PRODUCT_DIR/mlx-swift_Cmlx.bundle" ]; then \
-			rm -rf $(BIN_DIR)/mlx-swift_Cmlx.bundle; \
-			cp -R "$$PRODUCT_DIR/mlx-swift_Cmlx.bundle" $(BIN_DIR)/; \
-			echo "Installed $(BINARY) + Metal bundle to $(BIN_DIR)/ (Debug)"; \
-		else \
-			echo "Warning: Metal bundle not found, binary may not work"; \
-			echo "Installed $(BINARY) to $(BIN_DIR)/ (Debug, no Metal bundle)"; \
-		fi; \
-	else \
-		echo "Error: Could not find $(BINARY) in DerivedData"; \
-		exit 1; \
-	fi
-
-# Run tests
-test:
-	xcodebuild test -scheme SwiftHablare -destination '$(DESTINATION)' -testPlan CITests
+# Run tests (full suite — CI uses -testPlan CITests in the workflow directly)
+test: resolve
+	xcodebuild test -scheme $(SCHEME) -destination '$(DESTINATION)'
 
 # Format Swift source files
 lint:
@@ -71,7 +30,6 @@ lint:
 # Clean build artifacts
 clean:
 	swift package clean
-	rm -rf $(BIN_DIR)
 	rm -rf $(DERIVED_DATA)/SwiftHablare-*
 
 help:
@@ -81,9 +39,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  resolve  - Resolve all SPM package dependencies"
-	@echo "  build    - Development build (swift build, no Metal shaders)"
-	@echo "  install  - Debug build with xcodebuild + copy to ./bin (default)"
-	@echo "  release  - Release build with xcodebuild + copy to ./bin"
+	@echo "  build    - Library build with xcodebuild (default)"
 	@echo "  test     - Run tests"
 	@echo "  lint     - Format Swift source files"
 	@echo "  clean    - Clean build artifacts"
