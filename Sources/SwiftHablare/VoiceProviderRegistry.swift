@@ -303,7 +303,6 @@ public actor VoiceProviderRegistry {
   }
 
   private static let defaultDescriptors: [VoiceProviderDescriptor] = [
-    AppleVoiceProvider.descriptor,
-    ElevenLabsVoiceProvider.descriptor,
+    AppleVoiceProvider.descriptor
   ]
 }

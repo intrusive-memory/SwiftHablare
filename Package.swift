@@ -49,11 +49,6 @@ let package = Package(
       remote: "https://github.com/intrusive-memory/SwiftProyecto.git",
       from: "3.5.0"
     ),
-    sibling(
-      "SwiftOnce",
-      remote: "https://github.com/intrusive-memory/SwiftOnce.git",
-      from: "0.2.0"
-    ),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
   ],
   targets: [
@@ -62,7 +57,6 @@ let package = Package(
       dependencies: [
         .product(name: "SwiftCompartido", package: "SwiftCompartido"),
         .product(name: "SwiftProyecto", package: "SwiftProyecto"),
-        .product(name: "SwiftOnce", package: "SwiftOnce"),
       ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")

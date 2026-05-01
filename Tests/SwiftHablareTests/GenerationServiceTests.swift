@@ -261,11 +261,10 @@ struct GenerationServiceTests {
 
     let providers = await service.registeredProviders()
 
-    #expect(providers.count == 2)
+    #expect(providers.count == 1)
 
     let providerIds = Set(providers.map { $0.providerId })
     #expect(providerIds.contains("apple"))
-    #expect(providerIds.contains("elevenlabs"))
   }
 
   @Test("Apple provider is always configured")
@@ -280,18 +279,6 @@ struct GenerationServiceTests {
     #expect(await appleProvider.isConfigured())
     #expect(appleProvider.displayName == "Apple Text-to-Speech")
     #expect(!appleProvider.requiresAPIKey)
-  }
-
-  @Test("ElevenLabs provider requires configuration")
-  func testElevenLabsProviderRequiresConfiguration() async {
-    let service = GenerationService()
-
-    guard let elevenLabsProvider = await service.provider(withId: "elevenlabs") else {
-      Issue.record("ElevenLabs provider should be registered")
-      return
-    }
-
-    #expect(elevenLabsProvider.requiresAPIKey)
   }
 
   @Test("Apple provider is usable by default")
@@ -313,10 +300,6 @@ struct GenerationServiceTests {
     let appleProvider = await service.provider(withId: "apple")
     #expect(appleProvider != nil)
     #expect(appleProvider?.providerId == "apple")
-
-    let elevenLabsProvider = await service.provider(withId: "elevenlabs")
-    #expect(elevenLabsProvider != nil)
-    #expect(elevenLabsProvider?.providerId == "elevenlabs")
   }
 
   @Test("Get provider by ID returns nil for unknown")
@@ -333,9 +316,6 @@ struct GenerationServiceTests {
 
     let isAppleRegistered = await service.isProviderRegistered("apple")
     #expect(isAppleRegistered)
-
-    let isElevenLabsRegistered = await service.isProviderRegistered("elevenlabs")
-    #expect(isElevenLabsRegistered)
 
     let isUnknownRegistered = await service.isProviderRegistered("unknown")
     #expect(!isUnknownRegistered)
@@ -359,7 +339,7 @@ struct GenerationServiceTests {
     #expect(retrievedProvider?.providerId == "mock-unconfigured")
 
     let allProviders = await service.registeredProviders()
-    #expect(allProviders.count == 3)
+    #expect(allProviders.count == 2)
   }
 
   @Test("Register provider replaces existing")
@@ -376,7 +356,7 @@ struct GenerationServiceTests {
     await service.registerProvider(newAppleProvider)
 
     let allProviders = await service.registeredProviders()
-    #expect(allProviders.count == 2)
+    #expect(allProviders.count == 1)
 
     let appleProviders = allProviders.filter { $0.providerId == "apple" }
     #expect(appleProviders.count == 1)
@@ -396,11 +376,10 @@ struct GenerationServiceTests {
     await service.registerProvider(customProvider2)
 
     let allProviders = await service.registeredProviders()
-    #expect(allProviders.count == 4)
+    #expect(allProviders.count == 3)
 
     let providerIds = Set(allProviders.map { $0.providerId })
     #expect(providerIds.contains("apple"))
-    #expect(providerIds.contains("elevenlabs"))
     #expect(providerIds.contains("custom1"))
     #expect(providerIds.contains("custom2"))
   }

@@ -446,29 +446,6 @@ struct GenerateAudioButtonTests {
     #expect(button.item.voiceProvider.providerId == "apple")
   }
 
-  @Test("Button works with ElevenLabs provider")
-  func testWorksWithElevenLabsProvider() throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-
-    let provider = ElevenLabsVoiceProvider()
-    let item = SimpleMessage(
-      content: "Test",
-      voiceProvider: provider,
-      voiceId: "test-voice"
-    )
-
-    let button = GenerateAudioButton(
-      item: item,
-      service: service,
-      modelContext: context,
-      onPlay: nil
-    )
-
-    #expect(button.item.voiceProvider.providerId == "elevenlabs")
-  }
-
   // MARK: - TypedDataStorage Format Tests
 
   @Test("Generated audio uses correct MIME type for Apple")

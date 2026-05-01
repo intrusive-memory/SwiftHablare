@@ -24,7 +24,7 @@ import SwiftCompartido
 /// )
 /// // => "apple://com.apple.voice.compact.en-US.Samantha?lang=en"
 ///
-/// // ElevenLabs voice
+/// // External provider voice (e.g. SwiftHablareOnce)
 /// let uri2 = VoiceURI(
 ///     providerId: "elevenlabs",
 ///     voiceId: "21m00Tcm4TlvDq8ikWAM",
