@@ -4,14 +4,14 @@
     <img src="icon.jpg" alt="SwiftHablare" width="200" />
 </p>
 
-**Simple voice generation library** - Convert text into spoken audio using Apple TTS or ElevenLabs.
+**Simple voice generation library** — convert text into spoken audio. Built-in `AppleVoiceProvider` for on-device TTS; cloud providers (e.g. ElevenLabs via [SwiftHablareOnce](https://github.com/intrusive-memory/SwiftHablareOnce)) are added through companion packages.
 
 ## Overview
 
 SwiftHablare is a focused Swift library that takes text and a voice ID, then generates audio. Simple API: `text + voiceId → audio`.
 
 **Core Features:**
-- **Two voice providers**: Apple Text-to-Speech (built-in) and ElevenLabs (API-based)
+- **Built-in `AppleVoiceProvider`**: on-device TTS, always available; external providers (e.g. ElevenLabs via SwiftHablareOnce) self-register at app launch
 - **Provider registry**: Centralized provider management with configuration panels (v3.5.1)
 - **Thread-safe generation**: Uses Swift actors for safe concurrency
 - **Cross-platform**: iOS 26+ and macOS 26+ (full platform support)
@@ -25,6 +25,12 @@ SwiftHablare is a focused Swift library that takes text and a voice ID, then gen
 - ❌ Automatic voice assignment (consuming apps handle this)
 
 SwiftHablare focuses on doing one thing well: generating high-quality audio from text with a specified voice.
+
+## Upgrading from 5.x
+
+SwiftHablare 6.0 extracted the ElevenLabs provider to a sibling package — see [UPGRADING.md](UPGRADING.md) for the migration path. Apps that only use `AppleVoiceProvider` need no code changes beyond bumping the version pin. Apps that use ElevenLabs need to add the [SwiftHablareOnce](https://github.com/intrusive-memory/SwiftHablareOnce) dependency and register its descriptor at startup.
+
+> **Heads-up:** the rest of this README still contains 5.x-era code examples and provider snippets (e.g. `ElevenLabsVoiceProvider()` constructed directly). Those are scheduled for a follow-up doc-cleanup PR. Until then, treat UPGRADING.md and the SwiftHablareOnce README as the source of truth for ElevenLabs integration.
 
 ## What's New in v5.3.0
 
@@ -195,7 +201,7 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "5.7.2"),
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "6.0.0"),
     .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "6.6.0")
 ]
 ```
