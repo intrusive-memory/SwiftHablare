@@ -11,7 +11,7 @@ This file contains instructions specific to Claude Code agents working on SwiftH
 **Platforms**: iOS 26.0+, macOS 26.0+
 
 **Key Components**:
-- Multi-provider voice generation (Apple TTS, ElevenLabs)
+- Pluggable voice generation: built-in `AppleVoiceProvider`; cloud providers via companion packages (e.g. SwiftHablareOnce for ElevenLabs)
 - Protocol-oriented SpeakableItem/SpeakableGroup design
 - Actor-based GenerationService for thread-safe audio generation
 - SwiftUI voice/provider pickers and generation buttons

@@ -10,11 +10,13 @@ import Foundation
 /// SwiftHablare - Audio generation library for screenplays
 ///
 /// SwiftHablare focuses purely on generation - converting screenplay elements
-/// into spoken audio using voice providers (Apple TTS and ElevenLabs).
+/// into spoken audio using a pluggable `VoiceProvider` protocol. The on-device
+/// `AppleVoiceProvider` ships built-in; other providers (e.g. `SwiftHablareOnce`
+/// for ElevenLabs) are added by depending on companion packages.
 ///
 /// ## Features
 ///
-/// - Two voice providers: Apple TTS (built-in) and ElevenLabs (API-based)
+/// - Built-in `AppleVoiceProvider`; external providers via `VoiceProviderRegistry`
 /// - Voice caching to reduce API calls
 /// - Thread-safe generation using actor isolation
 /// - Saves audio to TypedDataStorage from SwiftCompartido
@@ -38,9 +40,9 @@ import Foundation
 /// // 3. Generate audio for an element
 /// let result = try await service.generate(
 ///     forElement: element,
-///     providerId: "elevenlabs",
-///     voiceId: "voice123",
-///     voiceName: "Rachel"
+///     providerId: "apple",
+///     voiceId: "com.apple.voice.compact.en-US.Samantha",
+///     voiceName: "Samantha"
 /// )
 ///
 /// // 4. Save to SwiftData (on main thread)
@@ -79,7 +81,7 @@ import Foundation
 /// There are NO circular dependencies - SwiftCompartido does not depend on SwiftHablare.
 public struct SwiftHablare {
   /// Library version
-  public static let version = "5.7.2"
+  public static let version = "6.0.0"
 
   /// Library name
   public static let name = "SwiftHablare"

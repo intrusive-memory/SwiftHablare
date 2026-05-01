@@ -92,7 +92,7 @@ public struct DialogueLine {
 ///         Interaction(character: "Waiter", line: "Welcome!", voiceId: "voice-1"),
 ///         Interaction(character: "Customer", line: "One coffee, please.", voiceId: "voice-2")
 ///     ],
-///     provider: ElevenLabsVoiceProvider()
+///     provider: AppleVoiceProvider()
 /// )
 /// ```
 public struct Scene: SpeakableGroup {

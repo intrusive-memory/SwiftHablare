@@ -67,7 +67,7 @@ public struct GenerationResult: Sendable {
 ///
 /// ```swift
 /// // Create service with voice provider
-/// let service = GenerationService(voiceProvider: ElevenLabsVoiceProvider())
+/// let service = GenerationService(voiceProvider: AppleVoiceProvider())
 ///
 /// // Generate audio (happens on background thread)
 /// let result = try await service.generate(
@@ -210,7 +210,8 @@ public actor GenerationService {
   /// Get all registered voice providers
   ///
   /// Returns a list of all voice providers in the registry.
-  /// The default providers (Apple and ElevenLabs) are always included.
+  /// `AppleVoiceProvider` is always included; other providers are added by
+  /// consumers via `VoiceProviderRegistry.shared.register(_:)`.
   ///
   /// - Returns: Array of registered voice providers
   public func registeredProviders() async -> [VoiceProvider] {

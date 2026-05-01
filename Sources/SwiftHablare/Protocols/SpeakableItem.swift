@@ -68,8 +68,8 @@ public protocol SpeakableItem {
   /// The voice provider to use for speech synthesis
   ///
   /// This can be any implementation of `VoiceProvider`, such as:
-  /// - `AppleVoiceProvider` for iOS TTS
-  /// - `ElevenLabsVoiceProvider` for ElevenLabs API
+  /// - `AppleVoiceProvider` for iOS TTS (built-in)
+  /// - External providers from companion packages (e.g. `SwiftHablareOnce` for ElevenLabs)
   /// - Custom providers you implement
   var voiceProvider: VoiceProvider { get }
 
@@ -77,14 +77,14 @@ public protocol SpeakableItem {
   ///
   /// This must be a valid voice ID for the specified provider:
   /// - For Apple: Use identifiers from `AVSpeechSynthesisVoice`
-  /// - For ElevenLabs: Use voice IDs from their API
+  /// - For external providers: Use voice IDs from the provider's own catalog
   ///
   /// ## Example
   /// ```swift
   /// // Apple voice
   /// voiceId = "com.apple.voice.enhanced.en-US.Samantha"
   ///
-  /// // ElevenLabs voice
+  /// // External provider voice
   /// voiceId = "21m00Tcm4TlvDq8ikWAM"
   /// ```
   var voiceId: String { get }
@@ -143,7 +143,7 @@ extension SpeakableItem {
   /// `generateAudio` method with the item's voice ID and text.
   ///
   /// - Returns: Audio data in the format specified by the voice provider
-  ///   (AIFF for Apple, MP3 for ElevenLabs, etc.)
+  ///   (e.g. AIFF for Apple)
   /// - Throws: `VoiceProviderError` if audio generation fails
   ///
   /// ## Example

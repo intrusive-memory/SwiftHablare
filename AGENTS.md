@@ -4,7 +4,7 @@ This file provides comprehensive documentation for AI agents working with the Sw
 
 ## Quick Reference
 
-- **Current Version**: 5.7.2 (check `SwiftHablare.swift` for actual version string)
+- **Current Version**: 6.0.0 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 229+ passing tests (SwiftHablare)
@@ -48,7 +48,9 @@ This file provides comprehensive documentation for AI agents working with the Sw
 
 ## Project Overview
 
-**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation using multiple voice providers (Apple TTS and ElevenLabs), with secure API key management, and optional SwiftUI components.
+**SwiftHablaré** is a Swift voice generation library for iOS and macOS applications. It provides a unified API for text-to-speech generation through a pluggable `VoiceProvider` protocol. The on-device `AppleVoiceProvider` ships built-in; cloud providers (e.g. ElevenLabs via [SwiftHablareOnce](https://github.com/intrusive-memory/SwiftHablareOnce)) are added by depending on companion packages and registering their descriptor at startup. Includes secure API key management and optional SwiftUI components.
+
+> **Note for agents**: as of 6.0, `ElevenLabsVoiceProvider`, `ElevenLabsModel`, and SwiftOnce-related types are no longer part of this package. They live in `SwiftHablareOnce`. Many older sections of this file still describe the 5.x layout; those will be cleaned up in a follow-up doc PR.
 
 **Key Focus**: Voice generation library with optional UI components. Includes core generation services, SwiftUI pickers and buttons, but no audio playback, no screenplay processing beyond generation. SwiftHablaré is a **generation library** with helpful UI components, not a complete application framework.
 

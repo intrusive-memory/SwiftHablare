@@ -3,10 +3,19 @@
 import Foundation
 import PackageDescription
 
-// MARK: - Package Dependencies
-//
-// Uses SwiftCompartido from GitHub to ensure compatibility when consumed as a remote package
-//
+// In CI we always pin to released remotes. Locally, prefer a sibling checkout
+// at ../<name> if present so in-flight changes can be exercised end-to-end
+// without publishing a release. Falls back to the remote pin if the sibling
+// directory is missing, so fresh clones still build.
+let useLocalSiblings = ProcessInfo.processInfo.environment["CI"] != "true"
+
+func sibling(_ name: String, remote: String, from version: Version) -> Package.Dependency {
+  let localPath = "../\(name)"
+  if useLocalSiblings && FileManager.default.fileExists(atPath: localPath) {
+    return .package(path: localPath)
+  }
+  return .package(url: remote, .upToNextMajor(from: version))
+}
 
 let package = Package(
   name: "SwiftHablare",
@@ -25,10 +34,21 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftFijos.git", from: "1.0.0"),
-    .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "7.0.0"),
-    .package(url: "https://github.com/intrusive-memory/SwiftProyecto.git", from: "3.0.0"),
-    .package(url: "https://github.com/intrusive-memory/SwiftOnce.git", from: "1.0.0"),
+    sibling(
+      "SwiftFijos",
+      remote: "https://github.com/intrusive-memory/SwiftFijos.git",
+      from: "1.4.1"
+    ),
+    sibling(
+      "SwiftCompartido",
+      remote: "https://github.com/intrusive-memory/SwiftCompartido.git",
+      from: "7.0.2"
+    ),
+    sibling(
+      "SwiftProyecto",
+      remote: "https://github.com/intrusive-memory/SwiftProyecto.git",
+      from: "3.5.0"
+    ),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
   ],
   targets: [
@@ -37,7 +57,6 @@ let package = Package(
       dependencies: [
         .product(name: "SwiftCompartido", package: "SwiftCompartido"),
         .product(name: "SwiftProyecto", package: "SwiftProyecto"),
-        .product(name: "SwiftOnce", package: "SwiftOnce"),
       ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
