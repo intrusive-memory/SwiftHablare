@@ -43,7 +43,7 @@ let package = Package(
     sibling(
       "SwiftProyecto",
       remote: "https://github.com/intrusive-memory/SwiftProyecto.git",
-      from: "3.5.0"
+      from: "3.5.2"
     ),
   ],
   targets: [
