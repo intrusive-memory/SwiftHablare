@@ -18,3 +18,4 @@ Package.resolved
 *.aiff
 *.mp3
 Scripts/.venv/
+bin/
