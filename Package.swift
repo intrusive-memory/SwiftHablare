@@ -20,7 +20,7 @@ let package = Package(
     .package(
       url: "https://github.com/intrusive-memory/SwiftCompartido.git", .upToNextMajor(from: "7.0.4")),
     .package(
-      url: "https://github.com/intrusive-memory/SwiftProyecto.git", .upToNextMajor(from: "3.5.0")),
+      url: "https://github.com/intrusive-memory/SwiftProyecto.git", .upToNextMajor(from: "4.0.0")),
   ],
   targets: [
     .target(
