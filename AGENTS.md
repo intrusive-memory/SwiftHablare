@@ -1,10 +1,14 @@
+---
+type: reference
+---
+
 # AGENTS.md
 
 This file provides comprehensive documentation for AI agents working with the SwiftHablaré codebase.
 
 ## Quick Reference
 
-- **Current Version**: 6.1.1-dev (check `SwiftHablare.swift` for actual version string)
+- **Current Version**: 6.2.0 (check `SwiftHablare.swift` for actual version string)
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 229+ passing tests (SwiftHablare)
