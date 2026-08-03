@@ -210,7 +210,7 @@ If you have custom VoiceProvider implementations, you must add the `mimeType` pr
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "6.2.0-dev"),
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "6.3.0"),
     .package(url: "https://github.com/intrusive-memory/SwiftCompartido.git", from: "6.6.0")
 ]
 ```
