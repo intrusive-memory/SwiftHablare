@@ -61,17 +61,12 @@ let package = Package(
       "SwiftCompartido",
       remote: "https://github.com/intrusive-memory/SwiftCompartido.git",
       from: "7.0.4"),
-    sibling(
-      "SwiftProyecto",
-      remote: "https://github.com/intrusive-memory/SwiftProyecto.git",
-      from: "4.0.0"),
   ],
   targets: [
     .target(
       name: "SwiftHablare",
       dependencies: [
         .product(name: "SwiftCompartido", package: "SwiftCompartido"),
-        .product(name: "SwiftProyecto", package: "SwiftProyecto"),
       ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
