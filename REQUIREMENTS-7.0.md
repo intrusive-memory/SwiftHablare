@@ -31,7 +31,7 @@ Existing engines must port onto the same contract: `AppleVoiceProvider` (built i
 
 | Consumer | How it uses Hablare | What it needs from 7.0 |
 |---|---|---|
-| **Escribir** (`apps/Escribir`, macOS + iOS editor) | Read-aloud: paragraph playback in a chosen voice (planned 1.2.0, `docs/REQUIREMENTS-1.2.0.md`). Voice **choice** for a cast. Later, submits screenplays to Produciesta's queue with the user's chosen provider (**macOS only**; iOS is read-aloud only) | Voice listing and preview synthesis. A host-drawn Settings pane, which needs credential and settings **metadata** rather than provider SwiftUI. Content-addressed caching (`renderIdentity` ← R8). Honest progress (R2). Keys entered here must reach Produciesta's queue (R6) |
+| **Escribir** (`apps/Escribir`, macOS + iOS editor) | Read-aloud: paragraph playback in a chosen voice (planned for the next minor after 1.2.0; spec drafted as `docs/REQUIREMENTS-1.2.0.md`, to be retitled, because 1.2.0 shipped other work as rc1–rc9). Voice **choice** for a cast. Later, submits screenplays to Produciesta's queue with the user's chosen provider (**macOS only**; iOS is read-aloud only) | Voice listing and preview synthesis. A host-drawn Settings pane, which needs credential and settings **metadata** rather than provider SwiftUI. Content-addressed caching (`renderIdentity` ← R8). Honest progress (R2). Keys entered here must reach Produciesta's queue (R6) |
 | **Produciesta** (queue manager LaunchAgent + CLI, macOS) | Headless rendering of whole screenplays | Everything in R1–R11. No UI |
 
 Escribir is the **only place a user configures providers and keys**. Produciesta renders with
@@ -143,8 +143,9 @@ public enum SynthesisProgress: Sendable {
   case finished
 }
 // `synthesize(_:progress:)` overload with an `@Sendable (SynthesisProgress) -> Void` callback,
-// defaulting to `.started` / `.finished`. This is what Escribir 1.2.0 §2.2 says a determinate
-// ring needs. Hosts must not invent a fraction when `expected` is nil.
+// defaulting to `.started` / `.finished`. Escribir's voice spec §2.2 ships an *indeterminate* ring and
+// defers a determinate one until Hablare exposes progress (its l.240, l.657); this unblocks it.
+// Hosts must not invent a fraction when `expected` is nil.
 
 public protocol StreamingVoiceSynthesizer: VoiceSynthesizer {
   func stream(_ request: SpeechRequest) -> AsyncThrowingStream<AudioChunk, Error>
@@ -286,7 +287,7 @@ keyed by `pluginId` instead of an enum:
 
 - `SynthesisLimits` per synthesizer:
   - Chatterbox: ~280 characters
-  - Gemini: 8,192 input tokens
+  - Gemini: 8,192 input tokens (not in Google's TTS docs; confirm with a live call)
   - ElevenLabs: per-model character limit
 - `TextChunker` (core) splits on sentence boundaries to fit `limits`.
 - `TakeValidator` (core): a characters-per-second plausibility window (the prototype uses
@@ -304,8 +305,9 @@ keyed by `pluginId` instead of an enum:
 ### R9 — Local models: SwiftAcervo for files, mlx-audio-swift for memory
 
 - **SwiftAcervo is the model interface** for discovery, download, verification, and the on-disk
-  cache. Core depends on SwiftAcervo, which is zero-dependency (Foundation + CryptoKit), so this
-  costs nothing transitively.
+  cache. Core depends on SwiftAcervo. Its library target imports only Foundation, CryptoKit, OSLog and
+  Security, but the package also declares swift-argument-parser and Progress.swift for its `acervo`
+  CLI. SPM resolves those but Hablare never links them.
 - A local `ModelDescriptor` carries its Acervo model id. `PluginStatus.needsModel` and the UI's
   download progress come straight from SwiftAcervo's availability and download APIs. Plugins
   **must not** implement their own downloaders or caches.
@@ -356,7 +358,7 @@ public struct CompositePlugin<Designer: HablarePlugin, Synthesizer: HablarePlugi
 - **Why (decided 2026-10-23):**
   - Produciesta's GUI is a queue manager, and generation runs headless.
   - Escribir, the one app with voice settings, draws its own Settings pane in its own design. Its
-    1.2.0 doc already rejects Hablare's `GenerateAudioButton` for faking progress.
+    voice spec already rejects Hablare's `GenerateAudioButton` for faking progress.
   - So hosts render from **metadata**: `CredentialRequirement` (R6), `SettingsSchema` (R5),
     `ModelDescriptor` plus SwiftAcervo download state (R9), `PluginStatus`, and
     `APIKeyStoring.keySource`. Plugins ship no views.
@@ -391,22 +393,54 @@ public struct CompositePlugin<Designer: HablarePlugin, Synthesizer: HablarePlugi
 
 | Package | Change | Notes |
 |---|---|---|
-| SwiftVoxAlta | Plugin: synth (`.instruct`, `.onDevice`) + design; residency via the MLXAudioCore model host (R9); model size via `PluginConfiguration` | Fixes the hard-coded 1.7B descriptor |
+| SwiftVoxAlta | Plugin: synth (`.instruct`, `.onDevice`) + design; residency via the MLXAudioCore model host (R9); model size via `PluginConfiguration` | Today 1.7B is only an `init` default and the descriptor carries no model metadata. 7.0 makes the size a `PluginConfiguration` value that `models` reports |
 | SwiftVoxAlta-telemetry | Port | |
 | SwiftHablareOnce 0.2.0 | Plugin: synth + design; `pcm_24000` → WAV for `.pcm24kMono16`; Keychain account `elevenlabs-api-key` copied once into R6 | |
 | SwiftGemelos (client) + SwiftHablareGemelos (plugin) | SwiftOnce-parity client covering speech **and voice design** (`POST /v1beta/voices` `prompted`, list, delete); the plugin is a thin adapter to `VoiceSynthesizer` + `VoiceDesigner`. No cloning | `.vox` layout per vox-python |
-| **mlx-audio-swift** (re-fork, prerequisite) | **Option A, decided 2026-10-23: re-base the fork on current `Blaizzy/mlx-audio-swift` `main`** and re-apply our differences as a thin, documented layer: (1) SwiftAcervo model loading in place of swift-huggingface downloads; (2) persisted voice clone prompts (`VoiceClonePrompt`, `generateWithClonePrompt`), which existing `.vox` `clone-prompt.bin` embeddings depend on; (3) `Qwen3TTSModelRepo` / model-size enum and the telemetry reporter that SwiftVoxAlta uses; (4) a **shared audio model host in MLXAudioCore**, promoted from `VoxAltaModelManager` (single-slot, `checkMemory`/`validateMemory`) and `VoxAltaMemoryPolicy` (MLX cache cap, `clearCache`); (5) the fork's Qwen3 cloning fixes, if upstream doesn't already have them (reference-audio trimming, no forced repetition penalty, config dimensions). Chatterbox (Regular + Turbo) and upstream's other models come with the re-base. The fork's breath helpers, language-key accessors, and `WiredMemoryManager` are **dropped** (no external users). Offer (2) upstream as a PR | **Tokenizer conflict:** upstream uses swift-transformers, while the fork, SwiftVoxAlta, and SwiftTuberia use swift-tokenizers, and both provide a `Tokenizers` module. Resolve it in one coordinated move with SwiftTuberia (and thus Vinetas). **Qwen3 output must match current renders** in a listening check before SwiftVoxAlta adopts the re-fork |
+| **mlx-audio-swift** (re-fork, prerequisite) | **Option A, decided 2026-10-23: re-base the fork on current `Blaizzy/mlx-audio-swift` `main`** and re-apply our differences as a thin, documented layer: (1) SwiftAcervo model loading in place of swift-huggingface downloads; (2) persisted voice clone prompts (`VoiceClonePrompt`, `generateWithClonePrompt`), which existing `.vox` `clone-prompt.bin` embeddings depend on; (3) the telemetry reporter that SwiftVoxAlta uses (`Qwen3TTSModelRepo` is **not** a fork difference: it lives in SwiftVoxAlta and stays there); (4) a **shared audio model host in MLXAudioCore**, promoted from `VoxAltaModelManager` (single-slot, `checkMemory`/`validateMemory`) and `VoxAltaMemoryPolicy` (MLX cache cap, `clearCache`); (5) the fork's Qwen3 cloning fixes, if upstream doesn't already have them (reference-audio trimming, no forced repetition penalty, config dimensions). Chatterbox (Regular + Turbo) and upstream's other models come with the re-base. The fork's breath helpers, language-key accessors, and `WiredMemoryManager` are **dropped** (no external users). Offer (2) upstream as a PR | **Tokenizer conflict:** upstream uses swift-transformers, while the fork, SwiftVoxAlta, and SwiftTuberia use swift-tokenizers, and both provide a `Tokenizers` module. Resolve it in one coordinated move with SwiftTuberia (and thus Vinetas). **Qwen3 output must match current renders** in a listening check before SwiftVoxAlta adopts the re-fork |
 | SwiftVoxAlta | Adopt the MLXAudioCore model host; keep a thin `VoxAltaModelManager` facade for one release | In addition to its plugin port above |
 | SwiftCotorra | **Thin Hablare plugin** over mlx-audio-swift's `ChatterboxModel` (the SwiftVoxAlta pattern): `.vox` reference selection and ≤10 s clip on a pause (R3, R5), chunking/validation (R7), residency via MLXAudioCore. Models `mlx-community/Chatterbox-TTS-fp16` (multilingual, emotion) and `chatterbox-turbo-*` (English, faster), via the Acervo CDN | The engine already exists upstream. Remaining risk is port fidelity against the Python prototype |
 | gemini-chatterbox | `CompositePlugin` declaration, a few dozen lines | Declared in Produciesta, its only consumer. Becomes its own package only when a second app needs it (SwiftCotorra must not depend on SwiftHablareGemelos) |
 | Produciesta | Consumes R1–R11; see `apps/Produciesta/REQUIREMENTS-hablare-providers.md` | |
-| **Escribir** | 1.2.0 (voices in the paragraph well) is a draft written against the **6.x** API: `VoiceProvider`, `VoiceProviderRegistry`, `generateAudio -> Data`, `makeConfigurationView`, `KeychainManager`. Build it **on 7.0**: registry → `PluginRegistry`, provider config sheet → host-drawn form from `CredentialRequirement` + `SettingsSchema`, `renderIdentity` ← `cacheKey(for:)`, model download progress from SwiftAcervo, optional determinate ring from `SynthesisProgress`. Later: provider-qualified casting in the `.guion` it submits to Produciesta's queue | Starting 1.2.0 on 6.x means rewriting its seam within one release. See ordering below |
+| **Escribir** | The voice release (voices in the paragraph well; next minor after 1.2.0, since the 1.2.0 line already shipped other work) is specified in a draft written against the **6.x** API: `VoiceProvider`, `VoiceProviderRegistry`, `generateAudio -> Data`, `makeConfigurationView`, `KeychainManager`. Build it **on 7.0**: registry → `PluginRegistry`, provider config sheet → host-drawn form from `CredentialRequirement` + `SettingsSchema`, `renderIdentity` ← `cacheKey(for:)`, model download progress from SwiftAcervo, the determinate ring its §2.2 defers, from `SynthesisProgress`. Later: provider-qualified casting in the `.guion` it submits to Produciesta's queue | Starting the voice release on 6.x means rewriting its seam within one release. See ordering below |
 | apps/produciesta-old | Stays on 6.x | No port |
+
+### Gemini API facts for SwiftGemelos (from Google's docs, 2026-10-24)
+
+Source: <https://ai.google.dev/gemini-api/docs/speech-generation>. These have not yet been checked with a live call; the first SwiftGemelos sortie does that, using the Keychain key.
+
+- **Models**: `gemini-3.8-flash-tts` (130+ languages) and `gemini-3.8-flash-lite-tts` (100+). Both do single and
+  multi-speaker synthesis, voice design and replication. Older `gemini-3.1-flash-tts-preview` and
+  `gemini-2.5-pro-preview-tts` don't do design.
+- **Synthesis**: `POST /v1beta/interactions`, header `x-goog-api-key`. The body has:
+  - `model`
+  - `input: [{type: "user_input", content: [{type: "text", text, annotations: [{type: "speech_metadata", speaker?, style?}]}]}]`
+  - `response_format: {type: "audio", mime_type?, sample_rate?}`
+  - `generation_config.speech_config: [{voice}]`, or `{speakers: [{speaker, voice}]}` for multi-speaker
+  - `stream?`
+
+  The `voice` field takes a prebuilt name (30 studio voices, plus a 2,000+ Extended Voice Library), a `voice_…` id, or a
+  `voicekey_…` id.
+- **Output**:
+  - Unary responses default to `audio/wav`: 24 kHz, mono, 16-bit LE PCM, 44-byte RIFF header. That matches `.pcm24kMono16`, so no conversion is needed.
+  - Streaming defaults to headerless `audio/l16` and returns `step.delta` events. Gemelos is a `StreamingVoiceSynthesizer`.
+  - Other options: `audio/mulaw` and `audio/alaw`; sample rate 24000, 16000 or 8000.
+- **Voice design**: `POST /v1beta/voices` with `type: "prompted"`. Voices are listed with `GET /v1beta/voices`, filterable by `language_code`, `gender`, `pitch`, `type`, `search` and `page_size`.
+- **Voice limits**:
+  - Stateful `voice_…` voices are capped at **200 per project**, shared between prompted and replicated voices. They are deleted after 1 year without use, and each use resets that clock.
+  - Stateless `voicekey_…` handles last 7 days.
+  - So the designer must store the sample in the `.vox` (R3). It also needs `delete`, and `status()` should report when the project is near the 200 cap.
+- **Multi-speaker works only with prebuilt voices**, at most 2 speakers. Custom voices are rendered one turn at a time, so for designed voices Gemelos does **not** advertise `.multiSpeaker`.
+- **Not documented**:
+  - The input limit. R7's 8,192 tokens is unconfirmed.
+  - A `seed` parameter. Without one Gemelos lacks `.seed`, and `cacheKey` returns `nil` unless Google confirms reproducibility.
+  - The `DELETE /v1beta/voices/{id}` and `GET` paths. vox-python calls both (`providers/gemini.py`).
+  - The safety rule that rejects prompts describing minors. We saw it in the prototype; Google doesn't document it.
 
 ## Ordering (critical path)
 
 ```
-SwiftHablare 7.0 ──► SwiftVoxAlta on 7.0 (CURRENT fork) ──► Escribir 1.2.0 ──► Escribir → Produciesta queue rendering
+SwiftHablare 7.0 ──► SwiftVoxAlta on 7.0 (CURRENT fork) ──► Escribir voices ──► Escribir → Produciesta queue rendering
         │                     ▲
         ├──► SwiftHablareOnce 0.2.0, SwiftGemelos/SwiftHablareGemelos   (cloud choices in Escribir)
         │
@@ -439,7 +473,7 @@ mlx-audio-swift in a later minor release, behind its own listening gate.
 - **Over-design risk.** R2's designer role and R11's composition are justified by exactly one
   hybrid. That is acceptable because the prototype exists, but the reserved
   `VoiceConverter` stays declared-only until something uses it.
-- **Core now depends on vox-format and SwiftAcervo.** Both are small, in-org, zero-dependency packages. The alternative is every
+- **Core now depends on vox-format and SwiftAcervo.** Both are small and in-org. Their library targets add only ZIPFoundation (already in the graph via SwiftCompartido); their CLIs add swift-argument-parser and Progress.swift, which resolve but don't link. The alternative is every
   plugin parsing `.vox` itself, which is how the formats drift.
 - **Gemini's Interactions API is `v1beta`.** That risk belongs to the plugin, not core.
 - **Coordinated majors.** VoxAlta, HablareOnce, and telemetry must all release before Produciesta
