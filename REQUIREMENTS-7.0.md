@@ -343,6 +343,16 @@ public struct CompositePlugin<Designer: HablarePlugin, Synthesizer: HablarePlugi
 - `gemini-chatterbox` is declared as a composite: `id`, `designer` from `google`, `synthesizer` from
   `chatterbox`. It has no engine code of its own. Kind is `.hybrid`. Credentials are the union (R6).
   Models are the synthesizer's local models.
+- **The hybrid flow (decided 2026-10-24).** Each step is done by a different plugin:
+  1. **Design** (`google` designer, cloud, once per character): create the voice from its CAST.md prompt.
+  2. **Download the sample**: `save(_:into:)` writes the sample audio into the character's `.vox` at
+     `embeddings/google/gemini-3.8-flash-tts/sample-audio.wav`, with the `voice_…` id in `manifest.extensions.google`.
+  3. **Replicate** (`chatterbox` synthesizer, local, every line): Chatterbox clones the voice zero-shot from a ≤10 s clip of
+     that sample and renders every line on-device.
+
+  Rendering never calls Gemini synthesis. The `voice_…` id is needed only to design the voice again or delete
+  it. Gemini's one-year expiry and its 200-voice cap therefore do not affect a hybrid render once the sample is
+  in the `.vox`.
 - The composite resolves its components through `PluginContext.registry`. Both component plugins
   must be linked and registered, and `status()` names whichever one is missing.
 - Any designer can pair with any synthesizer whose consumed sources (R3) include what the designer
@@ -431,6 +441,7 @@ Source: <https://ai.google.dev/gemini-api/docs/speech-generation>. These have no
   - Stateless `voicekey_…` handles last 7 days.
   - So the designer must store the sample in the `.vox` (R3). It also needs `delete`, and `status()` should report when the project is near the 200 cap.
 - **Multi-speaker works only with prebuilt voices**, at most 2 speakers. Custom voices are rendered one turn at a time, so for designed voices Gemelos does **not** advertise `.multiSpeaker`.
+  **Decided 2026-10-24:** the all-Google path (`google` plugin) synthesizes designed voices **line by line**, one `interactions` call per dialogue line, using that character's `voice_…` id. The host joins the lines. It does not use the multi-speaker request form.
 - **Not documented**:
   - The input limit. R7's 8,192 tokens is unconfirmed.
   - A `seed` parameter. Without one Gemelos lacks `.seed`, and `cacheKey` returns `nil` unless Google confirms reproducibility.
