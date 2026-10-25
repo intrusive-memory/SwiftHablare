@@ -2,10 +2,11 @@
 type: recon-report
 state: current
 requirements_file: REQUIREMENTS-7.0.md
-requirements_sha256: 160ff9e3515c6be0780c9689e46fca92d9c70ef3ec3c22da6fc94a1c1db8f6bc
-project_head: c078efa02506043971be4192043c96f6f8fb1812
+requirements_sha256: e784f624b4cb88d1f8ced6d47cdb96643a9cf8eaef83f7b092ecb638ef6d8ea7
+project_head: 1ce470e3f7706854537b8812d81ab3169df29d63
 search_root: ~/Projects
 generated: 2026-10-24
+revised: 2026-10-25
 verdict: CLEAR
 ---
 
@@ -20,6 +21,8 @@ verdict: CLEAR
 ## Verdict
 
 **CLEAR** (re-adjudicated 2026-10-24). All six blocking findings below were fixed in REQUIREMENTS-7.0.md (and in Produciesta's REQUIREMENTS-hablare-providers.md where it repeated them). No code assumption changed, so no spoke was re-run.
+
+**Scoped re-run 2026-10-25 for `f5e2633c`: still CLEAR.** That commit added two decisions: the design → download sample → replicate hybrid flow (R11) and the line-by-line all-Google path (Gemini facts). They carry 7 new assumptions, A-42 to A-48. All 7 are confirmed against the prototype, vox-python, upstream mlx-audio-swift, SwiftReparto and Produciesta. The Google API's own behaviour is still U-1, which is now wider (see Unverifiable). The other 41 findings were not re-checked, because the commit touches no other section.
 
 Original verdict: **BLOCKED.** 41 assumptions were checked. 33 were confirmed, 6 block the plan, and 2 are unverifiable.
 
@@ -70,6 +73,13 @@ None of the blocking findings changes the architecture. Each is a wrong statemen
 | A-39 | A-BEHAVIOR | Falls back to the Qwen3 sample with a warning | prototype | CONFIRMED | `render.py:191-192`: `warning: {sp} has no Gemini voice; using its {source} sample` |
 | **A-40** | A-DATA | Escribir "1.2.0" doc: 6.x API, D-6, "§2.2 says a determinate ring needs" progress | app:Escribir | **STALE** | The API names and D-6 are confirmed (`docs/REQUIREMENTS-1.2.0.md:53-64,536`). **§2.2 specifies an *indeterminate* ring** and defers the determinate one (:217,240,657) |
 | **A-41** | A-DATA | Voice work ships as Escribir **1.2.0** | app:Escribir | **STALE** | Tags `1.2.0-rc1` through `rc9` already exist for other work, and none of them reference SwiftHablare (`git grep` at `development`, `main` and `1.2.0-rc6` returned no matches). The voice feature needs a new version number |
+| A-42 | A-BEHAVIOR | The hybrid never calls Gemini synthesis; rendering uses only the stored sample | prototype @56c5b33 | CONFIRMED | `render.py` has no `genai`, `interactions` or synthesis call. Gemini is used only in `gemini_voices.py:36-76` (`design_voice`) |
+| A-43 | A-DATA | Design writes the sample to `embeddings/google/gemini-3.8-flash-tts/sample-audio.wav` and the voice id to `manifest.extensions.google` | vox-python 0.4.0; prototype | CONFIRMED | vox-python `providers/gemini.py:5-12,46,51` (`voice_id` is the first extension key). The prototype writes it through vox-python's `attach` (`gemini_voices.py:65-68`). The installed copy and the uv git checkout `582c50b` are identical here |
+| A-44 | A-DATA | The design prompt comes from the character's CAST.md voice prompt | dep:SwiftReparto@v0.2.0; prototype | CONFIRMED | Reparto `CastMember+Merging.swift:76,191` (`voicePrompt`). The prototype reads `voicePrompt` (`cast.py:38`) and refuses to design without it (`gemini_voices.py:42-43`) |
+| A-45 | A-API | Chatterbox clones zero-shot from reference audio | upstream mlx-audio-swift @d8e2caf | CONFIRMED | `ChatterboxModel.swift:498` `prepareConditionals(refAudio:)`; `generate(… refAudio:)` at :680 needs it (:718). Still true at today's `upstream/main` `6fd9386` |
+| A-46 | A-BEHAVIOR | The reference clip is at most 10 s | upstream @d8e2caf; prototype | CONFIRMED | `ChatterboxConfig.swift:383` `decCondLen = 10 * 24000` (encoder 6 s, :382). Matches prototype `render.py:64-68` |
+| A-47 | A-API | A stored voice is rendered by one `/interactions` call per text, keyed by its voice id | vox-python 0.4.0 | CONFIRMED (client shape only) | `providers/gemini.py:150-166` `synthesize(voice_id:text:)` posts one `/interactions` request with a single `speech_config` voice. Live behaviour is U-1 |
+| A-48 | A-BEHAVIOR | The host joins per-line audio | app:Produciesta | CONFIRMED | `M4AExporter.export(results:to:)` stitches per-element results into one `AVMutableComposition` (`ProduciestaCore/Export/M4AExporter.swift:102-114,156`), on both `origin/main` and `origin/development` |
 
 ### Blocking findings
 
@@ -129,7 +139,7 @@ Downstream packages verified at their tags: SwiftVoxAlta `v0.14.2` (local +1), m
 
 | ID | Claim | Why | What would settle it |
 |----|-------|-----|----------------------|
-| U-1 | The Gemini Interactions API and the `gemini-3.8-flash-tts` / `-lite` model names behave as specified | **Confirmed in Google's documentation** (see the REQUIREMENTS-7.0 section "Gemini API facts"). Not yet checked with a live call | One authenticated call, using the Keychain key, in the first SwiftGemelos sortie |
+| U-1 | The Gemini Interactions API and the `gemini-3.8-flash-tts` / `-lite` model names behave as specified. Since `f5e2633c` this also covers: a designed voice renders one line per call; ids look like `voice_…` (vox-python also accepts `voices/…`); the one-year expiry; the 200-voice cap | **Confirmed in Google's documentation** (see the REQUIREMENTS-7.0 section "Gemini API facts"). Not yet checked with a live call | One authenticated call, using the Keychain key, in the first SwiftGemelos sortie |
 | U-2 | The CDN hosts `mlx-community/Chatterbox-TTS-fp16` and the `chatterbox-turbo-*` models | **Checked: they were not on the CDN.** `manifest.json` returned 404 and Qwen3 returned 200 | Both are being shipped with `acervo ship` (queued 2026-10-24). The prototype's Python model `mlx-community/chatterbox-fp16` is a different repo and is not needed by Swift |
 
 ## Handoff to breakdown
