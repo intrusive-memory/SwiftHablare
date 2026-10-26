@@ -301,7 +301,7 @@ public struct GenerateAudioButton: View {
         let text = item.textToSpeak
         // 6.x shim (removed in Sortie 16): resolve the 6.x provider from the item's voice.
         guard case .catalog(let providerId, let voiceId) = item.voice,
-          let provider = await service.provider(withId: providerId)
+          let provider = await VoiceProviderRegistry.shared.provider(for: providerId)
         else {
           throw VoiceProviderError.notConfigured
         }

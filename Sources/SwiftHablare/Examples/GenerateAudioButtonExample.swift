@@ -176,12 +176,12 @@ public struct GenerateAudioButtonExample: View {
   private func addMessage() async {
     guard let providerId = selectedProviderId,
       let voiceId = selectedVoiceId,
-      let service = service
+      service != nil
     else {
       return
     }
 
-    guard let provider = await service.provider(withId: providerId) else {
+    guard let provider = await VoiceProviderRegistry.shared.provider(for: providerId) else {
       return
     }
 

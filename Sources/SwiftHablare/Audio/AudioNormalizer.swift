@@ -360,7 +360,7 @@ public struct AudioNormalizer: Sendable {
     return data
   }
 
-  private static func riffHeader(dataBytes: Int, sampleRate: Int, channels: Int) -> Data {
+  static func riffHeader(dataBytes: Int, sampleRate: Int, channels: Int) -> Data {
     var header = Data()
     func u32(_ value: Int) {
       for shift in stride(from: 0, to: 32, by: 8) { header.append(UInt8((value >> shift) & 0xFF)) }

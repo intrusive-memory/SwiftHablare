@@ -105,7 +105,8 @@ public struct ProviderPickerView: View {
 
   /// Load providers from the registry
   private func loadProviders() async {
-    providers = await service.availableProviderStatuses()
+    // 6.x shim (removed in Sortie 16): GenerationService no longer lists providers.
+    providers = await VoiceProviderRegistry.shared.availableProviders()
 
     if let selection,
       providers.first(where: { $0.descriptor.id == selection && !$0.isEnabled }) != nil

@@ -345,40 +345,27 @@ struct SpeakableGroupTests {
 
   // MARK: - Integration Tests
 
-  @Test("Group generation completes successfully on device")
+  @Test("Group generation completes through the plugin registry")
   func testGroupGenerationEndToEnd() async throws {
-    #if targetEnvironment(simulator)
-      // Skip test on simulator - Apple TTS doesn't generate real audio on simulator
-      return
-    #endif
-
     let container = try makeTestContainer()
     let context = ModelContext(container)
-    let service = GenerationService()
+    let service = GenerationService(registry: TestFixtures.makeFakeRegistry())
 
-    // Fetch a valid voice ID for testing
-    let pluginId = "apple"
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
-
-    // Create test group with valid voice ID
     let items = (1...2).map { index in
-      SimpleMessage(
-        content: "Message \(index)",
-        voice: .catalog(pluginId: "apple", voiceId: voiceId)
-      )
+      SimpleMessage(content: "Message \(index)", voice: TestFixtures.fakeVoice)
     }
     let group = TestGroup(name: "Test Group", items: items)
 
     // Generate audio for the group
-    let groupItems = group.getGroupedElements()
-    let list = SpeakableItemList(name: group.groupName, items: groupItems)
-
+    let list = SpeakableItemList(name: group.groupName, items: group.getGroupedElements())
     let records = try await service.generateList(list, to: context)
 
     // Verify records were created
     #expect(records.count == 2)
+    #expect(records.map(\.prompt) == ["Message 1", "Message 2"])
     #expect(!(records[0].binaryValue?.isEmpty ?? true))
     #expect(!(records[1].binaryValue?.isEmpty ?? true))
+    #expect(records.allSatisfy { $0.mimeType == AudioFormat.pcm24kMono16.mimeType })
   }
 }
 

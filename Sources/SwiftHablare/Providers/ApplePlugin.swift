@@ -10,7 +10,7 @@
 import AVFoundation
 import Foundation
 
-public struct ApplePlugin: HablarePlugin {
+public struct ApplePlugin: HablarePlugin, VoiceListing {
   /// Matches the `apple://` `VoiceURI` scheme.
   public static let id = "apple"
   public static let displayName = "Apple Text-to-Speech"
