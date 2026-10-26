@@ -45,15 +45,15 @@ type: supervisor-state
 
 ### WU1 Foundation
 - Work unit state: RUNNING
-- Current sortie: 1 of 4 (S1–S4)
+- Current sortie: 2 of 4 (S1–S4)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 12 (plan-specified model)
+- Complexity score: 9 (plan-specified model)
 - Attempt: 1 of 3
-- Agent: wu1-s1
-- Last verified: baseline 219 tests / 19 suites (pre-edit make test)
-- Notes: REPLAN — second library product moves the test action off the auto-generated SwiftHablare scheme. Uncommitted S1 work left in tree (Package.swift, Sources/SwiftHablareTesting/Placeholder.swift).
+- Agent: wu1-s2
+- Last verified: S1 COMPLETED at 30ce655f — shared scheme lists CITests+LocalAudioTests; make test 219/19 suites; CI command green
+- Notes: S1 completed after REPLAN amendment
 
 ### WU2 Plugin host
 - Work unit state: NOT_STARTED
@@ -68,7 +68,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU1 | 1 | implementer | DISPATCHED | 1/3 | — | sonnet | 12 | wu1-s1-r | 870bd6a9 | (harness output file) | 2026-10-26T03:10Z | 0/3 | — |
+| WU1 | 2 | implementer | DISPATCHED | 1/3 | — | sonnet | 9 | wu1-s2 | 30ce655f | (harness output file) | 2026-10-26T03:20Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -78,6 +78,7 @@ type: supervisor-state
 | After sortie | Executed tests |
 |--------------|----------------|
 | baseline (S1 pre-edit) | 219 |
+| S1 | 219 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -89,3 +90,5 @@ type: supervisor-state
 | 2026-10-26T03:00Z | WU1 | 1 | REPLAN accepted; WU1 BLOCKED (attempt counter unchanged, 1/3) | Evidence verified: `make test` → "Scheme SwiftHablare is not currently configured for the test action"; `xcodebuild -list` shows SwiftHablare-Package; no checked-in xcscheme |
 | 2026-10-26T03:00Z | WU1 | 1 | Agent's proposed fix (rename scheme to SwiftHablare-Package) REFUTED for CI | `xcodebuild test -scheme SwiftHablare-Package -testPlan CITests` → "does not have an associated test plan named CITests" (exit 64). Alternative: check in a shared SwiftHablare.xcscheme with test action + CITests/LocalAudioTests plans |
 | 2026-10-26T03:10Z | WU1 | 1 | User amended plan (S1 task 5: commit shared SwiftHablare.xcscheme with CITests/LocalAudioTests; no Makefile/CI edits); resume → PENDING → fresh dispatch, attempt stays 1/3 | User: "just fix the make test. commit to the shared scheme. Edit the execution plan and go." |
+| 2026-10-26T03:20Z | WU1 | 1 | COMPLETED (30ce655f) | All exit criteria verified; shared scheme confirmed via -showTestPlans |
+| 2026-10-26T03:20Z | WU1 | 2 | Model: sonnet | Plan-specified; 4 new files + tests, value types |
