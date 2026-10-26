@@ -169,3 +169,4 @@ type: supervisor-state
 | 2026-10-26T06:25Z | WU4 | 16 | Model: sonnet | Plan-specified |
 | 2026-10-26T06:40Z | WU4 | 16 | COMPLETED (e2b8fc43) | Supervisor re-ran: no SwiftUI import, removed-symbol grep empty, Examples/Hablare gone, plans parse; 325/34 with drop = 46 listed tests |
 | 2026-10-26T06:40Z | WU4 | 17 | Model: sonnet | Plan-specified; [judgment] criterion → sonnet verifier after mechanical pass |
+| 2026-10-26T06:55Z | WU4 | 17 | Mechanical criteria PASS (10009746); verifier round 1 FAIL → PARTIAL (verifier 1/2) | REQUIREMENTS names the plugin AppleVoiceProvider, docs/code say ApplePlugin; also stale AGENTS.md 49-51. Continuation sent to same agent (SendMessage); attempt stays 1/3 |
