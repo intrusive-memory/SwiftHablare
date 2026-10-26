@@ -116,8 +116,10 @@ public struct GenerateAudioButton: View {
 
   /// Fetch descriptor for querying existing audio for this item
   private var audioFetchDescriptor: FetchDescriptor<TypedDataStorage> {
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    // 6.x shim (removed in Sortie 16): an asset voice matches no stored catalog record.
+    guard case .catalog(let providerId, let voiceId) = item.voice else {
+      return FetchDescriptor<TypedDataStorage>(predicate: #Predicate { _ in false })
+    }
     let prompt = item.textToSpeak
 
     return FetchDescriptor<TypedDataStorage>(
@@ -297,9 +299,12 @@ public struct GenerateAudioButton: View {
       do {
         // Extract Sendable data from item
         let text = item.textToSpeak
-        let voiceId = item.voiceId
-        let provider = item.voiceProvider
-        let providerId = provider.providerId
+        // 6.x shim (removed in Sortie 16): resolve the 6.x provider from the item's voice.
+        guard case .catalog(let providerId, let voiceId) = item.voice,
+          let provider = await service.provider(withId: providerId)
+        else {
+          throw VoiceProviderError.notConfigured
+        }
 
         // Re-check for existing audio to prevent race condition
         // Another process might have created it between our initial check and now

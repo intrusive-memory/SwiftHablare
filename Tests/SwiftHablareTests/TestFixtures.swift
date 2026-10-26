@@ -9,6 +9,7 @@ import Foundation
 import SwiftCompartido
 import SwiftData
 import SwiftHablare
+import SwiftHablareTesting
 
 #if canImport(SwiftUI)
   import SwiftUI
@@ -172,27 +173,38 @@ public enum TestFixtures {
     return makeMockErrorProvider()
   }
 
+  // MARK: - Fake Plugin Registry
+
+  /// The voice every speakable factory uses by default: a catalog voice of `FakeSynthesizerPlugin`.
+  nonisolated public static let fakeVoice: VoiceReference = .catalog(
+    pluginId: FakeSynthesizerPlugin.id, voiceId: "fake-voice")
+
+  /// A registry holding only `FakeSynthesizerPlugin`, with no environment and no stored keys.
+  ///
+  /// Each call returns a fresh registry with its own `UserDefaults` suite, so tests never
+  /// share plugin instances or enablement.
+  nonisolated public static func makeFakeRegistry() -> PluginRegistry {
+    let suite = "swifthablare.tests.fakeRegistry.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    return PluginRegistry(
+      userDefaults: defaults, environment: [:], fallbackKeys: [],
+      plugins: [FakeSynthesizerPlugin.self])
+  }
+
   // MARK: - SpeakableItem Factories
 
   /// Create a simple message for testing
   ///
   /// - Parameters:
   ///   - content: The message content
-  ///   - provider: The voice provider (defaults to mock)
-  ///   - voiceId: The voice ID (defaults to "test-voice-id")
-  ///   - languageCode: The language code (defaults to "en")
+  ///   - voice: The voice (defaults to ``fakeVoice``)
   /// - Returns: A SimpleMessage instance
   public static func makeSimpleMessage(
     content: String = "Test message",
-    provider: VoiceProvider? = nil,
-    voiceId: String = "test-voice-id"
+    voice: VoiceReference = TestFixtures.fakeVoice
   ) -> SimpleMessage {
-    let voiceProvider = provider ?? makeMockProvider()
-    return SimpleMessage(
-      content: content,
-      voiceProvider: voiceProvider,
-      voiceId: voiceId
-    )
+    SimpleMessage(content: content, voice: voice)
   }
 
   /// Create character dialogue for testing
@@ -200,24 +212,19 @@ public enum TestFixtures {
   /// - Parameters:
   ///   - characterName: The character name
   ///   - dialogue: The dialogue text
-  ///   - provider: The voice provider (defaults to mock)
-  ///   - voiceId: The voice ID (defaults to "test-voice-id")
+  ///   - voice: The voice (defaults to ``fakeVoice``)
   ///   - includeCharacterName: Whether to include character name in speech
-  ///   - languageCode: The language code (defaults to "en")
   /// - Returns: A CharacterDialogue instance
   public static func makeCharacterDialogue(
     characterName: String = "Test Character",
     dialogue: String = "Test dialogue",
-    provider: VoiceProvider? = nil,
-    voiceId: String = "test-voice-id",
+    voice: VoiceReference = TestFixtures.fakeVoice,
     includeCharacterName: Bool = true
   ) -> CharacterDialogue {
-    let voiceProvider = provider ?? makeMockProvider()
-    return CharacterDialogue(
+    CharacterDialogue(
       characterName: characterName,
       dialogue: dialogue,
-      voiceProvider: voiceProvider,
-      voiceId: voiceId,
+      voice: voice,
       includeCharacterName: includeCharacterName
     )
   }
@@ -234,16 +241,18 @@ public enum TestFixtures {
   ///   - audioData: Optional audio data (defaults to mock data)
   /// - Returns: A TypedDataStorage record
   public static func makeAudioRecord(
-    for item: SpeakableItem,
+    for item: any SpeakableItem,
     in context: ModelContext,
     audioData: Data? = nil
   ) -> TypedDataStorage {
     let data = audioData ?? makeMockAudioData()
+    var providerId = "unknown"
+    if case .catalog(let pluginId, _) = item.voice { providerId = pluginId }
 
     let record = TypedDataStorage(
-      providerId: item.voiceProvider.providerId,
+      providerId: providerId,
       requestorID: "test-audio",
-      mimeType: item.voiceProvider.mimeType,
+      mimeType: "audio/mock",
       binaryValue: data,
       prompt: item.textToSpeak
     )
@@ -298,22 +307,15 @@ public enum TestFixtures {
   /// - Parameters:
   ///   - name: List name (defaults to "Test List")
   ///   - itemCount: Number of items to include (defaults to 3)
-  ///   - provider: Voice provider (defaults to mock)
-  ///   - voiceId: Voice ID (defaults to "test-voice-id")
+  ///   - voice: Voice (defaults to ``fakeVoice``)
   /// - Returns: A SpeakableItemList with test items
   public static func makeSpeakableItemList(
     name: String = "Test List",
     itemCount: Int = 3,
-    provider: VoiceProvider? = nil,
-    voiceId: String = "test-voice-id"
+    voice: VoiceReference = TestFixtures.fakeVoice
   ) -> SpeakableItemList {
-    let voiceProvider = provider ?? makeMockProvider()
     let items: [any SpeakableItem] = (0..<itemCount).map { index in
-      makeSimpleMessage(
-        content: "Test message \(index + 1)",
-        provider: voiceProvider,
-        voiceId: voiceId
-      )
+      makeSimpleMessage(content: "Test message \(index + 1)", voice: voice)
     }
     return SpeakableItemList(name: name, items: items)
   }
@@ -326,26 +328,21 @@ public enum TestFixtures {
   ///   - title: Article title
   ///   - author: Article author
   ///   - content: Article content
-  ///   - provider: Voice provider (defaults to mock)
-  ///   - voiceId: Voice ID (defaults to "test-voice-id")
+  ///   - voice: Voice (defaults to ``fakeVoice``)
   ///   - includeMeta: Include metadata in speech
-  ///   - languageCode: Language code (defaults to "en")
   /// - Returns: An Article instance
   public static func makeArticle(
     title: String = "Test Article",
     author: String = "Test Author",
     content: String = "Test content",
-    provider: VoiceProvider? = nil,
-    voiceId: String = "test-voice-id",
+    voice: VoiceReference = TestFixtures.fakeVoice,
     includeMeta: Bool = true
   ) -> Article {
-    let voiceProvider = provider ?? makeMockProvider()
-    return Article(
+    Article(
       title: title,
       author: author,
       content: content,
-      voiceProvider: voiceProvider,
-      voiceId: voiceId,
+      voice: voice,
       includeMeta: includeMeta
     )
   }

@@ -33,8 +33,7 @@ struct GenerateAudioButtonTests {
     let testProvider = provider ?? AppleVoiceProvider()
     return SimpleMessage(
       content: "Test message for audio generation",
-      voiceProvider: testProvider,
-      voiceId: "test-voice-id"
+      voice: .catalog(pluginId: testProvider.providerId, voiceId: "test-voice-id")
     )
   }
 
@@ -46,13 +45,13 @@ struct GenerateAudioButtonTests {
     let audioData = Data("test audio data".utf8)
     let record = TypedDataStorage(
       id: UUID(),
-      providerId: item.voiceProvider.providerId,
-      requestorID: "\(item.voiceProvider.providerId).audio.tts",
+      providerId: item.legacyProviderId,
+      requestorID: "\(item.legacyProviderId).audio.tts",
       mimeType: "audio/x-aiff",
       binaryValue: audioData,
       prompt: item.textToSpeak,
       durationSeconds: 5.0,
-      voiceID: item.voiceId,
+      voiceID: item.legacyVoiceId,
       voiceName: "Test Voice"
     )
     context.insert(record)
@@ -121,8 +120,8 @@ struct GenerateAudioButtonTests {
 
     // Button should be in completed state
     // Note: We can't directly test @State, but we can verify the record exists
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    let providerId = item.legacyProviderId
+    let voiceId = item.legacyVoiceId
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(
@@ -153,8 +152,8 @@ struct GenerateAudioButtonTests {
     try await Task.sleep(for: .milliseconds(100))
 
     // Verify no audio exists
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    let providerId = item.legacyProviderId
+    let voiceId = item.legacyVoiceId
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(
@@ -185,8 +184,7 @@ struct GenerateAudioButtonTests {
     // Create test item with valid voice ID
     let item = SimpleMessage(
       content: "Test message for audio generation",
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: .catalog(pluginId: provider.providerId, voiceId: voiceId)
     )
 
     // Extract values for predicate (can't capture objects in #Predicate)
@@ -321,8 +319,7 @@ struct GenerateAudioButtonTests {
     let unconfiguredProvider = UnconfiguredProvider()
     let item = SimpleMessage(
       content: "Test",
-      voiceProvider: unconfiguredProvider,
-      voiceId: "test"
+      voice: .catalog(pluginId: unconfiguredProvider.providerId, voiceId: "test")
     )
 
     // Create button
@@ -353,8 +350,8 @@ struct GenerateAudioButtonTests {
     let _ = makeTestAudioRecord(for: item, in: context)
 
     // Query using the same predicate as the button
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    let providerId = item.legacyProviderId
+    let voiceId = item.legacyVoiceId
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(
@@ -380,13 +377,11 @@ struct GenerateAudioButtonTests {
     // Create multiple items with same voice
     let item1 = SimpleMessage(
       content: "First message",
-      voiceProvider: AppleVoiceProvider(),
-      voiceId: "test-voice"
+      voice: .catalog(pluginId: AppleVoiceProvider().providerId, voiceId: "test-voice")
     )
     let item2 = SimpleMessage(
       content: "Second message",
-      voiceProvider: AppleVoiceProvider(),
-      voiceId: "test-voice"
+      voice: .catalog(pluginId: AppleVoiceProvider().providerId, voiceId: "test-voice")
     )
 
     // Create audio for both
@@ -394,8 +389,8 @@ struct GenerateAudioButtonTests {
     let _ = makeTestAudioRecord(for: item2, in: context)
 
     // Query for first item
-    let providerId1 = item1.voiceProvider.providerId
-    let voiceId1 = item1.voiceId
+    let providerId1 = item1.legacyProviderId
+    let voiceId1 = item1.legacyVoiceId
     let prompt1 = item1.textToSpeak
 
     let descriptor1 = FetchDescriptor<TypedDataStorage>(
@@ -408,8 +403,8 @@ struct GenerateAudioButtonTests {
     #expect(results1.count == 1)
 
     // Query for second item
-    let providerId2 = item2.voiceProvider.providerId
-    let voiceId2 = item2.voiceId
+    let providerId2 = item2.legacyProviderId
+    let voiceId2 = item2.legacyVoiceId
     let prompt2 = item2.textToSpeak
 
     let descriptor2 = FetchDescriptor<TypedDataStorage>(
@@ -443,7 +438,7 @@ struct GenerateAudioButtonTests {
       onPlay: nil
     )
 
-    #expect(button.item.voiceProvider.providerId == "apple")
+    #expect(button.item.legacyProviderId == "apple")
   }
 
   // MARK: - TypedDataStorage Format Tests
@@ -467,8 +462,8 @@ struct GenerateAudioButtonTests {
 
     let record = makeTestAudioRecord(for: item, in: context)
 
-    #expect(record.providerId == item.voiceProvider.providerId)
-    #expect(record.voiceID == item.voiceId)
+    #expect(record.providerId == item.legacyProviderId)
+    #expect(record.voiceID == item.legacyVoiceId)
     #expect(record.prompt == item.textToSpeak)
     #expect(record.durationSeconds != nil)
     #expect(record.binaryValue != nil)
@@ -505,13 +500,13 @@ struct GenerateAudioButtonTests {
     let audioData = Data("test audio data".utf8)
     let storage = TypedDataStorage(
       id: UUID(),
-      providerId: item.voiceProvider.providerId,
-      requestorID: "\(item.voiceProvider.providerId).audio.tts",
+      providerId: item.legacyProviderId,
+      requestorID: "\(item.legacyProviderId).audio.tts",
       mimeType: "audio/x-aiff",
       binaryValue: audioData,
       prompt: item.textToSpeak,
       durationSeconds: 5.0,
-      voiceID: item.voiceId
+      voiceID: item.legacyVoiceId
     )
 
     // Insert and link to element
@@ -539,8 +534,8 @@ struct GenerateAudioButtonTests {
     let firstRecord = makeTestAudioRecord(for: item, in: context)
 
     // Simulate second process checking for existing audio (race condition scenario)
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    let providerId = item.legacyProviderId
+    let voiceId = item.legacyVoiceId
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(
@@ -566,8 +561,8 @@ struct GenerateAudioButtonTests {
     let _ = makeTestAudioRecord(for: item, in: context)
 
     // Try to create second record (should detect existing and not duplicate)
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    let providerId = item.legacyProviderId
+    let voiceId = item.legacyVoiceId
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(
@@ -597,13 +592,13 @@ struct GenerateAudioButtonTests {
     // Create a record
     let record = TypedDataStorage(
       id: UUID(),
-      providerId: item.voiceProvider.providerId,
-      requestorID: "\(item.voiceProvider.providerId).audio.tts",
+      providerId: item.legacyProviderId,
+      requestorID: "\(item.legacyProviderId).audio.tts",
       mimeType: "audio/x-aiff",
       binaryValue: Data("test".utf8),
       prompt: item.textToSpeak,
       durationSeconds: 5.0,
-      voiceID: item.voiceId
+      voiceID: item.legacyVoiceId
     )
 
     context.insert(record)
@@ -654,13 +649,11 @@ struct GenerateAudioButtonTests {
     // Create audio for both elements
     let item1 = SimpleMessage(
       content: "First dialogue",
-      voiceProvider: AppleVoiceProvider(),
-      voiceId: "test-voice"
+      voice: .catalog(pluginId: AppleVoiceProvider().providerId, voiceId: "test-voice")
     )
     let item2 = SimpleMessage(
       content: "Second dialogue",
-      voiceProvider: AppleVoiceProvider(),
-      voiceId: "test-voice"
+      voice: .catalog(pluginId: AppleVoiceProvider().providerId, voiceId: "test-voice")
     )
 
     let storage1 = TypedDataStorage(
@@ -706,5 +699,21 @@ struct GenerateAudioButtonTests {
     #expect(element1.generatedContent?.first?.id == storage1.id)
     #expect(element2.generatedContent?.count == 1)
     #expect(element2.generatedContent?.first?.id == storage2.id)
+  }
+}
+
+// MARK: - 6.x shim
+
+extension SpeakableItem {
+  /// The catalog plugin id of this item's voice (6.x button tests; removed with them).
+  var legacyProviderId: String {
+    if case .catalog(let pluginId, _) = voice { return pluginId }
+    return "asset"
+  }
+
+  /// The catalog voice id of this item's voice (6.x button tests; removed with them).
+  var legacyVoiceId: String {
+    if case .catalog(_, let voiceId) = voice { return voiceId }
+    return ""
   }
 }

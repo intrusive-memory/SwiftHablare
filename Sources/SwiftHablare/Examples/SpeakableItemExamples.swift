@@ -16,6 +16,10 @@ import Foundation
 public struct SimpleMessage: SpeakableItem {
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let content: String
 
   public var textToSpeak: String {
@@ -40,6 +44,10 @@ public struct CharacterDialogue: SpeakableItem {
   public let dialogue: String
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let includeCharacterName: Bool
 
   public var textToSpeak: String {
@@ -77,6 +85,10 @@ public struct Article: SpeakableItem {
   public let content: String
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let includeMeta: Bool
 
   public var textToSpeak: String {
@@ -116,6 +128,10 @@ public struct Notification: SpeakableItem {
   public let timestamp: Date
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let includeTimestamp: Bool
 
   public var textToSpeak: String {
@@ -156,6 +172,10 @@ public struct ListItem: SpeakableItem {
   public let content: String
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
 
   public var textToSpeak: String {
     "Step \(number): \(content)"
@@ -192,9 +212,7 @@ public struct ListItem: SpeakableItem {
       )
 
       let audioData = try await message.speak()
-      #if DEBUG
-        print("Generated \(audioData.count) bytes of audio")
-      #endif
+      _ = audioData.data.count  // bytes of audio
     }
 
     /// Example: Speaking character dialogue
@@ -211,12 +229,9 @@ public struct ListItem: SpeakableItem {
         includeCharacterName: true
       )
 
-      let duration = await dialogue.estimateDuration()
-      #if DEBUG
-        print("Estimated duration: \(duration) seconds")
-      #endif
+      let take = try await dialogue.speak()
+      _ = take.duration  // seconds
 
-      _ = try await dialogue.speak()
       #if DEBUG
         print("Generated audio for character dialogue")
       #endif
@@ -238,12 +253,8 @@ public struct ListItem: SpeakableItem {
           number: 3, content: "Bake for 30 minutes", voiceProvider: provider, voiceId: voice.id),
       ]
 
-      let totalDuration = await items.estimateTotalDuration()
-      #if DEBUG
-        print("Total duration: \(totalDuration) seconds")
-      #endif
-
       let audioFiles = try await items.speakAll()
+      _ = audioFiles.reduce(0) { $0 + $1.duration }  // total seconds
       #if DEBUG
         print("Generated \(audioFiles.count) audio files")
       #endif

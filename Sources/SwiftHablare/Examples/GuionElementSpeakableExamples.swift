@@ -53,6 +53,10 @@ public struct GuionElementSpeakable: SpeakableItem {
   public let element: GuionElement
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let languageCode: String
 
   public var textToSpeak: String {
@@ -102,6 +106,10 @@ public struct DialoguePairSpeakable: SpeakableItem {
   public let dialogue: GuionElement  // ElementType.dialogue
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let includeCharacterName: Bool
   public let languageCode: String
 
@@ -162,6 +170,10 @@ public struct SectionHeadingSpeakable: SpeakableItem {
   public let heading: GuionElement
   public let voiceProvider: VoiceProvider
   public let voiceId: String
+  // 6.x shim (removed in Sortie 16): the item's voice is the provider's catalog voice.
+  public var voice: VoiceReference {
+    .catalog(pluginId: voiceProvider.providerId, voiceId: voiceId)
+  }
   public let announceLevel: Bool
   public let languageCode: String
 

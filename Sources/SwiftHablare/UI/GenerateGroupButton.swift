@@ -372,8 +372,8 @@ public struct GenerateGroupButton: View {
 
   /// Check if a single item has existing audio
   private func checkItemHasAudio(_ item: any SpeakableItem) async -> Bool {
-    let providerId = item.voiceProvider.providerId
-    let voiceId = item.voiceId
+    // 6.x shim (removed in Sortie 16): an asset voice matches no stored catalog record.
+    guard case .catalog(let providerId, let voiceId) = item.voice else { return false }
     let prompt = item.textToSpeak
 
     let descriptor = FetchDescriptor<TypedDataStorage>(

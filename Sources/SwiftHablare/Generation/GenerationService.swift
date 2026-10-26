@@ -396,18 +396,16 @@ public actor GenerationService {
       do {
         // Extract data we need (all Sendable)
         let text = item.textToSpeak
-        let voiceId = item.voiceId
         let languageCode = item.languageCode
-        let provider = item.voiceProvider
-        let providerId = provider.providerId
-
-        // Ensure provider is configured
-        guard await provider.isConfigured() else {
-          throw VoiceProviderError.notConfigured
+        // 6.x shim (Sortie 15 ports this): the item names its voice by VoiceReference; the
+        // 6.x provider is looked up in the 6.x registry by the reference's plugin id.
+        guard case .catalog(let providerId, let voiceId) = item.voice else {
+          throw VoiceProviderError.invalidRequest(
+            "voice assets are not supported by the 6.x generation path")
         }
+        let provider = try await configuredProvider(for: providerId)
 
-        // Generate audio using the item's own voice provider
-        // (not a different instance from the registry)
+        // Generate audio using the 6.x provider registered for the item's plugin id
         let audioData = try await provider.generateAudio(
           text: text,
           voiceId: voiceId,

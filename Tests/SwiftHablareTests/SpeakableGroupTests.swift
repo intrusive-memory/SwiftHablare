@@ -30,12 +30,10 @@ struct SpeakableGroupTests {
 
   /// Create a test group with specified items
   func makeTestGroup(itemCount: Int = 3) -> TestGroup {
-    let provider = AppleVoiceProvider()
     let items = (1...itemCount).map { index in
       SimpleMessage(
         content: "Message \(index)",
-        voiceProvider: provider,
-        voiceId: "test-voice-id"
+        voice: .catalog(pluginId: "apple", voiceId: "test-voice-id")
       )
     }
     return TestGroup(name: "Test Group", items: items)
@@ -47,15 +45,21 @@ struct SpeakableGroupTests {
     in context: ModelContext
   ) -> TypedDataStorage {
     let audioData = Data("test audio data".utf8)
+    var providerId = "asset"
+    var voiceId = ""
+    if case .catalog(let pluginId, let catalogVoiceId) = item.voice {
+      providerId = pluginId
+      voiceId = catalogVoiceId
+    }
     let record = TypedDataStorage(
       id: UUID(),
-      providerId: item.voiceProvider.providerId,
-      requestorID: "\(item.voiceProvider.providerId).audio.tts",
+      providerId: providerId,
+      requestorID: "\(providerId).audio.tts",
       mimeType: "audio/x-aiff",
       binaryValue: audioData,
       prompt: item.textToSpeak,
       durationSeconds: 5.0,
-      voiceID: item.voiceId,
+      voiceID: voiceId,
       voiceName: "Test Voice"
     )
     context.insert(record)
@@ -95,7 +99,7 @@ struct SpeakableGroupTests {
 
   @Test("Chapter example implements SpeakableGroup correctly")
   func testChapterExample() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let lines = [
       DialogueLine(characterName: "Alice", text: "Hello!", voiceId: "voice-1"),
       DialogueLine(characterName: "Bob", text: "Hi there!", voiceId: "voice-2"),
@@ -104,7 +108,7 @@ struct SpeakableGroupTests {
       number: 1,
       title: "The Beginning",
       dialogueLines: lines,
-      provider: provider
+      pluginId: pluginId
     )
 
     #expect(chapter.groupName == "Chapter 1: The Beginning")
@@ -114,7 +118,7 @@ struct SpeakableGroupTests {
 
   @Test("Scene example implements SpeakableGroup correctly")
   func testSceneExample() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let interactions = [
       Interaction(characterName: "Waiter", line: "Welcome!", voiceId: "voice-1"),
       Interaction(characterName: "Customer", line: "One coffee, please.", voiceId: "voice-2"),
@@ -123,7 +127,7 @@ struct SpeakableGroupTests {
       number: 5,
       location: "Coffee Shop",
       interactions: interactions,
-      provider: provider,
+      pluginId: pluginId,
       includeSceneHeading: false
     )
 
@@ -134,7 +138,7 @@ struct SpeakableGroupTests {
 
   @Test("Scene with heading includes extra element")
   func testSceneWithHeading() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let interactions = [
       Interaction(characterName: "Actor", line: "Line", voiceId: "voice-1")
     ]
@@ -142,7 +146,7 @@ struct SpeakableGroupTests {
       number: 1,
       location: "Stage",
       interactions: interactions,
-      provider: provider,
+      pluginId: pluginId,
       includeSceneHeading: true
     )
 
@@ -152,7 +156,7 @@ struct SpeakableGroupTests {
 
   @Test("MessagePlaylist example implements SpeakableGroup correctly")
   func testMessagePlaylistExample() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let messages = [
       PlaylistMessage(sender: "Alice", content: "Hello!", priority: .high),
       PlaylistMessage(sender: "Bob", content: "Hi!", priority: .normal),
@@ -160,7 +164,7 @@ struct SpeakableGroupTests {
     let playlist = MessagePlaylist(
       name: "Morning Messages",
       messages: messages,
-      provider: provider,
+      pluginId: pluginId,
       defaultVoiceId: "voice-1"
     )
 
@@ -171,7 +175,7 @@ struct SpeakableGroupTests {
 
   @Test("ArticleSections example implements SpeakableGroup correctly")
   func testArticleSectionsExample() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let sections = [
       ArticleSection(heading: "Intro", content: "This is the intro"),
       ArticleSection(heading: "Body", content: "This is the body"),
@@ -180,7 +184,7 @@ struct SpeakableGroupTests {
       title: "My Article",
       author: "Jane Doe",
       sections: sections,
-      provider: provider,
+      pluginId: pluginId,
       voiceId: "voice-1",
       includeHeadings: true
     )
@@ -193,11 +197,11 @@ struct SpeakableGroupTests {
 
   @Test("ShoppingList example implements SpeakableGroup correctly")
   func testShoppingListExample() {
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let list = ShoppingList(
       name: "Grocery Run",
       items: ["Milk", "Eggs", "Bread"],
-      provider: provider,
+      pluginId: pluginId,
       voiceId: "voice-1",
       includeNumbers: true
     )
@@ -353,15 +357,14 @@ struct SpeakableGroupTests {
     let service = GenerationService()
 
     // Fetch a valid voice ID for testing
-    let provider = AppleVoiceProvider()
+    let pluginId = "apple"
     let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 
     // Create test group with valid voice ID
     let items = (1...2).map { index in
       SimpleMessage(
         content: "Message \(index)",
-        voiceProvider: provider,
-        voiceId: voiceId
+        voice: .catalog(pluginId: "apple", voiceId: voiceId)
       )
     }
     let group = TestGroup(name: "Test Group", items: items)

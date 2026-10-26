@@ -124,9 +124,12 @@ let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 // Simple message
 let message = TestFixtures.makeSimpleMessage(
     content: "Hello",
-    provider: provider,
-    voiceId: "voice-id"
+    voice: TestFixtures.fakeVoice   // .catalog(pluginId: "fake-synth", voiceId: "fake-voice")
 )
+
+// Speak it through a registry holding only FakeSynthesizerPlugin
+let registry = TestFixtures.makeFakeRegistry()
+let audio = try await message.speak(using: registry)
 
 // Character dialogue
 let dialogue = TestFixtures.makeCharacterDialogue(
@@ -170,8 +173,7 @@ func createAudioRecord() throws {
     let container = try TestFixtures.makeTestContainer()
     let context = ModelContext(container)
     
-    let provider = TestFixtures.makeMockProvider()
-    let message = TestFixtures.makeSimpleMessage(provider: provider)
+    let message = TestFixtures.makeSimpleMessage()
     let record = TestFixtures.makeAudioRecord(for: message, in: context)
     
     try context.save()

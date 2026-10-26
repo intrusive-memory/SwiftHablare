@@ -31,13 +31,11 @@ import Observation
 /// @MainActor
 /// func generateSpeechList() async throws {
 ///     // Create your speakable items
-///     let provider = AppleVoiceProvider()
-///     let voices = try await provider.fetchVoices()
-///     let voiceId = voices.first!.id
+///     let voice = VoiceReference.catalog(pluginId: "apple", voiceId: appleVoiceId)
 ///
 ///     let items: [any SpeakableItem] = [
-///         SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
-///         SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
+///         SimpleMessage(content: "Hello", voice: voice),
+///         SimpleMessage(content: "World", voice: voice)
 ///     ]
 ///
 ///     // Create list
@@ -58,7 +56,7 @@ import Observation
 ///       ↓
 /// GenerationService (actor - background processing)
 ///       ↓
-/// VoiceProvider.generateAudio() (background)
+/// PluginRegistry → VoiceSynthesizer.synthesize() → GeneratedAudio (background)
 ///       ↓
 /// @MainActor - TypedDataStorage creation
 ///       ↓

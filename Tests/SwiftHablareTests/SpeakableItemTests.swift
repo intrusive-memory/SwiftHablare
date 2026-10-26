@@ -9,27 +9,17 @@ import Foundation
 import Testing
 
 @testable import SwiftHablare
+@testable import SwiftHablareTesting
 
 // MARK: - Test Fixtures
 
 struct SpeakableItemTestFixtures {
-  let provider: AppleVoiceProvider
-  let voiceId: String
+  let registry: PluginRegistry
+  let voice: VoiceReference
 
   static func create() async -> Self? {
-    let provider = AppleVoiceProvider()
-    do {
-      let voices = try await provider.fetchVoices()
-
-      // Check if voices are available (GitHub Actions runners may not have TTS voices)
-      guard let voiceId = voices.first?.id else {
-        return nil
-      }
-
-      return SpeakableItemTestFixtures(provider: provider, voiceId: voiceId)
-    } catch {
-      return nil
-    }
+    SpeakableItemTestFixtures(
+      registry: TestFixtures.makeFakeRegistry(), voice: TestFixtures.fakeVoice)
   }
 }
 
@@ -46,75 +36,63 @@ struct SimpleMessageTests {
   @Test("Conformance to SpeakableItem")
   func conformance() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let message = SimpleMessage(
       content: "Hello, world!",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
     #expect(message.textToSpeak == "Hello, world!")
-    #expect(message.voiceId == fixtures.voiceId)
-    #expect(message.voiceProvider is AppleVoiceProvider)
+    #expect(message.voice == fixtures.voice)
+    #expect(message.languageCode == systemLanguageCode())
   }
 
   @Test("Speech generation")
   func speak() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let message = SimpleMessage(
       content: "Testing speech generation",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let audioData = try await message.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await message.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 
-  @Test("Duration estimation")
-  func estimateDuration() async throws {
+  @Test("Duration of generated audio")
+  func generatedDuration() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let message = SimpleMessage(
       content: "This is a test message",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let duration = await message.estimateDuration()
-    #expect(duration > 0)
+    let audio = try await message.speak(using: fixtures.registry)
+    #expect(audio.duration > 0)
+    #expect(audio.format == FakeAudio.format)
   }
 
   @Test("Voice availability check")
   func isVoiceAvailable() async throws {
-    // Skip on CI - TTS voices aren't available there
-    let isCI = ProcessInfo.processInfo.environment["CI"] != nil
-
-    if isCI {
-      return
-    }
-
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
-    let message = SimpleMessage(
-      content: "Test",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
-    )
+    let message = SimpleMessage(content: "Test", voice: fixtures.voice)
 
-    let available = await message.isVoiceAvailable()
+    #expect(await message.isVoiceAvailable(in: fixtures.registry))
 
-    // This test requires real TTS voices which aren't available on CI
-    #expect(available, "Voice '\(fixtures.voiceId)' should be available")
+    let unknown = SimpleMessage(
+      content: "Test", voice: .catalog(pluginId: "no-such-plugin", voiceId: "x"))
+    #expect(await unknown.isVoiceAvailable(in: fixtures.registry) == false)
   }
 }
 
@@ -131,14 +109,13 @@ struct CharacterDialogueTests {
   @Test("Dialogue with character name")
   func withCharacterName() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let dialogue = CharacterDialogue(
       characterName: "Alice",
       dialogue: "Hello!",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeCharacterName: true
     )
 
@@ -148,14 +125,13 @@ struct CharacterDialogueTests {
   @Test("Dialogue without character name")
   func withoutCharacterName() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let dialogue = CharacterDialogue(
       characterName: "Alice",
       dialogue: "Hello!",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeCharacterName: false
     )
 
@@ -165,18 +141,17 @@ struct CharacterDialogueTests {
   @Test("Dialogue speech generation")
   func speak() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let dialogue = CharacterDialogue(
       characterName: "Bob",
       dialogue: "Testing dialogue speech",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let audioData = try await dialogue.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await dialogue.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 }
 
@@ -193,15 +168,14 @@ struct ArticleTests {
   @Test("Article with metadata")
   func withMeta() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let article = Article(
       title: "Breaking News",
       author: "Jane Doe",
       content: "This is the article content.",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeMeta: true
     )
 
@@ -211,15 +185,14 @@ struct ArticleTests {
   @Test("Article without metadata")
   func withoutMeta() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let article = Article(
       title: "Breaking News",
       author: "Jane Doe",
       content: "This is the article content.",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeMeta: false
     )
 
@@ -229,19 +202,18 @@ struct ArticleTests {
   @Test("Article speech generation")
   func speak() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let article = Article(
       title: "Test Article",
       author: "Test Author",
       content: "Test content",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let audioData = try await article.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await article.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 }
 
@@ -258,7 +230,7 @@ struct NotificationTests {
   @Test("Notification with timestamp")
   func withTimestamp() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let timestamp = Date(timeIntervalSince1970: 1_609_459_200)  // 2021-01-01 00:00:00 UTC
@@ -266,8 +238,7 @@ struct NotificationTests {
       title: "New Message",
       message: "You have mail",
       timestamp: timestamp,
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeTimestamp: true
     )
 
@@ -279,14 +250,13 @@ struct NotificationTests {
   @Test("Notification without timestamp")
   func withoutTimestamp() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let notification = Notification(
       title: "Alert",
       message: "Something happened",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       includeTimestamp: false
     )
 
@@ -296,18 +266,17 @@ struct NotificationTests {
   @Test("Notification speech generation")
   func speak() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let notification = Notification(
       title: "Test",
       message: "Test message",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let audioData = try await notification.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await notification.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 }
 
@@ -324,14 +293,13 @@ struct ListItemTests {
   @Test("List item formatting")
   func formatting() {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let item = ListItem(
       number: 5,
       content: "Mix ingredients",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
     #expect(item.textToSpeak == "Step 5: Mix ingredients")
@@ -340,18 +308,17 @@ struct ListItemTests {
   @Test("List item speech generation")
   func speak() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let item = ListItem(
       number: 1,
       content: "Test step",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
+      voice: fixtures.voice
     )
 
-    let audioData = try await item.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await item.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 }
 
@@ -368,45 +335,42 @@ struct BatchOperationsTests {
   @Test("Speak all items")
   func speakAll() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let items: [SimpleMessage] = [
-      SimpleMessage(content: "First", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
-      SimpleMessage(content: "Second", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
-      SimpleMessage(content: "Third", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
+      SimpleMessage(content: "First", voice: fixtures.voice),
+      SimpleMessage(content: "Second", voice: fixtures.voice),
+      SimpleMessage(content: "Third", voice: fixtures.voice),
     ]
 
-    let audioFiles = try await items.speakAll()
+    let audioFiles = try await items.speakAll(using: fixtures.registry)
     #expect(audioFiles.count == 3)
     for audio in audioFiles {
-      #expect(audio.count > 0)
+      #expect(audio.data.count > 0)
     }
   }
 
-  @Test("Estimate total duration")
+  @Test("Total duration of generated audio")
   func estimateTotalDuration() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let items: [SimpleMessage] = [
-      SimpleMessage(content: "Short", voiceProvider: fixtures.provider, voiceId: fixtures.voiceId),
-      SimpleMessage(
-        content: "Medium length message", voiceProvider: fixtures.provider,
-        voiceId: fixtures.voiceId),
-      SimpleMessage(
-        content: "A longer message with more words to speak", voiceProvider: fixtures.provider,
-        voiceId: fixtures.voiceId),
+      SimpleMessage(content: "Short", voice: fixtures.voice),
+      SimpleMessage(content: "Medium length message", voice: fixtures.voice),
+      SimpleMessage(content: "A longer message with more words to speak", voice: fixtures.voice),
     ]
 
-    let totalDuration = await items.estimateTotalDuration()
+    let audioFiles = try await items.speakAll(using: fixtures.registry)
+    let totalDuration = audioFiles.reduce(0) { $0 + $1.duration }
     #expect(totalDuration > 0)
 
     // Verify it's the sum of individual durations
     var expectedTotal: TimeInterval = 0
     for item in items {
-      expectedTotal += await item.estimateDuration()
+      expectedTotal += try await item.speak(using: fixtures.registry).duration
     }
     #expect(abs(totalDuration - expectedTotal) < 0.01)
   }
@@ -414,15 +378,16 @@ struct BatchOperationsTests {
   @Test("Empty collection speak all")
   func emptyCollectionSpeakAll() async throws {
     let items: [SimpleMessage] = []
-    let audioFiles = try await items.speakAll()
+    let audioFiles = try await items.speakAll(using: TestFixtures.makeFakeRegistry())
     #expect(audioFiles.isEmpty)
   }
 
   @Test("Empty collection estimate total duration")
   func emptyCollectionEstimateTotalDuration() async throws {
     let items: [SimpleMessage] = []
-    let duration = await items.estimateTotalDuration()
-    #expect(duration == 0)
+    let registry = TestFixtures.makeFakeRegistry()
+    let audioFiles = try await items.speakAll(using: registry)
+    #expect(audioFiles.reduce(0) { $0 + $1.duration } == 0)
   }
 }
 
@@ -438,48 +403,54 @@ struct ErrorHandlingTests {
 
   @Test("Speak with invalid voice ID")
   func speakWithInvalidVoiceId() async throws {
-    // Skip on CI - with placeholder audio, invalid voice IDs don't throw errors
-    if ProcessInfo.processInfo.environment["CI"] != nil {
+    guard let fixtures = fixtures else {
+      Issue.record("Fake registry unavailable.")
       return
     }
+    // A catalog voice naming a plugin that is not registered cannot be resolved.
+    let message = SimpleMessage(
+      content: "Test",
+      voice: .catalog(pluginId: "no-such-plugin", voiceId: "invalid-voice-id")
+    )
 
+    await #expect(throws: HablareError.self) {
+      try await message.speak(using: fixtures.registry)
+    }
+  }
+
+  @Test("Speak with an asset voice and no plugin id throws error")
+  func speakAssetWithoutPluginIdThrowsError() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     let message = SimpleMessage(
       content: "Test",
-      voiceProvider: fixtures.provider,
-      voiceId: "invalid-voice-id"
+      voice: .asset(URL(fileURLWithPath: "/tmp/narrator.vox"))
     )
 
-    #if os(macOS)
-      // macOS: Should throw an error for invalid voice ID (no fallback)
-      await #expect(throws: VoiceProviderError.self) {
-        try await message.speak()
-      }
-    #else
-      // iOS: AVSpeechSynthesisVoice may fall back to default voice for invalid IDs
-      // Just verify that audio is generated (fallback behavior)
-      let audioData = try await message.speak()
-      #expect(audioData.count > 0)
-    #endif
+    await #expect(throws: HablareError.self) {
+      try await message.speak(using: fixtures.registry)
+    }
+
+    // With the plugin named, the same item speaks.
+    let audio = try await message.speak(
+      using: fixtures.registry, pluginId: FakeSynthesizerPlugin.id)
+    #expect(audio.data.count > 0)
   }
 
-  @Test("Speak with empty text throws error")
-  func speakWithEmptyTextThrowsError() async throws {
+  @Test("Synthesizer failure propagates from speak")
+  func synthesizerFailurePropagates() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
-    let message = SimpleMessage(
-      content: "",
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId
-    )
+    let message = SimpleMessage(content: "", voice: fixtures.voice)
+    let plugin = try await fixtures.registry.plugin(id: FakeSynthesizerPlugin.id)
+    (plugin as? FakeSynthesizerPlugin)?.failNextCall(with: .invalidRequest(detail: "empty text"))
 
-    await #expect(throws: VoiceProviderError.self) {
-      try await message.speak()
+    await #expect(throws: HablareError.self) {
+      try await message.speak(using: fixtures.registry)
     }
   }
 }
@@ -497,13 +468,12 @@ struct CustomImplementationTests {
   @Test("Custom speakable item")
   func customSpeakableItem() async throws {
     guard let fixtures = fixtures else {
-      Issue.record("No Apple TTS voices available. Skipping test.")
+      Issue.record("Fake registry unavailable.")
       return
     }
     // Test a custom implementation
     struct CustomItem: SpeakableItem {
-      let voiceProvider: VoiceProvider
-      let voiceId: String
+      let voice: VoiceReference
       let prefix: String
       let suffix: String
 
@@ -513,14 +483,13 @@ struct CustomImplementationTests {
     }
 
     let custom = CustomItem(
-      voiceProvider: fixtures.provider,
-      voiceId: fixtures.voiceId,
+      voice: fixtures.voice,
       prefix: "Hello",
       suffix: "World"
     )
 
     #expect(custom.textToSpeak == "Hello - World")
-    let audioData = try await custom.speak()
-    #expect(audioData.count > 0)
+    let audioData = try await custom.speak(using: fixtures.registry)
+    #expect(audioData.data.count > 0)
   }
 }
