@@ -81,21 +81,21 @@ type: supervisor-state
 
 ### WU4 Port and remove
 - Work unit state: RUNNING
-- Current sortie: 14 (S14–S17)
+- Current sortie: 15 (S14–S17)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 11 (plan-specified)
+- Model: opus
+- Complexity score: 15 (plan-specified)
 - Attempt: 1 of 3
-- Agent: wu4-s14
-- Last verified: —
-- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice)
+- Agent: wu4-s15
+- Last verified: S14 COMPLETED at fa3ac701 — 359 tests / 37 suites
+- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU4 | 14 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu4-s14 | 2117fbe4 | (harness output file) | 2026-10-26T05:45Z | 0/3 | — |
+| WU4 | 15 | implementer | DISPATCHED | 1/3 | — | opus | 15 | wu4-s15 | fa3ac701 | (harness output file) | 2026-10-26T06:05Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -118,6 +118,7 @@ type: supervisor-state
 | S11 | 335 |
 | S12 | 342 |
 | S13 | 349 |
+| S14 | 359 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -160,3 +161,5 @@ type: supervisor-state
 | 2026-10-26T05:45Z | WU3 | 13 | COMPLETED (2117fbe4); WU3 COMPLETED | 44.1k stereo→24k mono, pause cap, RIFF-free pcm out, runs in CI; 349/36 |
 | 2026-10-26T05:45Z | WU4 | — | Gate: WU3 COMPLETED → WU4 RUNNING | |
 | 2026-10-26T05:45Z | WU4 | 14 | Model: sonnet | Plan-specified |
+| 2026-10-26T06:05Z | WU4 | 14 | COMPLETED (fa3ac701) | grep clean; VoiceURI↔VoiceReference + apple:// parse; 359/37 |
+| 2026-10-26T06:05Z | WU4 | 15 | Model: opus | Plan-specified |
