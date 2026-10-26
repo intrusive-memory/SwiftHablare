@@ -62,11 +62,6 @@ public struct GeneratedAudio: Sendable {
 
 // MARK: - Placeholders
 
-/// Minimal stub; Sortie 4 moves and completes it (R5, D-1).
-public struct VoiceSettings: Sendable, Hashable {
-  public init() {}
-}
-
 /// Minimal placeholder so `GeneratedAudio.sourceUsed` compiles. Sortie 7 replaces this
 /// with the full `VoiceSource` (Kind, Freshness) in Voices/VoiceAsset.swift.
 public struct VoiceSource: Sendable, Hashable {
