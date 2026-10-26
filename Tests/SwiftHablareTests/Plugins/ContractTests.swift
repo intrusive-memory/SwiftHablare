@@ -186,7 +186,8 @@ struct ContractTests {
 
   @Test("Readiness exposes the source it will use")
   func readinessSource() {
-    #expect(VoiceReadiness.ready(source: VoiceSource()).source == VoiceSource())
+    let source = VoiceSource(engine: "google", model: "gemini-3.8-flash-tts", kind: .referenceAudio)
+    #expect(VoiceReadiness.ready(source: source).source == source)
     #expect(VoiceReadiness.unsupported(reason: "no audio").source == nil)
   }
 
