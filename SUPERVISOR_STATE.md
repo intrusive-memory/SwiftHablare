@@ -81,21 +81,21 @@ type: supervisor-state
 
 ### WU4 Port and remove
 - Work unit state: RUNNING
-- Current sortie: 16 (S14–S17)
+- Current sortie: 17 (S14–S17)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 12 (plan-specified)
+- Complexity score: 9 (plan-specified; has [judgment] criterion → verifier)
 - Attempt: 1 of 3
-- Agent: wu4-s16
-- Last verified: S15 COMPLETED at 0dbba4be — 371 tests / 37 suites
-- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=. S15: GenerationOutcome.suspectChunks/isSuspect + GenerationResult.isSuspect (not persisted in TypedDataStorage); VoiceListing protocol (ApplePlugin adopts); AudioFormat.mimeType; chunks joined with no gap (~80 ms edge padding — listen-test item for brief). Pre-existing print( in Providers/Apple/AVSpeechTTSEngine.swift (~40) — CI print check is warning-only (writes summary, no exit 1); no sortie owns it → brief follow-up.
+- Agent: wu4-s17
+- Last verified: S16 COMPLETED at e2b8fc43 — 325 tests / 34 suites (−46 deleted, listed); exit greps re-run by supervisor
+- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=. S15: GenerationOutcome.suspectChunks/isSuspect + GenerationResult.isSuspect (not persisted in TypedDataStorage); VoiceListing protocol (ApplePlugin adopts); AudioFormat.mimeType; chunks joined with no gap (~80 ms edge padding — listen-test item for brief). Pre-existing print( in Providers/Apple/AVSpeechTTSEngine.swift (~40) — CI print check is warning-only (writes summary, no exit 1); no sortie owns it → brief follow-up. S16 kept VoiceProviderError (moved to Protocols/VoiceEngine.swift, engine boundary) and Voice (VoiceListing). Doc leftovers for S17: Tests/README.md mock-provider calls, SwiftHablare.swift doc example, version still "6.3.0-dev".
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU4 | 16 | implementer | DISPATCHED | 1/3 | — | sonnet | 12 | wu4-s16 | 0dbba4be | (harness output file) | 2026-10-26T06:25Z | 0/3 | — |
+| WU4 | 17 | implementer | DISPATCHED | 1/3 | 0/2 | sonnet | 9 | wu4-s17 | e2b8fc43 | (harness output file) | 2026-10-26T06:40Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -120,6 +120,7 @@ type: supervisor-state
 | S13 | 349 |
 | S14 | 359 |
 | S15 | 371 |
+| S16 | 325 (−46: GenerateAudioButtonTests 17, ElementGenerationButtonTests 23, VoiceProviderAutoRegistrarTests 1, GenerateGroupButton cases 5) |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -166,3 +167,5 @@ type: supervisor-state
 | 2026-10-26T06:05Z | WU4 | 15 | Model: opus | Plan-specified |
 | 2026-10-26T06:25Z | WU4 | 15 | COMPLETED (0dbba4be) | grep clean; 600-char → ≥3 chunks, .pcm24kMono16; mid-list cancel; 371/37 (29 old tests rewritten as 41) |
 | 2026-10-26T06:25Z | WU4 | 16 | Model: sonnet | Plan-specified |
+| 2026-10-26T06:40Z | WU4 | 16 | COMPLETED (e2b8fc43) | Supervisor re-ran: no SwiftUI import, removed-symbol grep empty, Examples/Hablare gone, plans parse; 325/34 with drop = 46 listed tests |
+| 2026-10-26T06:40Z | WU4 | 17 | Model: sonnet | Plan-specified; [judgment] criterion → sonnet verifier after mechanical pass |
