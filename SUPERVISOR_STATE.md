@@ -69,15 +69,15 @@ type: supervisor-state
 
 ### WU3 Engine services
 - Work unit state: RUNNING
-- Current sortie: 12 (S9–S13)
+- Current sortie: 13 (S9–S13)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 11 (plan-specified)
 - Attempt: 1 of 3
-- Agent: wu3-s12
-- Last verified: S11 COMPLETED at 6734bb58 — 335 tests / 32 suites (2 runs)
-- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt. S10: voice travels as SpeechRequest.voice = .asset(URL); the synthesizer component opens the .vox and picks via preferredSource(in:)/sourceReadiness(for:). OPEN USER DECISION: composite id is derived "<designer>+<synthesizer>" (generic type), not the spec's "gemini-chatterbox" — affects downstream mission only. Pairing checked only once both components registered. Flake risk RESOLVED in S11 (task-local FakeInitCounter). S11: fakes relabelled .wav 24k mono 16 (bytes carry RIFF); kit = ConformanceKit.run(_:context:voice:mode:secrets:) -> ConformanceReport, modes .full/.hardwareFree.
+- Agent: wu3-s13
+- Last verified: S12 COMPLETED at e6106260 — 342 tests / 35 suites; full Apple kit passed locally
+- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt. S10: voice travels as SpeechRequest.voice = .asset(URL); the synthesizer component opens the .vox and picks via preferredSource(in:)/sourceReadiness(for:). OPEN USER DECISION: composite id is derived "<designer>+<synthesizer>" (generic type), not the spec's "gemini-chatterbox" — affects downstream mission only. Pairing checked only once both components registered. Flake risk RESOLVED in S11 (task-local FakeInitCounter). S11: fakes relabelled .wav 24k mono 16 (bytes carry RIFF); kit = ConformanceKit.run(_:context:voice:mode:secrets:) -> ConformanceReport, modes .full/.hardwareFree. S12: xctestplan `skippedTests` is NOT honoured for swift-testing tests here — real skip is `.enabled(if: !CI)` (CITests sets CI=true); S16 must remove deleted tests from both plans anyway. Scheme default plan = CITests, so `make test` = CI plan. ApplePlugin id "apple", native .aiff 22050 mono 16.
 
 ### WU4 Port and remove
 - Work unit state: NOT_STARTED
@@ -86,7 +86,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU3 | 12 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu3-s12 | 6734bb58 | (harness output file) | 2026-10-26T05:20Z | 0/3 | — |
+| WU3 | 13 | implementer | DISPATCHED | 1/3 | — | sonnet | 9 | wu3-s13 | e6106260 | (harness output file) | 2026-10-26T05:35Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -107,6 +107,7 @@ type: supervisor-state
 | S9 | 310 |
 | S10 | 321 |
 | S11 | 335 |
+| S12 | 342 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -144,3 +145,5 @@ type: supervisor-state
 | 2026-10-26T05:05Z | WU3 | 11 | Model: sonnet; prompt includes de-flaking FakePluginTests.initCounter | Kit runs fakes in more suites, raising the process-wide counter race |
 | 2026-10-26T05:20Z | WU3 | 11 | COMPLETED (6734bb58) | Kit vs 3 fakes, broken-rate fake reported, hardware-free skip list, logger grep clean; 335/32 twice |
 | 2026-10-26T05:20Z | WU3 | 12 | Model: sonnet | Plan-specified |
+| 2026-10-26T05:35Z | WU3 | 12 | COMPLETED (e6106260) | default = [apple]; grep 0; plans parse; hardware-free kit in CITests; full kit green locally; 342/35. Verified scheme default plan is CITests |
+| 2026-10-26T05:35Z | WU3 | 13 | Model: sonnet | Plan-specified |
