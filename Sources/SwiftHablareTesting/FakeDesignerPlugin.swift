@@ -56,7 +56,7 @@ public final class FakeVoiceDesigner: VoiceDesigner, @unchecked Sendable {
     return (0..<candidateCount).map { index in
       VoiceCandidate(
         preview: GeneratedAudio(
-          data: Self.previewWAV, format: .pcm24kMono16, duration: 1),
+          data: Self.previewWAV, format: FakeAudio.format, duration: 1),
         handle: VoiceCandidate.Handle(identifier: "voice_fake_\(index)"),
         promptSent: prompt)
     }

@@ -12,12 +12,12 @@ import SwiftHablare
 ///
 /// Output bytes are a pure function of `request.text` and `request.seed` (nil counts as 0):
 /// a 44-byte WAV header followed by 24 kHz mono 16-bit samples, reported as
-/// ``AudioFormat/pcm24kMono16``. Duration is `text.count / charactersPerSecond`, so a
+/// container `.wav` (the header is part of the bytes, so `.pcm` would be a lie). Duration is `text.count / charactersPerSecond`, so a
 /// default take passes the 14 chars/s plausibility window.
 public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
   public let capabilities: SynthesisCapabilities
   public let limits: SynthesisLimits
-  public let nativeFormats: [AudioFormat] = [.pcm24kMono16]
+  public let nativeFormats: [AudioFormat] = [FakeAudio.format]
   public let maxConcurrentRequests: Int
   /// `google` reference audio, then `qwen3-tts`, then any source.
   public let consumedSources: [VoiceSourcePattern] = [
@@ -108,13 +108,14 @@ public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
   public func synthesize(_ request: SpeechRequest) async throws -> GeneratedAudio {
     counts.withValue { $0.synthesize += 1 }
     requests.withValue { $0.append(request) }
+    if Task.isCancelled { throw HablareError.cancelled }
     try failure.throwIfArmed()
     try preflight?()
     let source = await readiness(for: request.voice).source
     let seconds = max(0.05, Double(request.text.count) / charactersPerSecond)
     return GeneratedAudio(
       data: FakeAudio.wav(text: request.text, seed: request.seed ?? 0, seconds: seconds),
-      format: .pcm24kMono16,
+      format: FakeAudio.format,
       duration: seconds,
       droppedInstruct: request.instruct != nil && !capabilities.contains(.instruct),
       sourceUsed: source)
@@ -132,12 +133,17 @@ public final class FakeSynthesizerPlugin: HablarePlugin, @unchecked Sendable {
   public static let displayName = "Fake Synthesizer"
   public static let kind = PluginKind.local
 
-  private static let initializations = FakeLocked<Int>(0)
+  /// Counts instances created inside ``withInitCounter(_:operation:)``. Scoped to the calling
+  /// task (and its children), so tests in other suites that build this plugin in parallel
+  /// never touch it.
+  @TaskLocal public static var initCounter: FakeInitCounter?
 
-  /// How many instances have been created since the last ``resetInitCount()``. Process-wide:
-  /// tests that read it should not run in parallel with other tests that build this plugin.
-  public static var initCount: Int { initializations.current }
-  public static func resetInitCount() { initializations.withValue { $0 = 0 } }
+  /// Runs `operation` with `counter` counting every `FakeSynthesizerPlugin` created inside it.
+  public static func withInitCounter<R: Sendable>(
+    _ counter: FakeInitCounter, operation: () async throws -> R
+  ) async rethrows -> R {
+    try await $initCounter.withValue(counter, operation: operation)
+  }
 
   public let context: PluginContext
   /// The synthesizer this plugin hands out; drive its knobs and counters directly.
@@ -145,7 +151,7 @@ public final class FakeSynthesizerPlugin: HablarePlugin, @unchecked Sendable {
   private let statusBox = FakeLocked<PluginStatus>(.ready)
 
   public init(context: PluginContext) async throws {
-    Self.initializations.withValue { $0 += 1 }
+    Self.initCounter?.increment()
     self.context = context
     self.fakeSynthesizer = FakeVoiceSynthesizer()
   }
@@ -158,4 +164,15 @@ public final class FakeSynthesizerPlugin: HablarePlugin, @unchecked Sendable {
   public func setReadiness(_ readiness: VoiceReadiness) { fakeSynthesizer.setReadiness(readiness) }
 
   public func status() async -> PluginStatus { statusBox.current }
+}
+
+/// An instance-scoped counter of ``FakeSynthesizerPlugin`` creations; see
+/// ``FakeSynthesizerPlugin/withInitCounter(_:operation:)``.
+public final class FakeInitCounter: Sendable {
+  private let box = FakeLocked<Int>(0)
+
+  public init() {}
+
+  public var count: Int { box.current }
+  func increment() { box.withValue { $0 += 1 } }
 }

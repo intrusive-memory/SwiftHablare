@@ -25,7 +25,8 @@ final class FakeLocked<Value>: @unchecked Sendable {
 
 /// Deterministic audio synthesis for the fakes.
 enum FakeAudio {
-  static let format = AudioFormat.pcm24kMono16
+  /// The bytes carry a RIFF/WAVE header, so the honest label is container `.wav` (not `.pcm`).
+  static let format = AudioFormat(container: .wav, sampleRate: 24_000, channels: 1, bitDepth: 16)
 
   /// Same input, same bytes: a splitmix64 stream seeded from FNV-1a over the text, mixed with the seed.
   static func wav(text: String, seed: UInt64, seconds: TimeInterval) -> Data {

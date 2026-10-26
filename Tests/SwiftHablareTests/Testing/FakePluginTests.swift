@@ -26,7 +26,8 @@ struct FakePluginTests {
     let other = try await synth.synthesize(request(seed: 8))
     #expect(first.data == second.data)
     #expect(first.data != other.data)
-    #expect(first.format == .pcm24kMono16)
+    #expect(first.format == FakeAudio.format)
+    #expect(first.format.container == .wav)
   }
 
   @Test("Output carries a valid WAV header")
@@ -54,14 +55,17 @@ struct FakePluginTests {
     #expect(FakeSynthesizerPlugin.kind == .local)
   }
 
-  @Test("Init counter counts instances and resets")
+  @Test("Init counter counts instances created inside its scope only")
   func initCounter() async throws {
-    FakeSynthesizerPlugin.resetInitCount()
-    _ = try await FakeSynthesizerPlugin(context: context())
-    _ = try await FakeSynthesizerPlugin(context: context())
-    #expect(FakeSynthesizerPlugin.initCount == 2)
-    FakeSynthesizerPlugin.resetInitCount()
-    #expect(FakeSynthesizerPlugin.initCount == 0)
+    let counter = FakeInitCounter()
+    let ctx = context()
+    try await FakeSynthesizerPlugin.withInitCounter(counter) {
+      _ = try await FakeSynthesizerPlugin(context: ctx)
+      _ = try await FakeSynthesizerPlugin(context: ctx)
+    }
+    // Outside the scope (as in every other suite) nothing is counted.
+    _ = try await FakeSynthesizerPlugin(context: ctx)
+    #expect(counter.count == 2)
   }
 
   @Test("failNextCall throws once, then recovers")
