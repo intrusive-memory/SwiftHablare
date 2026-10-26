@@ -56,19 +56,28 @@ type: supervisor-state
 - Notes: S2 added stubs ModelDescriptor (HablareError.swift) and VoiceSource (SpeechRequest.swift); S5/S7 dispatch prompts must say replace, not duplicate. S3: EnvironmentAPIKeyStore takes a static [pluginId: CredentialRequirement] map defaulting to builtIn (elevenlabs, google) — S5/S8 must let registered plugins' requirements reach it, or third-party env vars are never read
 
 ### WU2 Plugin host
-- Work unit state: RUNNING
+- Work unit state: COMPLETED
 - Current sortie: 8 (S5–S8; dispatch order S5, S7, S6, S8)
-- Sortie state: DISPATCHED
+- Sortie state: COMPLETED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 11 (plan-specified sonnet)
 - Attempt: 1 of 3
 - Agent: wu2-s8
-- Last verified: S6 COMPLETED at af2d3b5e — 282 tests / 26 suites
+- Last verified: S8 COMPLETED at 60e5eff8 — 291 tests / 27 suites (make test run twice)
 - Notes: S5 placeholders VoiceSource(+Kind) and VoiceAsset in Core/SpeechRequest.swift → S7 replaces them, keeps VoiceSource Hashable. Seed: request seed wins (decide in S9 dispatch). Hybrid status must be computed by CompositePlugin itself (S10). Plugin credentials via `static var credentials` / `credentialRequirementsByAccount` → S8 merges into EnvironmentAPIKeyStore. S7: VoxFormat 0.4.1 stores extensions as [String: AnyCodable], so extensions.google key order (voice_id first) is NOT preserved — byte-for-byte parity with vox-python unmet (brief item; needs a VoxFormat change). Root Fixtures/ load needs `Fijos.getFixture(_, from: <root>/Package.swift)` — see VoiceAssetTests.fixture(_:). S6: fake synthesizer output is WAV-header bytes labelled .pcm24kMono16 (container .pcm) — S13 AudioNormalizer / S15 must decide WAV-vs-raw PCM; FakeSynthesizerPlugin.initCount is static (call resetInitCount()).
 
 ### WU3 Engine services
-- Work unit state: NOT_STARTED
+- Work unit state: RUNNING
+- Current sortie: 9 (S9–S13)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: sonnet
+- Complexity score: 10 (plan-specified)
+- Attempt: 1 of 3
+- Agent: wu3-s9
+- Last verified: —
+- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple.
 
 ### WU4 Port and remove
 - Work unit state: NOT_STARTED
@@ -77,7 +86,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU2 | 8 | implementer | DISPATCHED | 1/3 | — | sonnet | 10 | wu2-s8 | af2d3b5e | (harness output file) | 2026-10-26T04:30Z | 0/3 | — |
+| WU3 | 9 | implementer | DISPATCHED | 1/3 | — | sonnet | 10 | wu3-s9 | 60e5eff8 | (harness output file) | 2026-10-26T04:40Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -94,6 +103,7 @@ type: supervisor-state
 | S5 | 264 |
 | S7 | 271 |
 | S6 | 282 |
+| S8 | 291 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -121,3 +131,6 @@ type: supervisor-state
 | 2026-10-26T04:20Z | WU2 | 6 | Model: sonnet | Plan-specified |
 | 2026-10-26T04:30Z | WU2 | 6 | COMPLETED (af2d3b5e) | Placeholder gone; determinism, cloud status, designer save tests pass; 282/26 |
 | 2026-10-26T04:30Z | WU2 | 8 | Model: sonnet | Plan-specified |
+| 2026-10-26T04:40Z | WU2 | 8 | COMPLETED (60e5eff8); WU2 COMPLETED | Cache/config/enablement/env-var/concurrency/pairing tests pass; 291/27, stable over 2 runs. Accepted deviation: init-count criteria use a test-local CountingPlugin instead of FakeSynthesizerPlugin's process-wide counter, to avoid cross-suite flakiness — same assertions |
+| 2026-10-26T04:40Z | WU3 | — | Gate: WU2 COMPLETED → WU3 RUNNING | |
+| 2026-10-26T04:40Z | WU3 | 9 | Model: sonnet | Plan-specified |
