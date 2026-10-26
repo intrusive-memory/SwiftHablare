@@ -45,15 +45,15 @@ type: supervisor-state
 
 ### WU1 Foundation
 - Work unit state: RUNNING
-- Current sortie: 2 of 4 (S1–S4)
+- Current sortie: 3 of 4 (S1–S4)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 9 (plan-specified model)
 - Attempt: 1 of 3
-- Agent: wu1-s2
-- Last verified: S1 COMPLETED at 30ce655f — shared scheme lists CITests+LocalAudioTests; make test 219/19 suites; CI command green
-- Notes: S1 completed after REPLAN amendment
+- Agent: wu1-s3
+- Last verified: S2 COMPLETED at 440a73f7 — 232 tests / 21 suites
+- Notes: S2 added stubs ModelDescriptor (HablareError.swift) and VoiceSource (SpeechRequest.swift); S5/S7 dispatch prompts must say replace, not duplicate
 
 ### WU2 Plugin host
 - Work unit state: NOT_STARTED
@@ -68,7 +68,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU1 | 2 | implementer | DISPATCHED | 1/3 | — | sonnet | 9 | wu1-s2 | 30ce655f | (harness output file) | 2026-10-26T03:20Z | 0/3 | — |
+| WU1 | 3 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu1-s3 | 440a73f7 | (harness output file) | 2026-10-26T03:35Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -79,6 +79,7 @@ type: supervisor-state
 |--------------|----------------|
 | baseline (S1 pre-edit) | 219 |
 | S1 | 219 |
+| S2 | 232 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -92,3 +93,5 @@ type: supervisor-state
 | 2026-10-26T03:10Z | WU1 | 1 | User amended plan (S1 task 5: commit shared SwiftHablare.xcscheme with CITests/LocalAudioTests; no Makefile/CI edits); resume → PENDING → fresh dispatch, attempt stays 1/3 | User: "just fix the make test. commit to the shared scheme. Edit the execution plan and go." |
 | 2026-10-26T03:20Z | WU1 | 1 | COMPLETED (30ce655f) | All exit criteria verified; shared scheme confirmed via -showTestPlans |
 | 2026-10-26T03:20Z | WU1 | 2 | Model: sonnet | Plan-specified; 4 new files + tests, value types |
+| 2026-10-26T03:35Z | WU1 | 2 | COMPLETED (440a73f7) | Files present, 9 category tests, make test 232/21 |
+| 2026-10-26T03:35Z | WU1 | 3 | Model: sonnet | Plan-specified; Keychain/system-call risk |
