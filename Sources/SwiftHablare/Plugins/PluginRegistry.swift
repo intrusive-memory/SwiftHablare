@@ -23,22 +23,25 @@ public actor PluginRegistry {
   private var instances: [InstanceKey: any HablarePlugin] = [:]
   private var inFlight: [InstanceKey: Task<any HablarePlugin, any Error>] = [:]
 
-  /// The registry hosts use. Registers nothing yet; the Apple plugin is added in Sortie 12.
-  public static let `default` = PluginRegistry()
+  /// The registry hosts use. Registers the built-in Apple plugin and nothing else.
+  public static let `default` = PluginRegistry(plugins: [ApplePlugin.self])
 
   /// - Parameters:
   ///   - userDefaults: Where enablement persists (6.x key shape).
   ///   - environment: Variables the environment key store reads; inject one in tests.
   ///   - fallbackKeys: Consulted after the environment, in order. Defaults to the shared
   ///     Keychain, matching ``ChainedAPIKeyStore/default`` (environment wins).
+  ///   - plugins: Plugin types registered from the start.
   public init(
     userDefaults: UserDefaults = .standard,
     environment: [String: String] = ProcessInfo.processInfo.environment,
-    fallbackKeys: [any APIKeyStoring] = [KeychainAPIKeyStore.intrusiveMemoryVoices]
+    fallbackKeys: [any APIKeyStoring] = [KeychainAPIKeyStore.intrusiveMemoryVoices],
+    plugins: [any HablarePlugin.Type] = []
   ) {
     self.userDefaults = userDefaults
     self.environment = environment
     self.fallbackKeys = fallbackKeys
+    for type in plugins { types[type.id] = type }
   }
 
   // MARK: Registration

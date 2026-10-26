@@ -215,8 +215,9 @@ struct PluginRegistryTests {
     }
   }
 
-  @Test("The default registry registers nothing yet")
-  func defaultIsEmpty() async {
-    #expect(await PluginRegistry.default.registeredPluginIds.isEmpty)
+  @Test("The default registry registers the Apple plugin and nothing else")
+  func defaultRegistersAppleOnly() async {
+    #expect(await PluginRegistry.default.registeredPluginIds == [ApplePlugin.id])
+    #expect(ApplePlugin.id == "apple")
   }
 }
