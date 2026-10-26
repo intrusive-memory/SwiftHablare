@@ -47,9 +47,9 @@ SwiftHablare (core, no UI)
 ├─ Audio: AudioFormat, GeneratedAudio, AudioNormalizer
 ├─ Text: TextChunker, TakeValidator
 ├─ Credentials: APIKeyStoring chain (environment, then Keychain)
-├─ Local models: SwiftAcervo status only
+├─ Local models: SwiftAcervo status only (memory residency lives in mlx-audio-swift)
 ├─ Errors: HablareError
-└─ ApplePlugin (built-in local plugin)
+└─ ApplePlugin (built-in local plugin; the spec's `AppleVoiceProvider`, renamed in 7.0, see MIGRATION-7.0.md)
 
 SwiftHablareTesting (product): fakes, InMemoryAPIKeyStore, conformance kit
 

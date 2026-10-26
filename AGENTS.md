@@ -46,9 +46,11 @@ This file provides documentation for AI agents working with the SwiftHablaré co
    - ✅ CORRECT: "Requires macOS 26 or iOS 26"
 
 **DO NOT lower the platform requirements. Apps using this library must update their deployment targets to iOS 26+ and macOS 26+.**
-- **Test Coverage**: 96%+ on voice generation components
+
+## Toolchain
+
 - **Swift Concurrency**: Full Swift 6 compliance with strict concurrency enabled
-- **Test Frameworks**: Mixed XCTest and Swift Testing (`@Suite`/`@Test`)
+- **Test Framework**: Swift Testing only (`@Suite`/`@Test`); no XCTest remains in `Tests/`
 
 ## Project Overview
 
@@ -74,9 +76,9 @@ SwiftHablare (core, no UI)
 ├─ Audio: AudioFormat, GeneratedAudio, AudioNormalizer
 ├─ Text: TextChunker, TakeValidator
 ├─ Credentials: APIKeyStoring chain (environment, then Keychain)
-├─ Local models: SwiftAcervo status only
+├─ Local models: SwiftAcervo status only (memory residency lives in mlx-audio-swift)
 ├─ Errors: HablareError
-└─ ApplePlugin (built-in local plugin)
+└─ ApplePlugin (built-in local plugin; the spec's `AppleVoiceProvider`, renamed in 7.0, see MIGRATION-7.0.md)
 
 SwiftHablareTesting (product): fakes, InMemoryAPIKeyStore, conformance kit
 
