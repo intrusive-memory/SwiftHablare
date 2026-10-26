@@ -38,10 +38,11 @@ import Foundation
 /// let service = GenerationService()
 ///
 /// // 3. Generate audio for an element
+/// let voice = VoiceReference.catalog(
+///     pluginId: "apple", voiceId: "com.apple.voice.compact.en-US.Samantha")
 /// let result = try await service.generate(
 ///     forElement: element,
-///     providerId: "apple",
-///     voiceId: "com.apple.voice.compact.en-US.Samantha",
+///     voice: voice,
 ///     voiceName: "Samantha"
 /// )
 ///

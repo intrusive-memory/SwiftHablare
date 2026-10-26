@@ -6,15 +6,18 @@ This file contains instructions specific to Google Gemini agents working on Swif
 
 ## Quick Reference
 
-**Project**: SwiftHablare - Swift voice generation library for iOS and macOS
+**Project**: SwiftHablare - Swift plugin host for speech engines on iOS and macOS
 
 **Platforms**: iOS 26.0+, macOS 26.0+
 
 **Key Components**:
-- Multi-provider voice generation (Apple TTS, ElevenLabs)
+- Plugin host for speech engines: `HablarePlugin` + roles (`VoiceSynthesizer`, `VoiceDesigner`), resolved by `PluginRegistry`; built-in `ApplePlugin`, other engines in companion packages
+- Two products: `SwiftHablare` (core, no UI) and `SwiftHablareTesting` (fakes, `InMemoryAPIKeyStore`, conformance kit)
+- Credentials via the `APIKeyStoring` chain (environment, then Keychain)
 - Protocol-oriented SpeakableItem/SpeakableGroup design
 - Actor-based GenerationService for thread-safe audio generation
-- SwiftUI voice/provider pickers and generation buttons
+- No SwiftUI in core; plugins depend on core, never the reverse (see [MIGRATION-7.0.md](MIGRATION-7.0.md) for removed 6.x API)
+- 325 tests in 34 suites
 
 ## Gemini-Specific Configuration
 
