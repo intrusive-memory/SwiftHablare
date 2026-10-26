@@ -57,15 +57,15 @@ type: supervisor-state
 
 ### WU2 Plugin host
 - Work unit state: RUNNING
-- Current sortie: 5 (S5–S8)
+- Current sortie: 7 (S5–S8; dispatch order S5, S7, S6, S8)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: opus
-- Complexity score: 18 (plan-specified; core contract, 12 dependents)
+- Model: sonnet
+- Complexity score: 11 (plan-specified sonnet)
 - Attempt: 1 of 3
-- Agent: wu2-s5
-- Last verified: —
-- Notes: S5 must complete the ModelDescriptor stub from S2 (HablareError.swift), not duplicate it; open seam: SpeechRequest.seed vs VoiceSettings "seed"
+- Agent: wu2-s7
+- Last verified: S5 COMPLETED at c505d756 — 264 tests / 24 suites
+- Notes: S5 placeholders VoiceSource(+Kind) and VoiceAsset in Core/SpeechRequest.swift → S7 replaces them, keeps VoiceSource Hashable. Seed: request seed wins (decide in S9 dispatch). Hybrid status must be computed by CompositePlugin itself (S10). Plugin credentials via `static var credentials` / `credentialRequirementsByAccount` → S8 merges into EnvironmentAPIKeyStore.
 
 ### WU3 Engine services
 - Work unit state: NOT_STARTED
@@ -77,7 +77,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU2 | 5 | implementer | DISPATCHED | 1/3 | — | opus | 18 | wu2-s5 | 54c5479c | (harness output file) | 2026-10-26T03:55Z | 0/3 | — |
+| WU2 | 7 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu2-s7 | c505d756 | (harness output file) | 2026-10-26T04:05Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -91,6 +91,7 @@ type: supervisor-state
 | S2 | 232 |
 | S3 | 242 |
 | S4 | 250 |
+| S5 | 264 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -111,3 +112,6 @@ type: supervisor-state
 | 2026-10-26T03:55Z | WU1 | 4 | COMPLETED (54c5479c); WU1 COMPLETED | 4 exit tests pass; single VoiceSettings declaration; 250/23 |
 | 2026-10-26T03:55Z | WU2 | — | Gate: WU1 COMPLETED → WU2 RUNNING | Layer 1 dependency satisfied |
 | 2026-10-26T03:55Z | WU2 | 5 | Model: opus | Plan-specified; foundation of 12 sorties |
+| 2026-10-26T04:05Z | WU2 | 5 | COMPLETED (c505d756) | No MLX import; progress [.started,.finished]; missing-model offline test; one ModelDescriptor; 264/24 |
+| 2026-10-26T04:05Z | WU2 | 6/7 | Dispatch S7 before S6 | Both have entry criterion 'Sortie 5' only; S6's FakeDesignerPlugin.save(_:into:) must write a google extension + sample through S7's VoiceAsset write API. Running S6 first would force a stub. No entry criterion or dependency is violated; S8 still follows both. |
+| 2026-10-26T04:05Z | WU2 | 7 | Model: sonnet | Plan-specified |
