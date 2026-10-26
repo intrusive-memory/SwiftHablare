@@ -1,5 +1,8 @@
 ---
 type: mission-brief
+state: completed
+updated: 2026-10-26
+mission: socket-choir-01
 ---
 
 # Iteration 01 Brief — OPERATION SOCKET CHOIR
