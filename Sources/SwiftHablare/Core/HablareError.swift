@@ -68,12 +68,3 @@ extension HablareError: CustomStringConvertible {
     }
   }
 }
-
-// MARK: - Placeholder
-
-/// Minimal placeholder so R10's `modelNotAvailable` compiles. Sortie 5 replaces this
-/// with the full R1 `ModelDescriptor` (move it to Plugins/ and complete it).
-public struct ModelDescriptor: Sendable, Hashable {
-  public var id: String
-  public init(id: String) { self.id = id }
-}

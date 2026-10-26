@@ -64,6 +64,22 @@ public struct GeneratedAudio: Sendable {
 
 /// Minimal placeholder so `GeneratedAudio.sourceUsed` compiles. Sortie 7 replaces this
 /// with the full `VoiceSource` (Kind, Freshness) in Voices/VoiceAsset.swift.
+///
+/// Sortie 5 added `Kind` so the plugin contract can describe which sources a synthesizer
+/// consumes and a designer produces (`VoiceSourcePattern`). Sortie 7 keeps `Kind` (and
+/// `Hashable`, which `VoiceReadiness` relies on) when it completes the type.
 public struct VoiceSource: Sendable, Hashable {
+  public enum Kind: String, Sendable, Hashable, Codable, CaseIterable {
+    case serverHandle
+    case embedding
+    case referenceAudio
+  }
+
+  public init() {}
+}
+
+/// Minimal placeholder so `VoiceDesigner.save(_:into:)` compiles. Sortie 7 replaces this
+/// with the full `VoiceAsset` wrapping `VoxFile` in Voices/VoiceAsset.swift.
+public struct VoiceAsset: Sendable {
   public init() {}
 }
