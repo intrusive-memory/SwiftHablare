@@ -69,15 +69,15 @@ type: supervisor-state
 
 ### WU3 Engine services
 - Work unit state: RUNNING
-- Current sortie: 10 (S9–S13)
+- Current sortie: 11 (S9–S13)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: opus
-- Complexity score: 16 (plan-specified; main acceptance criterion)
+- Model: sonnet
+- Complexity score: 11 (plan-specified)
 - Attempt: 1 of 3
-- Agent: wu3-s10
-- Last verified: S9 COMPLETED at 174564ce — 310 tests / 30 suites
-- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt.
+- Agent: wu3-s11
+- Last verified: S10 COMPLETED at 95d1d203 — 321 tests / 31 suites
+- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt. S10: voice travels as SpeechRequest.voice = .asset(URL); the synthesizer component opens the .vox and picks via preferredSource(in:)/sourceReadiness(for:). OPEN USER DECISION: composite id is derived "<designer>+<synthesizer>" (generic type), not the spec's "gemini-chatterbox" — affects downstream mission only. Pairing checked only once both components registered. Flake risk: FakeSynthesizerPlugin.initCount process-wide (FakePluginTests.initCounter).
 
 ### WU4 Port and remove
 - Work unit state: NOT_STARTED
@@ -86,7 +86,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU3 | 10 | implementer | DISPATCHED | 1/3 | — | opus | 16 | wu3-s10 | 174564ce | (harness output file) | 2026-10-26T04:50Z | 0/3 | — |
+| WU3 | 11 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu3-s11 | 95d1d203 | (harness output file) | 2026-10-26T05:05Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -105,6 +105,7 @@ type: supervisor-state
 | S6 | 282 |
 | S8 | 291 |
 | S9 | 310 |
+| S10 | 321 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -137,3 +138,6 @@ type: supervisor-state
 | 2026-10-26T04:40Z | WU3 | 9 | Model: sonnet | Plan-specified |
 | 2026-10-26T04:50Z | WU3 | 9 | COMPLETED (174564ce) | Chunking ≤280 + rejoin, 3 takes + suspect, 19 cache-key variants; 310/30 |
 | 2026-10-26T04:50Z | WU3 | 10 | Model: opus | Plan-specified |
+| 2026-10-26T05:05Z | WU3 | 10 | COMPLETED (95d1d203) | Acceptance google/qwen3-tts, designer untouched over 3 syntheses, bad pairing throws, empty-keys .ready; 321/31 |
+| 2026-10-26T05:05Z | WU3 | 10 | Composite id naming deferred to user/brief | Not blocking core; downstream gemini-chatterbox mission needs it |
+| 2026-10-26T05:05Z | WU3 | 11 | Model: sonnet; prompt includes de-flaking FakePluginTests.initCounter | Kit runs fakes in more suites, raising the process-wide counter race |
