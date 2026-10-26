@@ -68,12 +68,15 @@ Source: `REQUIREMENTS-7.0.md` (R1–R13, "Removed in 7.0", Acceptance). Ground t
 2. Add `vox-format` (`from: "0.4.1"`, product `VoxFormat`) and `SwiftAcervo` (`from: "0.25.0"`, product `SwiftAcervo`) to `Package.swift` with the existing `sibling(...)` helper. Link both into the `SwiftHablare` target only.
 3. Add a `SwiftHablareTesting` library target at `Sources/SwiftHablareTesting/` that depends on `SwiftHablare`, and a `SwiftHablareTesting` product. Give it one placeholder public type so it compiles; Sortie 6 replaces it.
 4. Make `SwiftHablareTests` depend on `SwiftHablareTesting`.
+5. A second library product makes SwiftPM drop the test action from the auto-generated `SwiftHablare` scheme (`make test` fails: "Scheme SwiftHablare is not currently configured for the test action"). Commit a shared scheme at `.swiftpm/xcode/xcshareddata/xcschemes/SwiftHablare.xcscheme` that builds the `SwiftHablare` target, runs `SwiftHablareTests`, and lists `CITests.xctestplan` (default) and `LocalAudioTests.xctestplan` as its test plans. Keep the scheme name `SwiftHablare`; do not change the `Makefile` or `.github/workflows/tests.yml`. (Renaming to `SwiftHablare-Package` was rejected: that scheme has no `CITests` plan, so CI's `-testPlan CITests` fails.)
 
 **Exit criteria**:
 - [ ] `grep -c 'sibling(' Package.swift` counts the two new `sibling(` calls for `vox-format` and `SwiftAcervo`, in addition to the existing two.
 - [ ] `grep -n 'SwiftHablareTesting' Package.swift` shows a `.library` product, a `.target`, and a test-target dependency.
 - [ ] The `SwiftHablare` target's dependencies list `VoxFormat` and `SwiftAcervo` only by product name, with no `ArgumentParser` or `Progress` products (recon A-15/A-16).
-- [ ] `make build` and `make test` pass; the report states the baseline count.
+- [ ] `git ls-files .swiftpm/xcode/xcshareddata/xcschemes/SwiftHablare.xcscheme` lists the shared scheme, and `xcodebuild -showTestPlans -scheme SwiftHablare` lists `CITests` and `LocalAudioTests`.
+- [ ] CI's exact command passes locally: `xcodebuild test -scheme SwiftHablare -destination 'platform=macOS' -testPlan CITests`.
+- [ ] `make build` and `make test` pass; the report states the baseline count (219 tests, 19 suites, recorded 2026-10-26) and the new count, ≥ 219.
 
 ### Sortie 2: Errors, audio and request value types (R4, R10)
 
