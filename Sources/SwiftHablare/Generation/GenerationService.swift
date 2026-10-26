@@ -2,14 +2,68 @@
 //  GenerationService.swift
 //  SwiftHablare
 //
-//  Actor-based service for coordinating audio generation with safe concurrency
+//  Actor-based generation over `PluginRegistry` + `VoiceSynthesizer` (R12): a `SpeechRequest`
+//  goes in, one `GeneratedAudio` in the service's target format comes out. Each request is
+//  chunked to the synthesizer's limits (`TextChunker`), every chunk is synthesized through
+//  `TakeValidator` and normalised with `AudioNormalizer`, and the chunks are joined.
 //
 
 import Foundation
+import OSLog
 import SwiftCompartido
 import SwiftData
 
-/// Result of audio generation
+// MARK: - Progress and outcome
+
+/// Progress of one ``GenerationService`` request: which chunk is being synthesized, and the
+/// synthesizer's own ``SynthesisProgress`` for it, passed through unchanged.
+public struct GenerationProgress: Sendable, Hashable {
+  /// Zero-based index of the chunk being synthesized.
+  public var chunk: Int
+  /// Number of chunks the request was split into.
+  public var chunkCount: Int
+  /// The synthesizer's progress for this chunk. A retried take reports `.started` again.
+  public var synthesis: SynthesisProgress
+
+  public init(chunk: Int, chunkCount: Int, synthesis: SynthesisProgress) {
+    self.chunk = chunk
+    self.chunkCount = chunkCount
+    self.synthesis = synthesis
+  }
+
+  /// Completed chunks over all chunks. Exact, because the chunk count is known up front.
+  public var fractionCompleted: Double {
+    guard chunkCount > 0 else { return 0 }
+    let done = chunk + (synthesis == .finished ? 1 : 0)
+    return Double(done) / Double(chunkCount)
+  }
+}
+
+/// A generated request plus what the pipeline learned producing it.
+public struct GenerationOutcome: Sendable {
+  /// The joined audio, in the service's target format.
+  public var audio: GeneratedAudio
+  /// Number of chunks the text was split into.
+  public var chunkCount: Int
+  /// Total synthesize calls across all chunks, retries included.
+  public var takes: Int
+  /// Indices of the chunks whose takes all failed the plausibility check (R7).
+  public var suspectChunks: [Int]
+
+  public init(audio: GeneratedAudio, chunkCount: Int, takes: Int, suspectChunks: [Int]) {
+    self.audio = audio
+    self.chunkCount = chunkCount
+    self.takes = takes
+    self.suspectChunks = suspectChunks
+  }
+
+  /// True when any chunk is suspect.
+  public var isSuspect: Bool { !suspectChunks.isEmpty }
+}
+
+// MARK: - GenerationResult
+
+/// Result of audio generation, ready to persist as SwiftCompartido `TypedDataStorage`.
 public struct GenerationResult: Sendable {
   /// Generated audio data
   public let audioData: Data
@@ -17,23 +71,29 @@ public struct GenerationResult: Sendable {
   /// Original text that was spoken
   public let originalText: String
 
-  /// Voice ID used for generation
+  /// Voice ID used for generation (the catalog voice id, or the asset URL string)
   public let voiceId: String
 
   /// Voice name (if available)
   public let voiceName: String?
 
-  /// Provider ID
+  /// Plugin ID that synthesized the audio (stored as `TypedDataStorage.providerId`)
   public let providerId: String
 
   /// MIME type of generated audio
   public let mimeType: String
 
-  /// Estimated duration in seconds
+  /// Duration in seconds (the true duration when ``format`` is set)
   public let estimatedDuration: TimeInterval
 
   /// Request ID for tracking
   public let requestId: UUID
+
+  /// The format of ``audioData``, when it came from a ``GeneratedAudio``.
+  public let format: AudioFormat?
+
+  /// True when a chunk failed take validation (see ``GenerationOutcome/suspectChunks``).
+  public let isSuspect: Bool
 
   public init(
     audioData: Data,
@@ -43,7 +103,9 @@ public struct GenerationResult: Sendable {
     providerId: String,
     mimeType: String,
     estimatedDuration: TimeInterval,
-    requestId: UUID = UUID()
+    requestId: UUID = UUID(),
+    format: AudioFormat? = nil,
+    isSuspect: Bool = false
   ) {
     self.audioData = audioData
     self.originalText = originalText
@@ -53,33 +115,65 @@ public struct GenerationResult: Sendable {
     self.mimeType = mimeType
     self.estimatedDuration = estimatedDuration
     self.requestId = requestId
+    self.format = format
+    self.isSuspect = isSuspect
+  }
+
+  /// A result for `audio`; the MIME type comes from `audio.format`.
+  public init(
+    audio: GeneratedAudio,
+    originalText: String,
+    voice: VoiceReference,
+    pluginId: String,
+    voiceName: String? = nil,
+    isSuspect: Bool = false,
+    requestId: UUID = UUID()
+  ) {
+    self.init(
+      audioData: audio.data,
+      originalText: originalText,
+      voiceId: GenerationService.voiceIdentifier(of: voice),
+      voiceName: voiceName,
+      providerId: pluginId,
+      mimeType: audio.format.mimeType,
+      estimatedDuration: audio.duration,
+      requestId: requestId,
+      format: audio.format,
+      isSuspect: isSuspect
+    )
   }
 }
 
-/// Actor-based service for coordinating audio generation with safe concurrency
+// MARK: - GenerationService
+
+/// Actor-based service for coordinating audio generation with safe concurrency.
 ///
-/// This service ensures thread-safe audio generation by:
-/// 1. Generating audio on background thread (via actor isolation)
-/// 2. Returning Sendable results to main thread
-/// 3. Main thread saves to TypedDataStorage and links to GuionElementModel
+/// Plugins are resolved through a ``PluginRegistry``; the service keeps no plugin list of its
+/// own (register, enable and inspect plugins on the registry).
+///
+/// ## Pipeline (per request)
+///
+/// 1. Split the text with ``TextChunker`` to the synthesizer's `limits.maxCharacters`
+///    (or ``fallbackMaxCharacters`` when the engine has no character limit).
+/// 2. Synthesize each chunk through ``TakeValidator`` (retries with a new seed; a chunk that
+///    never passes is recorded as suspect).
+/// 3. Normalise each chunk with ``AudioNormalizer`` and join the samples.
+/// 4. Return one ``GeneratedAudio`` in ``targetFormat`` (default ``AudioFormat/pcm24kMono16``).
+///
+/// `Task` cancellation is checked between chunks and between list items and surfaces as
+/// ``HablareError/cancelled``.
 ///
 /// ## Usage
 ///
 /// ```swift
-/// // Create service with voice provider
-/// let service = GenerationService(voiceProvider: AppleVoiceProvider())
-///
-/// // Generate audio (happens on background thread)
+/// let service = GenerationService(registry: .default)
 /// let result = try await service.generate(
 ///     text: element.elementText,
-///     voiceId: "voice123",
-///     voiceName: "Rachel"
-/// )
+///     voice: .catalog(pluginId: "apple", voiceId: voiceId))
 ///
 /// // Save to SwiftData (on main thread)
 /// await MainActor.run {
 ///     let audioRecord = result.toTypedDataStorage()
-///     element.generatedContent?.append(audioRecord)
 ///     modelContext.insert(audioRecord)
 ///     try? modelContext.save()
 /// }
@@ -88,418 +182,425 @@ public actor GenerationService {
 
   // MARK: - Properties
 
-  /// Voice provider registry for resolving providers
-  private let providerRegistry: VoiceProviderRegistry
+  /// The registry plugins are resolved through.
+  public nonisolated let registry: PluginRegistry
+  /// The format every generated request is returned in (`.pcm` or `.wav`, 16-bit).
+  public nonisolated let targetFormat: AudioFormat
+  /// The take-validation policy applied to each chunk.
+  public nonisolated let takePolicy: TakePolicy
+  /// Silence trim and pause cap applied to each chunk.
+  public nonisolated let normalizerConfiguration: AudioNormalizer.Configuration
+  /// Chunk size used when the synthesizer declares no `maxCharacters`.
+  public nonisolated let fallbackMaxCharacters: Int
+
+  private static let logger = Logger(
+    subsystem: "io.intrusive-memory.SwiftHablare", category: "GenerationService")
 
   // MARK: - Initialization
 
-  /// Create a generation service
+  /// Create a generation service.
   ///
-  /// ## Example
-  ///
-  /// ```swift
-  /// let service = GenerationService()
-  /// ```
-  ///
-  /// - Parameter providerRegistry: Voice provider registry (default: .shared)
+  /// - Parameters:
+  ///   - registry: Where plugins are resolved (default: ``PluginRegistry/default``).
+  ///   - targetFormat: Output format; `.pcm` or `.wav` (default: ``AudioFormat/pcm24kMono16``).
+  ///   - takePolicy: Take validation per chunk (default: ``TakePolicy/default``).
+  ///   - normalizerConfiguration: Trim and pause cap per chunk.
+  ///   - fallbackMaxCharacters: Chunk size for engines with no character limit.
   public init(
-    providerRegistry: VoiceProviderRegistry = .shared
+    registry: PluginRegistry = .default,
+    targetFormat: AudioFormat = .pcm24kMono16,
+    takePolicy: TakePolicy = .default,
+    normalizerConfiguration: AudioNormalizer.Configuration = .default,
+    fallbackMaxCharacters: Int = TextChunker.defaultMaxCharacters
   ) {
-    self.providerRegistry = providerRegistry
+    self.registry = registry
+    self.targetFormat = targetFormat
+    self.takePolicy = takePolicy
+    self.normalizerConfiguration = normalizerConfiguration
+    self.fallbackMaxCharacters = fallbackMaxCharacters
   }
 
   // MARK: - Generation
 
-  /// Generate audio from text using a specific provider
+  /// Generates `request` and returns the joined audio in ``targetFormat``.
   ///
-  /// This method runs on a background thread (actor-isolated) and is non-blocking.
-  /// The result is Sendable and can be safely transferred to the main thread.
+  /// - Parameters:
+  ///   - request: The text, voice and settings. `request.seed` seeds every chunk's first take.
+  ///   - pluginId: The synthesizing plugin; required when `request.voice` is an asset.
+  ///   - progress: Per-chunk progress, with the synthesizer's own progress passed through.
+  /// - Throws: ``HablareError`` (``HablareError/cancelled`` on task cancellation).
+  public func generate(
+    _ request: SpeechRequest,
+    pluginId: String? = nil,
+    progress: (@Sendable (GenerationProgress) -> Void)? = nil
+  ) async throws -> GeneratedAudio {
+    try await generateValidated(request, pluginId: pluginId, progress: progress).audio
+  }
+
+  /// Like ``generate(_:pluginId:progress:)``, and also reports the chunk count, the number of
+  /// takes, and which chunks are suspect.
+  public func generateValidated(
+    _ request: SpeechRequest,
+    pluginId: String? = nil,
+    progress: (@Sendable (GenerationProgress) -> Void)? = nil
+  ) async throws -> GenerationOutcome {
+    let resolved = try await resolveSynthesizer(for: request.voice, pluginId: pluginId)
+    return try await run(request, synthesizer: resolved.synthesizer, progress: progress)
+  }
+
+  /// Generates `text` and packages it as a ``GenerationResult`` for SwiftData.
   ///
   /// - Parameters:
   ///   - text: Text to convert to speech
-  ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-  ///   - voiceId: Voice identifier from provider
+  ///   - voice: The voice to speak with
+  ///   - pluginId: The synthesizing plugin; required when `voice` is an asset
   ///   - voiceName: Voice name for metadata (optional)
-  ///   - languageCode: Language code for generation (optional, defaults to system language)
-  ///   - mimeType: MIME type for audio (optional, derived from provider if not specified)
-  /// - Returns: GenerationResult with audio data and metadata
-  /// - Throws: VoiceProviderError if generation fails or provider not found
+  ///   - languageCode: Language code (optional, defaults to the system language)
+  ///   - progress: Per-chunk progress
   public func generate(
     text: String,
-    providerId: String,
-    voiceId: String,
+    voice: VoiceReference,
+    pluginId: String? = nil,
     voiceName: String? = nil,
     languageCode: String? = nil,
-    mimeType: String? = nil
+    progress: (@Sendable (GenerationProgress) -> Void)? = nil
   ) async throws -> GenerationResult {
-    // Get provider from registry
-    let provider = try await configuredProvider(for: providerId)
-
-    // Estimate duration before generation
-    let estimatedDuration = await provider.estimateDuration(text: text, voiceId: voiceId)
-
-    // Determine language code (use provided or default to system language)
-    let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
-
-    // Generate audio (this happens on background thread via actor isolation)
-    let audioData = try await provider.generateAudio(
-      text: text, voiceId: voiceId, languageCode: finalLanguageCode)
-
-    // Determine MIME type from provider if not specified
-    let finalMimeType = mimeType ?? provider.mimeType
-
-    // Create result (Sendable, can be transferred to main thread)
+    let request = SpeechRequest(
+      text: text, voice: voice, languageCode: LanguageCodeResolver.resolve(languageCode))
+    let resolved = try await resolveSynthesizer(for: voice, pluginId: pluginId)
+    let outcome = try await run(request, synthesizer: resolved.synthesizer, progress: progress)
     return GenerationResult(
-      audioData: audioData,
+      audio: outcome.audio,
       originalText: text,
-      voiceId: voiceId,
+      voice: voice,
+      pluginId: resolved.pluginId,
       voiceName: voiceName,
-      providerId: providerId,
-      mimeType: finalMimeType,
-      estimatedDuration: estimatedDuration
-    )
+      isSuspect: outcome.isSuspect)
   }
 
-  /// Generate audio for a GuionElementModel
-  ///
-  /// This is a convenience method that extracts text from the element
-  /// and generates audio. The result must be saved to SwiftData on the main thread.
-  ///
-  /// - Parameters:
-  ///   - element: GuionElementModel to generate audio for
-  ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-  ///   - voiceId: Voice identifier from provider
-  ///   - voiceName: Voice name for metadata (optional)
-  ///   - languageCode: Language code for generation (optional, defaults to system language)
-  ///   - mimeType: MIME type for audio (optional)
-  /// - Returns: GenerationResult that can be converted to TypedDataStorage
-  /// - Throws: VoiceProviderError if generation fails
+  /// Generates audio for a `GuionElementModel`'s text. Save the result on the main thread.
   public func generate(
     forElement element: GuionElementModel,
-    providerId: String,
-    voiceId: String,
+    voice: VoiceReference,
+    pluginId: String? = nil,
     voiceName: String? = nil,
     languageCode: String? = nil,
-    mimeType: String? = nil
+    progress: (@Sendable (GenerationProgress) -> Void)? = nil
   ) async throws -> GenerationResult {
-    return try await generate(
+    try await generate(
       text: element.elementText,
-      providerId: providerId,
-      voiceId: voiceId,
+      voice: voice,
+      pluginId: pluginId,
       voiceName: voiceName,
       languageCode: languageCode,
-      mimeType: mimeType
-    )
+      progress: progress)
   }
 
-  /// Check if a voice is available from a specific provider
-  ///
-  /// - Parameters:
-  ///   - voiceId: Voice identifier to check
-  ///   - providerId: Provider identifier
-  /// - Returns: True if voice is available
-  public func isVoiceAvailable(_ voiceId: String, from providerId: String) async -> Bool {
-    guard let provider = try? await providerRegistry.configuredProvider(for: providerId) else {
+  // MARK: - Voices
+
+  /// True when `pluginId` resolves to an enabled synthesizer that does not report the catalog
+  /// voice `voiceId` as unsupported.
+  public func isVoiceAvailable(_ voiceId: String, from pluginId: String) async -> Bool {
+    let voice = VoiceReference.catalog(pluginId: pluginId, voiceId: voiceId)
+    guard let resolved = try? await resolveSynthesizer(for: voice, pluginId: nil) else {
       return false
     }
-    return await provider.isVoiceAvailable(voiceId: voiceId)
+    if case .unsupported = await resolved.synthesizer.readiness(for: voice) { return false }
+    return true
   }
 
-  // MARK: - Provider Registry
-
-  /// Get all registered voice providers
-  ///
-  /// Returns a list of all voice providers in the registry.
-  /// `AppleVoiceProvider` is always included; other providers are added by
-  /// consumers via `VoiceProviderRegistry.shared.register(_:)`.
-  ///
-  /// - Returns: Array of registered voice providers
-  public func registeredProviders() async -> [VoiceProvider] {
-    await providerRegistry.instantiateAllProviders()
-  }
-
-  /// Retrieve provider metadata including enablement/configuration state.
-  public func availableProviderStatuses() async -> [RegisteredVoiceProvider] {
-    await providerRegistry.availableProviders()
-  }
-
-  /// Register a custom voice provider
-  ///
-  /// Adds a voice provider to the registry. If a provider with the same
-  /// providerId already exists, it will be replaced.
-  ///
-  /// - Parameter provider: Voice provider to register
-  public func registerProvider(_ provider: VoiceProvider) async {
-    let descriptor = VoiceProviderDescriptor(
-      id: provider.providerId,
-      displayName: provider.displayName,
-      isEnabledByDefault: !provider.requiresAPIKey,
-      requiresConfiguration: provider.requiresAPIKey,
-      makeProvider: { provider }
-    )
-    await providerRegistry.register(descriptor)
-  }
-
-  /// Get a voice provider by its ID
-  ///
-  /// - Parameter providerId: Provider identifier (e.g., "apple", "elevenlabs")
-  /// - Returns: Voice provider if found, nil otherwise
-  public func provider(withId providerId: String) async -> VoiceProvider? {
-    await providerRegistry.provider(for: providerId)
-  }
-
-  /// Check if a provider is registered
-  ///
-  /// - Parameter providerId: Provider identifier to check
-  /// - Returns: True if provider is registered
-  public func isProviderRegistered(_ providerId: String) async -> Bool {
-    await providerRegistry.contains(providerId: providerId)
-  }
-
-  /// Update the enablement state for a provider.
-  public func setProvider(_ providerId: String, enabled: Bool) async {
-    await providerRegistry.setEnabled(enabled, for: providerId)
-  }
-
-  /// Check whether a provider is currently enabled.
-  public func isProviderEnabled(_ providerId: String) async -> Bool {
-    await providerRegistry.isEnabled(providerId: providerId)
-  }
-
-  /// Fetch voices from a specific provider by ID
-  ///
-  /// ## Example
-  ///
-  /// ```swift
-  /// let service = GenerationService()
-  ///
-  /// // Fetch voices from Apple provider
-  /// let appleVoices = try await service.fetchVoices(from: "apple")
-  /// ```
+  /// The catalog voices of `pluginId`, from its ``VoiceListing`` (the plugin, or its
+  /// synthesizer).
   ///
   /// - Parameters:
-  ///   - providerId: Provider identifier (e.g., "apple", "elevenlabs")
-  ///   - languageCode: Language code to filter voices (optional, defaults to system language)
-  /// - Returns: Array of available voices from that provider
-  /// - Throws: VoiceProviderError.notConfigured if provider not found or not configured
-  public func fetchVoices(from providerId: String, languageCode: String? = nil) async throws
+  ///   - pluginId: Plugin identifier (e.g. "apple")
+  ///   - languageCode: Language to list (optional, defaults to the system language)
+  /// - Throws: ``HablareError/invalidRequest(detail:)`` when the plugin is unknown, disabled,
+  ///   or cannot list voices.
+  public func fetchVoices(from pluginId: String, languageCode: String? = nil) async throws
     -> [Voice]
   {
-    let provider = try await configuredProvider(for: providerId)
-
-    // Determine language code (use provided or default to system language)
-    let finalLanguageCode = LanguageCodeResolver.resolve(languageCode)
-
-    // Fetch voices from provider
-    return try await provider.fetchVoices(languageCode: finalLanguageCode)
-  }
-
-  /// Fetch voices from all registered and configured providers
-  ///
-  /// Returns a dictionary mapping provider IDs to their available voices.
-  /// Only includes providers that are properly configured.
-  ///
-  /// ## Example
-  ///
-  /// ```swift
-  /// let service = GenerationService()
-  /// let allVoices = try await service.fetchAllVoices()
-  ///
-  /// // Access voices by provider
-  /// if let appleVoices = allVoices["apple"] {
-  ///     print("Apple has \(appleVoices.count) voices")
-  /// }
-  /// ```
-  ///
-  /// - Parameter languageCode: Language code to filter voices (optional, defaults to system language)
-  /// - Returns: Dictionary mapping provider IDs to voice arrays
-  public func fetchAllVoices(languageCode: String? = nil) async throws -> [String: [Voice]] {
-    var voicesByProvider: [String: [Voice]] = [:]
-
-    let providers = await providerRegistry.availableProviders()
-
-    for entry in providers where entry.isEnabled && entry.isConfigured {
-      let providerId = entry.descriptor.id
-
-      do {
-        let voices = try await fetchVoices(from: providerId, languageCode: languageCode)
-        voicesByProvider[providerId] = voices
-      } catch {
-        // Skip providers that fail to fetch voices
-        continue
-      }
+    try await requireEnabled(pluginId)
+    let plugin = try await registry.plugin(id: pluginId)
+    guard let listing = (plugin as? any VoiceListing) ?? (plugin.synthesizer as? any VoiceListing)
+    else {
+      throw HablareError.invalidRequest(detail: "plugin '\(pluginId)' does not list voices")
     }
-
-    return voicesByProvider
+    return try await listing.voices(languageCode: LanguageCodeResolver.resolve(languageCode))
   }
 
-  /// Generate audio for all items in a SpeakableItemList
+  /// Voices from every enabled registered plugin that can list them, keyed by plugin id.
+  /// Plugins that cannot list, or fail to, are left out.
+  public func fetchAllVoices(languageCode: String? = nil) async throws -> [String: [Voice]] {
+    var voicesByPlugin: [String: [Voice]] = [:]
+    for pluginId in await registry.registeredPluginIds {
+      guard let voices = try? await fetchVoices(from: pluginId, languageCode: languageCode)
+      else { continue }
+      voicesByPlugin[pluginId] = voices
+    }
+    return voicesByPlugin
+  }
+
+  // MARK: - Lists
+
+  /// Generate audio for all items in a SpeakableItemList.
   ///
-  /// This method processes a list of speakable items sequentially:
-  /// 1. Generates audio on background thread (actor-isolated)
-  /// 2. Creates TypedDataStorage records on main thread
-  /// 3. Saves to SwiftData after each item
-  /// 4. Updates progress in real-time
-  /// 5. Handles cancellation gracefully
-  /// 6. Preserves partial results on error/cancellation
-  ///
-  /// ## Example
-  ///
-  /// ```swift
-  /// @MainActor
-  /// func generateList() async throws {
-  ///     let provider = AppleVoiceProvider()
-  ///     let service = GenerationService(voiceProvider: provider)
-  ///
-  ///     let items: [any SpeakableItem] = [
-  ///         SimpleMessage(content: "Hello", voiceProvider: provider, voiceId: voiceId),
-  ///         SimpleMessage(content: "World", voiceProvider: provider, voiceId: voiceId)
-  ///     ]
-  ///
-  ///     let list = SpeakableItemList(name: "Greetings", items: items)
-  ///     let records = try await service.generateList(list, to: modelContext)
-  ///
-  ///     print("Generated \(records.count) audio files")
-  /// }
-  /// ```
+  /// Items are generated sequentially through the pipeline; a `TypedDataStorage` record is
+  /// created for each and saved every `saveInterval` items. `list.cancel()` stops before the
+  /// next item and returns what was made; `Task` cancellation throws
+  /// ``HablareError/cancelled`` after saving partial results.
   ///
   /// - Parameters:
   ///   - list: SpeakableItemList to process
   ///   - context: SwiftData ModelContext for persistence
   ///   - saveInterval: How often to save (default: after each item)
+  ///   - pluginId: The synthesizing plugin for items whose voice is an asset
+  ///   - progress: Item index plus that item's ``GenerationProgress``
   /// - Returns: Array of TypedDataStorage records that were created
-  /// - Throws: VoiceProviderError if generation fails (after saving partial results)
   @MainActor
   public func generateList(
     _ list: SpeakableItemList,
     to context: ModelContext,
-    saveInterval: Int = 1
+    saveInterval: Int = 1,
+    pluginId: String? = nil,
+    progress: (@Sendable (_ itemIndex: Int, _ progress: GenerationProgress) -> Void)? = nil
   ) async throws -> [TypedDataStorage] {
-    // Mark list as processing
     list.startProcessing()
 
     var savedRecords: [TypedDataStorage] = []
+    let interval = max(1, saveInterval)
 
-    // Process each item sequentially
     for index in 0..<list.totalCount {
-      // Check for cancellation
       if list.isCancelled {
         list.completeProcessing()
         break
       }
 
-      // Get the item
-      guard let item = list.item(at: index) else {
-        continue
-      }
+      guard let item = list.item(at: index) else { continue }
 
       do {
-        // Extract data we need (all Sendable)
-        let text = item.textToSpeak
-        let voiceId = item.voiceId
-        let languageCode = item.languageCode
-        let provider = item.voiceProvider
-        let providerId = provider.providerId
+        if Task.isCancelled { throw HablareError.cancelled }
 
-        // Ensure provider is configured
-        guard await provider.isConfigured() else {
-          throw VoiceProviderError.notConfigured
+        let request = item.speechRequest
+        var itemProgress: (@Sendable (GenerationProgress) -> Void)?
+        if let progress {
+          itemProgress = { @Sendable report in progress(index, report) }
         }
+        let outcome = try await generateItem(
+          request, pluginId: pluginId, progress: itemProgress)
 
-        // Generate audio using the item's own voice provider
-        // (not a different instance from the registry)
-        let audioData = try await provider.generateAudio(
-          text: text,
-          voiceId: voiceId,
-          languageCode: languageCode
-        )
-
-        // Estimate duration using the item's own voice provider
-        let duration = await provider.estimateDuration(
-          text: text,
-          voiceId: voiceId
-        )
-
-        // Create TypedDataStorage record (already on main thread)
-        let storage = TypedDataStorage(
-          id: UUID(),
-          providerId: providerId,
-          requestorID: "\(providerId).audio.tts",
-          mimeType: provider.mimeType,
-          textValue: nil,
-          binaryValue: audioData,
-          prompt: text,
-          durationSeconds: duration,
-          voiceID: voiceId,
-          voiceName: nil
-        )
-
-        // Insert into SwiftData
+        let storage = GenerationResult(
+          audio: outcome.outcome.audio,
+          originalText: request.text,
+          voice: request.voice,
+          pluginId: outcome.pluginId,
+          isSuspect: outcome.outcome.isSuspect
+        ).toTypedDataStorage()
         context.insert(storage)
 
-        // Save at interval with proper error handling
-        if (index + 1) % saveInterval == 0 || (index + 1) == list.totalCount {
-          do {
-            try context.save()
-          } catch {
-            #if DEBUG
-              print(
-                "Error saving audio at interval (item \(index + 1)): \(error.localizedDescription)")
-            #endif
-            // Don't throw yet - try to save partial results below
-            throw error
-          }
+        if (index + 1) % interval == 0 || (index + 1) == list.totalCount {
+          try context.save()
         }
 
         savedRecords.append(storage)
-
-        // Update progress
-        list.advanceProgress(
-          message: "Generated \(index + 1) of \(list.totalCount)"
-        )
-
+        list.advanceProgress(message: "Generated \(index + 1) of \(list.totalCount)")
       } catch {
-        // Save partial results before failing
         do {
           try context.save()
-          #if DEBUG
-            print("Saved \(savedRecords.count) partial results before failure")
-          #endif
+          Self.logger.debug("Saved \(savedRecords.count) partial results before failure")
         } catch let saveError {
-          #if DEBUG
-            print("Error saving partial results: \(saveError.localizedDescription)")
-          #endif
+          Self.logger.error(
+            "Error saving partial results: \(saveError.localizedDescription, privacy: .public)")
         }
-        list.failProcessing(with: error)
-        throw error
+        let failure: any Error = error is CancellationError ? HablareError.cancelled : error
+        list.failProcessing(with: failure)
+        throw failure
       }
     }
 
-    // Mark as complete - final save
     do {
       try context.save()
     } catch {
-      #if DEBUG
-        print("Error in final save of generation list: \(error.localizedDescription)")
-      #endif
+      Self.logger.error(
+        "Error in final save of generation list: \(error.localizedDescription, privacy: .public)")
       list.failProcessing(with: error)
       throw error
     }
 
     list.completeProcessing()
-
     return savedRecords
   }
 
-  // MARK: - Provider resolution
+  /// One list item through the pipeline, on the actor.
+  private func generateItem(
+    _ request: SpeechRequest,
+    pluginId: String?,
+    progress: (@Sendable (GenerationProgress) -> Void)?
+  ) async throws -> (pluginId: String, outcome: GenerationOutcome) {
+    let resolved = try await resolveSynthesizer(for: request.voice, pluginId: pluginId)
+    let outcome = try await run(request, synthesizer: resolved.synthesizer, progress: progress)
+    return (resolved.pluginId, outcome)
+  }
 
-  private func configuredProvider(for providerId: String) async throws -> VoiceProvider {
-    do {
-      return try await providerRegistry.configuredProvider(for: providerId)
-    } catch {
-      throw VoiceProviderError.notConfigured
+  // MARK: - Resolution
+
+  /// The plugin id and synthesizer for `voice`, requiring the plugin to be enabled.
+  private func resolveSynthesizer(
+    for voice: VoiceReference, pluginId: String?
+  ) async throws -> (pluginId: String, synthesizer: any VoiceSynthesizer) {
+    let id: String
+    switch voice {
+    case .catalog(let catalogPluginId, _):
+      id = pluginId ?? catalogPluginId
+    case .asset:
+      guard let pluginId else {
+        throw HablareError.invalidRequest(
+          detail: "a voice asset needs the id of the plugin that synthesizes it")
+      }
+      id = pluginId
+    }
+    try await requireEnabled(id)
+    return (id, try await registry.synthesizer(for: voice, pluginId: id))
+  }
+
+  private func requireEnabled(_ pluginId: String) async throws {
+    guard await registry.isRegistered(pluginId) else {
+      throw HablareError.invalidRequest(detail: "no plugin registered with id '\(pluginId)'")
+    }
+    guard await registry.isEnabled(pluginId: pluginId) else {
+      throw HablareError.invalidRequest(detail: "plugin '\(pluginId)' is disabled")
     }
   }
+
+  /// The string stored as `voiceID`: the catalog voice id, or the asset URL.
+  nonisolated static func voiceIdentifier(of voice: VoiceReference) -> String {
+    switch voice {
+    case .catalog(_, let voiceId): return voiceId
+    case .asset(let url): return url.absoluteString
+    }
+  }
+
+  // MARK: - Pipeline
+
+  private func run(
+    _ request: SpeechRequest,
+    synthesizer: any VoiceSynthesizer,
+    progress: (@Sendable (GenerationProgress) -> Void)?
+  ) async throws -> GenerationOutcome {
+    guard targetFormat.container == .pcm || targetFormat.container == .wav else {
+      throw HablareError.invalidRequest(
+        detail:
+          "GenerationService cannot write \(targetFormat.container.rawValue); use .pcm or .wav")
+    }
+    let limit = synthesizer.limits.maxCharacters ?? fallbackMaxCharacters
+    let chunks = TextChunker(maxCharacters: limit).chunks(request.text)
+    guard !chunks.isEmpty else {
+      throw HablareError.invalidRequest(detail: "text cannot be empty")
+    }
+
+    let pcmFormat = AudioFormat(
+      container: .pcm, sampleRate: targetFormat.sampleRate, channels: targetFormat.channels,
+      bitDepth: 16)
+    let normalizer = AudioNormalizer(
+      targetFormat: pcmFormat, configuration: normalizerConfiguration)
+    let validator = TakeValidator(policy: takePolicy)
+
+    var pcm = Data()
+    var takes = 0
+    var suspectChunks: [Int] = []
+    var droppedInstruct = false
+    var sourceUsed: VoiceSource?
+
+    for (index, text) in chunks.enumerated() {
+      if Task.isCancelled { throw HablareError.cancelled }
+
+      var chunkRequest = request
+      chunkRequest.text = text
+      var chunkSynthesizer: any VoiceSynthesizer = synthesizer
+      if let progress {
+        chunkSynthesizer = ProgressForwardingSynthesizer(
+          base: synthesizer, chunk: index, chunkCount: chunks.count, report: progress)
+      }
+
+      let take: ValidatedTake
+      do {
+        take = try await validator.synthesize(chunkRequest, using: chunkSynthesizer)
+      } catch is CancellationError {
+        throw HablareError.cancelled
+      }
+
+      takes += take.takes
+      if take.suspect {
+        suspectChunks.append(index)
+        Self.logger.notice(
+          "Chunk \(index + 1) of \(chunks.count) is suspect after \(take.takes) takes")
+      }
+      droppedInstruct = droppedInstruct || take.audio.droppedInstruct
+      if sourceUsed == nil { sourceUsed = take.audio.sourceUsed }
+
+      pcm.append(try normalizer.normalize(take.audio).data)
+    }
+
+    let bytesPerFrame = 2 * max(targetFormat.channels, 1)
+    let duration = Double(pcm.count / bytesPerFrame) / Double(max(targetFormat.sampleRate, 1))
+    var format = targetFormat
+    format.bitDepth = 16
+    let data: Data
+    if targetFormat.container == .wav {
+      data =
+        AudioNormalizer.riffHeader(
+          dataBytes: pcm.count, sampleRate: targetFormat.sampleRate,
+          channels: targetFormat.channels) + pcm
+    } else {
+      data = pcm
+    }
+
+    return GenerationOutcome(
+      audio: GeneratedAudio(
+        data: data, format: format, duration: duration, droppedInstruct: droppedInstruct,
+        sourceUsed: sourceUsed),
+      chunkCount: chunks.count,
+      takes: takes,
+      suspectChunks: suspectChunks)
+  }
+}
+
+// MARK: - Progress forwarding
+
+/// Routes ``TakeValidator``'s plain `synthesize(_:)` calls through the base synthesizer's
+/// progress-reporting overload, tagging each report with the chunk it belongs to.
+private struct ProgressForwardingSynthesizer: VoiceSynthesizer {
+  let base: any VoiceSynthesizer
+  let chunk: Int
+  let chunkCount: Int
+  let report: @Sendable (GenerationProgress) -> Void
+
+  var capabilities: SynthesisCapabilities { base.capabilities }
+  var limits: SynthesisLimits { base.limits }
+  var nativeFormats: [AudioFormat] { base.nativeFormats }
+  var maxConcurrentRequests: Int { base.maxConcurrentRequests }
+  var consumedSources: [VoiceSourcePattern] { base.consumedSources }
+
+  func readiness(for voice: VoiceReference) async -> VoiceReadiness {
+    await base.readiness(for: voice)
+  }
+
+  func prepare(_ voice: VoiceReference) async throws { try await base.prepare(voice) }
+
+  func release(_ voice: VoiceReference) async { await base.release(voice) }
+
+  func synthesize(_ request: SpeechRequest) async throws -> GeneratedAudio {
+    let chunk = chunk
+    let chunkCount = chunkCount
+    let report = report
+    return try await base.synthesize(request) { synthesis in
+      report(GenerationProgress(chunk: chunk, chunkCount: chunkCount, synthesis: synthesis))
+    }
+  }
+
+  func cacheKey(for request: SpeechRequest) -> String? { base.cacheKey(for: request) }
+
+  func estimateCost(_ request: SpeechRequest) -> CostEstimate? { base.estimateCost(request) }
 }
 
 // MARK: - GenerationResult Extensions
@@ -508,8 +609,9 @@ extension GenerationResult {
 
   /// Convert result to TypedDataStorage for SwiftData persistence
   ///
-  /// This method creates a TypedDataStorage instance from SwiftCompartido
-  /// that can be inserted into SwiftData and linked to GuionElementModel.
+  /// The stored MIME type comes from ``format`` when the result has one (see
+  /// ``AudioFormat/mimeType``); the format's container, sample rate and channel count are
+  /// recorded too, so headerless `.pcm` stays decodable.
   ///
   /// **Must be called on @MainActor**
   ///
@@ -520,11 +622,14 @@ extension GenerationResult {
       id: requestId,
       providerId: providerId,
       requestorID: "\(providerId).audio.tts",
-      mimeType: mimeType,
+      mimeType: format?.mimeType ?? mimeType,
       textValue: nil,  // Audio is binary
       binaryValue: audioData,
       prompt: originalText,
+      audioFormat: format?.container.rawValue,
       durationSeconds: estimatedDuration,
+      sampleRate: format?.sampleRate,
+      channels: format?.channels,
       voiceID: voiceId,
       voiceName: voiceName
     )

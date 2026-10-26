@@ -21,12 +21,11 @@ struct SpeakableItemListTests {
   func testListCreation() async throws {
     let container = try TestFixtures.makeTestContainer()
     let context = ModelContext(container)
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let items: [any SpeakableItem] = [
-      TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId),
-      TestFixtures.makeSimpleMessage(content: "World", provider: provider, voiceId: voiceId),
+      TestFixtures.makeSimpleMessage(content: "Hello", voice: voice),
+      TestFixtures.makeSimpleMessage(content: "World", voice: voice),
     ]
 
     let list = SpeakableItemList(name: "Test List", items: items)
@@ -53,12 +52,11 @@ struct SpeakableItemListTests {
 
   @Test("List item access")
   func testListItemAccess() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let items: [any SpeakableItem] = [
-      TestFixtures.makeSimpleMessage(content: "First", provider: provider, voiceId: voiceId),
-      TestFixtures.makeSimpleMessage(content: "Second", provider: provider, voiceId: voiceId),
+      TestFixtures.makeSimpleMessage(content: "First", voice: voice),
+      TestFixtures.makeSimpleMessage(content: "Second", voice: voice),
     ]
 
     let list = SpeakableItemList(name: "Test", items: items)
@@ -77,12 +75,11 @@ struct SpeakableItemListTests {
 
   @Test("List all items access")
   func testListAllItems() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let items: [any SpeakableItem] = [
-      TestFixtures.makeSimpleMessage(content: "A", provider: provider, voiceId: voiceId),
-      TestFixtures.makeSimpleMessage(content: "B", provider: provider, voiceId: voiceId),
+      TestFixtures.makeSimpleMessage(content: "A", voice: voice),
+      TestFixtures.makeSimpleMessage(content: "B", voice: voice),
     ]
 
     let list = SpeakableItemList(name: "Test", items: items)
@@ -95,16 +92,15 @@ struct SpeakableItemListTests {
 
   @Test("Progress tracking through items")
   func testProgressTracking() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "1", provider: provider, voiceId: voiceId),
-        TestFixtures.makeSimpleMessage(content: "2", provider: provider, voiceId: voiceId),
-        TestFixtures.makeSimpleMessage(content: "3", provider: provider, voiceId: voiceId),
-        TestFixtures.makeSimpleMessage(content: "4", provider: provider, voiceId: voiceId),
+        TestFixtures.makeSimpleMessage(content: "1", voice: voice),
+        TestFixtures.makeSimpleMessage(content: "2", voice: voice),
+        TestFixtures.makeSimpleMessage(content: "3", voice: voice),
+        TestFixtures.makeSimpleMessage(content: "4", voice: voice),
       ])
 
     #expect(list.progress == 0.0)
@@ -128,13 +124,12 @@ struct SpeakableItemListTests {
 
   @Test("Progress with custom message")
   func testProgressWithCustomMessage() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     list.advanceProgress(message: "Custom status")
@@ -143,13 +138,12 @@ struct SpeakableItemListTests {
 
   @Test("Processing state transitions")
   func testProcessingState() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     #expect(!list.isProcessing)
@@ -171,13 +165,12 @@ struct SpeakableItemListTests {
 
   @Test("Cancellation state change")
   func testCancellation() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     #expect(!list.isCancelled)
@@ -191,13 +184,12 @@ struct SpeakableItemListTests {
 
   @Test("Reset after completion")
   func testReset() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     // Simulate some progress
@@ -219,13 +211,12 @@ struct SpeakableItemListTests {
 
   @Test("Reset while processing should not reset")
   func testResetWhileProcessing() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     list.startProcessing()
@@ -241,16 +232,15 @@ struct SpeakableItemListTests {
 
   @Test("Error handling state")
   func testErrorHandling() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
-    let testError = VoiceProviderError.invalidRequest("Test error")
+    let testError = HablareError.invalidRequest(detail: "Test error")
     list.failProcessing(with: testError)
 
     #expect(list.error != nil)
@@ -279,13 +269,12 @@ struct SpeakableItemListTests {
 
   @Test("List properties")
   func testListProperties() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     let list = SpeakableItemList(
       name: "Test List",
       items: [
-        TestFixtures.makeSimpleMessage(content: "Hello", provider: provider, voiceId: voiceId)
+        TestFixtures.makeSimpleMessage(content: "Hello", voice: voice)
       ])
 
     #expect(list.name == "Test List")
@@ -297,14 +286,13 @@ struct SpeakableItemListTests {
 
   @Test("Large list progress tracking")
   func testLargeListProgress() async throws {
-    let provider = TestFixtures.makeAppleProvider()
-    let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+    let voice = TestFixtures.fakeVoice
 
     // Create a large list
     var items: [any SpeakableItem] = []
     for i in 0..<100 {
       items.append(
-        TestFixtures.makeSimpleMessage(content: "Item \(i)", provider: provider, voiceId: voiceId))
+        TestFixtures.makeSimpleMessage(content: "Item \(i)", voice: voice))
     }
 
     let list = SpeakableItemList(name: "Large List", items: items)

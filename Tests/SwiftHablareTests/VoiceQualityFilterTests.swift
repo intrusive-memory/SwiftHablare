@@ -207,23 +207,23 @@ struct VoiceQualityFilterTests {
 
   // MARK: - Provider Integration Tests
 
-  @Test("Apple voice provider reads filter setting from UserDefaults")
-  func appleVoiceProviderReadsFilterSettingFromUserDefaults() async {
-    // Clear any existing setting
-    UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
+  @Test("Apple plugin reads filter setting from UserDefaults")
+  func applePluginReadsFilterSettingFromUserDefaults() async throws {
+    let defaults = try #require(UserDefaults(suiteName: "VoiceQualityFilterTests.\(UUID())"))
+    defer { defaults.removeObject(forKey: ApplePlugin.highQualityFilterKey) }
 
-    let provider = AppleVoiceProvider()
-    #expect(await provider.isConfigured())
+    let plugin = ApplePlugin(engine: AVSpeechTTSEngine(), userDefaults: defaults)
+    #expect(await plugin.status() == .ready)
+    let unfiltered = try await plugin.voices(languageCode: "en")
+    #expect(!unfiltered.isEmpty)
 
-    // Set the filter in UserDefaults
-    UserDefaults.standard.set(true, forKey: "appleVoiceFilterHighQualityOnly")
-
-    // Create new provider instance to pick up the setting
-    let providerWithFilter = AppleVoiceProvider()
-    #expect(await providerWithFilter.isConfigured())
-
-    // Cleanup
-    UserDefaults.standard.removeObject(forKey: "appleVoiceFilterHighQualityOnly")
+    // Turn the filter on; a plugin sharing the defaults picks it up.
+    defaults.set(true, forKey: ApplePlugin.highQualityFilterKey)
+    let filtered = try? await plugin.voices(languageCode: "en")
+    for voice in filtered ?? [] {
+      #expect(voice.quality == "enhanced" || voice.quality == "premium")
+    }
+    #expect((filtered ?? []).count <= unfiltered.count)
   }
 
   // MARK: - Cross-Platform Consistency Tests

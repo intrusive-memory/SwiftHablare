@@ -32,22 +32,13 @@
   "testTargets" : [
     {
       "skippedTests" : [
-        "AppleVoiceProviderTests",
-        "ElevenLabsProviderTests",
-        "ElevenLabsUserAgentTests",
-        "GenerateAudioButtonTests",
         "GenerationServiceTests",
         "GuionElementSpeakableTests",
-        "KeychainManagerTests",
-        "ProviderPickerViewTests",
         "SpeakableGroupTests",
         "SpeakableItemListTests",
         "SpeakableItemTests",
         "VoiceModelTests",
-        "VoicePickerViewTests",
-        "VoiceProviderRegistryTests",
         "VoiceQualityFilterTests",
-        "VoiceTests",
         "VoiceURITests",
         "AppleTTSEngineProtocolTests",
         "AVSpeechTTSEngineTests/Duration estimation returns positive value",

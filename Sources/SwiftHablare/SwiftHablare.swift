@@ -10,13 +10,13 @@ import Foundation
 /// SwiftHablare - Audio generation library for screenplays
 ///
 /// SwiftHablare focuses purely on generation - converting screenplay elements
-/// into spoken audio using a pluggable `VoiceProvider` protocol. The on-device
-/// `AppleVoiceProvider` ships built-in; other providers (e.g. `SwiftHablareOnce`
-/// for ElevenLabs) are added by depending on companion packages.
+/// into spoken audio through pluggable `HablarePlugin` types resolved by a
+/// `PluginRegistry`. The on-device `ApplePlugin` ships built-in; other plugins
+/// (e.g. `SwiftHablareOnce` for ElevenLabs) are added by depending on companion packages.
 ///
 /// ## Features
 ///
-/// - Built-in `AppleVoiceProvider`; external providers via `VoiceProviderRegistry`
+/// - Built-in `ApplePlugin`; external plugins via `PluginRegistry`
 /// - Voice caching to reduce API calls
 /// - Thread-safe generation using actor isolation
 /// - Saves audio to TypedDataStorage from SwiftCompartido
@@ -38,10 +38,11 @@ import Foundation
 /// let service = GenerationService()
 ///
 /// // 3. Generate audio for an element
+/// let voice = VoiceReference.catalog(
+///     pluginId: "apple", voiceId: "com.apple.voice.compact.en-US.Samantha")
 /// let result = try await service.generate(
 ///     forElement: element,
-///     providerId: "apple",
-///     voiceId: "com.apple.voice.compact.en-US.Samantha",
+///     voice: voice,
 ///     voiceName: "Samantha"
 /// )
 ///
@@ -67,7 +68,7 @@ import Foundation
 ///
 /// All generation happens on background threads using Swift actors:
 /// - GenerationService (actor) coordinates generation
-/// - VoiceProvider generates audio off the main thread
+/// - Plugins synthesize audio off the main thread
 /// - Results are Sendable and can be transferred to main thread
 /// - SwiftData saves happen on @MainActor
 ///
