@@ -2,12 +2,12 @@
 //  SpeakableGroupTests.swift
 //  SwiftHablareTests
 //
-//  Tests for SpeakableGroup protocol and GenerateGroupButton
+//  Tests for the SpeakableGroup protocol
 //
 
+import Foundation
 import SwiftCompartido
 import SwiftData
-import SwiftUI
 import Testing
 
 @testable import SwiftHablare
@@ -209,124 +209,6 @@ struct SpeakableGroupTests {
     #expect(list.groupName == "Grocery Run")
     #expect(list.groupDescription == "3 items")
     #expect(list.getGroupedElements().count == 3)
-  }
-
-  // MARK: - GenerateGroupButton Tests
-
-  @Test("Button initializes with correct parameters")
-  func testButtonInitialization() throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-    let group = makeTestGroup()
-
-    let button = GenerateGroupButton(
-      group: group,
-      service: service,
-      modelContext: context,
-      onComplete: { _ in }
-    )
-
-    #expect(button.group.groupName == group.groupName)
-  }
-
-  @Test("Button detects items with no existing audio")
-  func testDetectsNoExistingAudio() async throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-    let group = makeTestGroup(itemCount: 3)
-
-    // Create button (no existing audio)
-    let _ = GenerateGroupButton(
-      group: group,
-      service: service,
-      modelContext: context
-    )
-
-    // Wait for check to complete
-    try await Task.sleep(for: .milliseconds(100))
-
-    // Verify no audio exists
-    let descriptor = FetchDescriptor<TypedDataStorage>()
-    let results = try context.fetch(descriptor)
-    #expect(results.isEmpty)
-  }
-
-  @Test("Button detects items with existing audio")
-  func testDetectsExistingAudio() async throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-    let group = makeTestGroup(itemCount: 3)
-    let items = group.getGroupedElements()
-
-    // Create audio for one item
-    let _ = makeTestAudioRecord(for: items[0], in: context)
-
-    // Create button
-    let _ = GenerateGroupButton(
-      group: group,
-      service: service,
-      modelContext: context
-    )
-
-    // Wait for check to complete
-    try await Task.sleep(for: .milliseconds(100))
-
-    // Verify one audio record exists
-    let descriptor = FetchDescriptor<TypedDataStorage>()
-    let results = try context.fetch(descriptor)
-    #expect(results.count == 1)
-  }
-
-  @Test("Button detects when all items have audio")
-  func testDetectsAllItemsHaveAudio() async throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-    let group = makeTestGroup(itemCount: 3)
-    let items = group.getGroupedElements()
-
-    // Create audio for all items
-    for item in items {
-      let _ = makeTestAudioRecord(for: item, in: context)
-    }
-
-    // Create button
-    let _ = GenerateGroupButton(
-      group: group,
-      service: service,
-      modelContext: context
-    )
-
-    // Wait for check to complete
-    try await Task.sleep(for: .milliseconds(100))
-
-    // Verify all audio records exist
-    let descriptor = FetchDescriptor<TypedDataStorage>()
-    let results = try context.fetch(descriptor)
-    #expect(results.count == 3)
-  }
-
-  @Test("Button handles empty group gracefully")
-  func testEmptyGroup() async throws {
-    let container = try makeTestContainer()
-    let context = ModelContext(container)
-    let service = GenerationService()
-    let group = TestGroup(name: "Empty", items: [])
-
-    let _ = GenerateGroupButton(
-      group: group,
-      service: service,
-      modelContext: context
-    )
-
-    // Wait for check to complete
-    try await Task.sleep(for: .milliseconds(100))
-
-    // Should handle empty group without crashing
-    #expect(group.itemCount == 0)
   }
 
   // MARK: - Progress Tracking Tests

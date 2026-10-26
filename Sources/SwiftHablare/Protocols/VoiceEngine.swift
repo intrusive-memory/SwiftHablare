@@ -135,3 +135,33 @@ extension VoiceEngine {
     VoiceEngineRequest(text: text, voiceId: voiceId, languageCode: languageCode, options: options)
   }
 }
+
+/// Errors thrown across the Apple engine boundary.
+///
+/// `AppleTTSEngine` implementations throw this type; `ApplePlugin` maps it to
+/// ``HablareError`` at the plugin boundary. It is not part of the plugin contract.
+public enum VoiceProviderError: LocalizedError, Sendable {
+  case notConfigured
+  case networkError(String)
+  case invalidResponse
+  case unsupportedProvider
+  case notSupported
+  case invalidRequest(String)
+
+  public var errorDescription: String? {
+    switch self {
+    case .notConfigured:
+      return "Voice engine is not configured. Please check your settings."
+    case .networkError(let message):
+      return "Network error: \(message)"
+    case .invalidResponse:
+      return "Invalid response from voice engine"
+    case .unsupportedProvider:
+      return "Unsupported voice provider"
+    case .notSupported:
+      return "Audio generation is not supported on this platform"
+    case .invalidRequest(let message):
+      return "Invalid request: \(message)"
+    }
+  }
+}

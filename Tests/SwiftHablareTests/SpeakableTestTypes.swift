@@ -720,3 +720,28 @@ public struct MarkdownDocumentSpeakable: SpeakableGroup {
     self.languageCode = languageCode
   }
 }
+
+// MARK: - GuionElement helpers
+
+extension GuionElement {
+  /// True when the element has non-empty text.
+  var isSpeakable: Bool {
+    !elementText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  /// Narrator or character voice for this element type.
+  var recommendedVoiceType: VoiceType {
+    switch elementType {
+    case .dialogue, .character, .lyrics:
+      return .character
+    default:
+      return .narrator
+    }
+  }
+}
+
+/// Voice type classification for screenplay elements.
+enum VoiceType {
+  case character
+  case narrator
+}
