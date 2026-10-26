@@ -95,7 +95,6 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| post | cleanup | implementer | DISPATCHED | 1/3 | — | sonnet | — | test-cleanup | (cleanup base) | (harness output file) | 2026-10-26T07:05Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -172,3 +171,5 @@ type: supervisor-state
 | 2026-10-26T06:55Z | WU4 | 17 | Mechanical criteria PASS (10009746); verifier round 1 FAIL → PARTIAL (verifier 1/2) | REQUIREMENTS names the plugin AppleVoiceProvider, docs/code say ApplePlugin; also stale AGENTS.md 49-51. Continuation sent to same agent (SendMessage); attempt stays 1/3 |
 | 2026-10-26T07:05Z | WU4 | 17 | COMPLETED; WU4 COMPLETED; all 17 sorties done | Verifier round 2 PASS |
 | 2026-10-26T07:05Z | — | — | Final verification PASSED → COMPLETE_SwiftHablare.md; test-cleanup dispatched (sonnet, 25 surviving test files) | completion.md §7 |
+| 2026-10-26T07:15Z | — | — | Test cleanup COMPLETED (798acbbe): 0 removed, 5 flagged | TEST_CLEANUP_REPORT.md |
+| 2026-10-26T07:15Z | — | — | Brief written: OPERATION_SOCKET_CHOIR_01_BRIEF.md, verdict KEEP | brief.md |

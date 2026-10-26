@@ -78,3 +78,13 @@ Non-blocking follow-ups are carried to the brief.
 ## Verdict
 
 ✓ VERIFICATION PASSED — all sorties accounted for, exit criteria verified, commits present.
+
+---
+
+### ✓ Test Cleanup (post-mission)
+- **Status**: COMPLETED
+- **Tests removed**: 0
+- **Tests flagged for review**: 5
+- **Build verification**: pass (325 tests / 34 suites)
+- **Report**: TEST_CLEANUP_REPORT.md
+- **Commit**: 798acbbe
