@@ -69,15 +69,15 @@ type: supervisor-state
 
 ### WU3 Engine services
 - Work unit state: RUNNING
-- Current sortie: 9 (S9–S13)
+- Current sortie: 10 (S9–S13)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 10 (plan-specified)
+- Model: opus
+- Complexity score: 16 (plan-specified; main acceptance criterion)
 - Attempt: 1 of 3
-- Agent: wu3-s9
-- Last verified: —
-- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple.
+- Agent: wu3-s10
+- Last verified: S9 COMPLETED at 174564ce — 310 tests / 30 suites
+- Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt.
 
 ### WU4 Port and remove
 - Work unit state: NOT_STARTED
@@ -86,7 +86,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU3 | 9 | implementer | DISPATCHED | 1/3 | — | sonnet | 10 | wu3-s9 | 60e5eff8 | (harness output file) | 2026-10-26T04:40Z | 0/3 | — |
+| WU3 | 10 | implementer | DISPATCHED | 1/3 | — | opus | 16 | wu3-s10 | 174564ce | (harness output file) | 2026-10-26T04:50Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -104,6 +104,7 @@ type: supervisor-state
 | S7 | 271 |
 | S6 | 282 |
 | S8 | 291 |
+| S9 | 310 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -134,3 +135,5 @@ type: supervisor-state
 | 2026-10-26T04:40Z | WU2 | 8 | COMPLETED (60e5eff8); WU2 COMPLETED | Cache/config/enablement/env-var/concurrency/pairing tests pass; 291/27, stable over 2 runs. Accepted deviation: init-count criteria use a test-local CountingPlugin instead of FakeSynthesizerPlugin's process-wide counter, to avoid cross-suite flakiness — same assertions |
 | 2026-10-26T04:40Z | WU3 | — | Gate: WU2 COMPLETED → WU3 RUNNING | |
 | 2026-10-26T04:40Z | WU3 | 9 | Model: sonnet | Plan-specified |
+| 2026-10-26T04:50Z | WU3 | 9 | COMPLETED (174564ce) | Chunking ≤280 + rejoin, 3 takes + suspect, 19 cache-key variants; 310/30 |
+| 2026-10-26T04:50Z | WU3 | 10 | Model: opus | Plan-specified |
