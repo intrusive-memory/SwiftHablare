@@ -80,22 +80,22 @@ type: supervisor-state
 - Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt. S10: voice travels as SpeechRequest.voice = .asset(URL); the synthesizer component opens the .vox and picks via preferredSource(in:)/sourceReadiness(for:). OPEN USER DECISION: composite id is derived "<designer>+<synthesizer>" (generic type), not the spec's "gemini-chatterbox" — affects downstream mission only. Pairing checked only once both components registered. Flake risk RESOLVED in S11 (task-local FakeInitCounter). S11: fakes relabelled .wav 24k mono 16 (bytes carry RIFF); kit = ConformanceKit.run(_:context:voice:mode:secrets:) -> ConformanceReport, modes .full/.hardwareFree. S12: xctestplan `skippedTests` is NOT honoured for swift-testing tests here — real skip is `.enabled(if: !CI)` (CITests sets CI=true); S16 must remove deleted tests from both plans anyway. Scheme default plan = CITests, so `make test` = CI plan. ApplePlugin id "apple", native .aiff 22050 mono 16.
 
 ### WU4 Port and remove
-- Work unit state: RUNNING
+- Work unit state: COMPLETED
 - Current sortie: 17 (S14–S17)
-- Sortie state: DISPATCHED
+- Sortie state: COMPLETED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 9 (plan-specified; has [judgment] criterion → verifier)
 - Attempt: 1 of 3
 - Agent: wu4-s17
-- Last verified: S16 COMPLETED at e2b8fc43 — 325 tests / 34 suites (−46 deleted, listed); exit greps re-run by supervisor
+- Last verified: S17 COMPLETED at 1d6af38b — 325 tests / 34 suites; verifier round 2 PASS
 - Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=. S15: GenerationOutcome.suspectChunks/isSuspect + GenerationResult.isSuspect (not persisted in TypedDataStorage); VoiceListing protocol (ApplePlugin adopts); AudioFormat.mimeType; chunks joined with no gap (~80 ms edge padding — listen-test item for brief). Pre-existing print( in Providers/Apple/AVSpeechTTSEngine.swift (~40) — CI print check is warning-only (writes summary, no exit 1); no sortie owns it → brief follow-up. S16 kept VoiceProviderError (moved to Protocols/VoiceEngine.swift, engine boundary) and Voice (VoiceListing). Doc leftovers for S17: Tests/README.md mock-provider calls, SwiftHablare.swift doc example, version still "6.3.0-dev".
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU4 | 17 | implementer | DISPATCHED | 1/3 | 0/2 | sonnet | 9 | wu4-s17 | e2b8fc43 | (harness output file) | 2026-10-26T06:40Z | 0/3 | — |
+| post | cleanup | implementer | DISPATCHED | 1/3 | — | sonnet | — | test-cleanup | (cleanup base) | (harness output file) | 2026-10-26T07:05Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -170,3 +170,5 @@ type: supervisor-state
 | 2026-10-26T06:40Z | WU4 | 16 | COMPLETED (e2b8fc43) | Supervisor re-ran: no SwiftUI import, removed-symbol grep empty, Examples/Hablare gone, plans parse; 325/34 with drop = 46 listed tests |
 | 2026-10-26T06:40Z | WU4 | 17 | Model: sonnet | Plan-specified; [judgment] criterion → sonnet verifier after mechanical pass |
 | 2026-10-26T06:55Z | WU4 | 17 | Mechanical criteria PASS (10009746); verifier round 1 FAIL → PARTIAL (verifier 1/2) | REQUIREMENTS names the plugin AppleVoiceProvider, docs/code say ApplePlugin; also stale AGENTS.md 49-51. Continuation sent to same agent (SendMessage); attempt stays 1/3 |
+| 2026-10-26T07:05Z | WU4 | 17 | COMPLETED; WU4 COMPLETED; all 17 sorties done | Verifier round 2 PASS |
+| 2026-10-26T07:05Z | — | — | Final verification PASSED → COMPLETE_SwiftHablare.md; test-cleanup dispatched (sonnet, 25 surviving test files) | completion.md §7 |
