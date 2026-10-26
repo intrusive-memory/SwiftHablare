@@ -68,25 +68,34 @@ type: supervisor-state
 - Notes: S5 placeholders VoiceSource(+Kind) and VoiceAsset in Core/SpeechRequest.swift → S7 replaces them, keeps VoiceSource Hashable. Seed: request seed wins (decide in S9 dispatch). Hybrid status must be computed by CompositePlugin itself (S10). Plugin credentials via `static var credentials` / `credentialRequirementsByAccount` → S8 merges into EnvironmentAPIKeyStore. S7: VoxFormat 0.4.1 stores extensions as [String: AnyCodable], so extensions.google key order (voice_id first) is NOT preserved — byte-for-byte parity with vox-python unmet (brief item; needs a VoxFormat change). Root Fixtures/ load needs `Fijos.getFixture(_, from: <root>/Package.swift)` — see VoiceAssetTests.fixture(_:). S6: fake synthesizer output is WAV-header bytes labelled .pcm24kMono16 (container .pcm) — S13 AudioNormalizer / S15 must decide WAV-vs-raw PCM; FakeSynthesizerPlugin.initCount is static (call resetInitCount()).
 
 ### WU3 Engine services
-- Work unit state: RUNNING
+- Work unit state: COMPLETED
 - Current sortie: 13 (S9–S13)
-- Sortie state: DISPATCHED
+- Sortie state: COMPLETED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 11 (plan-specified)
 - Attempt: 1 of 3
 - Agent: wu3-s13
-- Last verified: S12 COMPLETED at e6106260 — 342 tests / 35 suites; full Apple kit passed locally
+- Last verified: S13 COMPLETED at 2117fbe4 — 349 tests / 36 suites
 - Notes: Seed rule: SpeechRequest.seed is authoritative; TakeValidator retries set a new request seed. S12 must update PluginRegistryTests.defaultIsEmpty when adding Apple. S9: TakeValidator returns ValidatedTake{audio,takes,suspect,seed} — S15 consumes it; retry seeds base+1000·attempt. S10: voice travels as SpeechRequest.voice = .asset(URL); the synthesizer component opens the .vox and picks via preferredSource(in:)/sourceReadiness(for:). OPEN USER DECISION: composite id is derived "<designer>+<synthesizer>" (generic type), not the spec's "gemini-chatterbox" — affects downstream mission only. Pairing checked only once both components registered. Flake risk RESOLVED in S11 (task-local FakeInitCounter). S11: fakes relabelled .wav 24k mono 16 (bytes carry RIFF); kit = ConformanceKit.run(_:context:voice:mode:secrets:) -> ConformanceReport, modes .full/.hardwareFree. S12: xctestplan `skippedTests` is NOT honoured for swift-testing tests here — real skip is `.enabled(if: !CI)` (CITests sets CI=true); S16 must remove deleted tests from both plans anyway. Scheme default plan = CITests, so `make test` = CI plan. ApplePlugin id "apple", native .aiff 22050 mono 16.
 
 ### WU4 Port and remove
-- Work unit state: NOT_STARTED
+- Work unit state: RUNNING
+- Current sortie: 14 (S14–S17)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: sonnet
+- Complexity score: 11 (plan-specified)
+- Attempt: 1 of 3
+- Agent: wu4-s14
+- Last verified: —
+- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice)
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU3 | 13 | implementer | DISPATCHED | 1/3 | — | sonnet | 9 | wu3-s13 | e6106260 | (harness output file) | 2026-10-26T05:35Z | 0/3 | — |
+| WU4 | 14 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu4-s14 | 2117fbe4 | (harness output file) | 2026-10-26T05:45Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -108,6 +117,7 @@ type: supervisor-state
 | S10 | 321 |
 | S11 | 335 |
 | S12 | 342 |
+| S13 | 349 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -147,3 +157,6 @@ type: supervisor-state
 | 2026-10-26T05:20Z | WU3 | 12 | Model: sonnet | Plan-specified |
 | 2026-10-26T05:35Z | WU3 | 12 | COMPLETED (e6106260) | default = [apple]; grep 0; plans parse; hardware-free kit in CITests; full kit green locally; 342/35. Verified scheme default plan is CITests |
 | 2026-10-26T05:35Z | WU3 | 13 | Model: sonnet | Plan-specified |
+| 2026-10-26T05:45Z | WU3 | 13 | COMPLETED (2117fbe4); WU3 COMPLETED | 44.1k stereo→24k mono, pause cap, RIFF-free pcm out, runs in CI; 349/36 |
+| 2026-10-26T05:45Z | WU4 | — | Gate: WU3 COMPLETED → WU4 RUNNING | |
+| 2026-10-26T05:45Z | WU4 | 14 | Model: sonnet | Plan-specified |
