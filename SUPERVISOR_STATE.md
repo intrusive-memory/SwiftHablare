@@ -81,21 +81,21 @@ type: supervisor-state
 
 ### WU4 Port and remove
 - Work unit state: RUNNING
-- Current sortie: 15 (S14–S17)
+- Current sortie: 16 (S14–S17)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: opus
-- Complexity score: 15 (plan-specified)
+- Model: sonnet
+- Complexity score: 12 (plan-specified)
 - Attempt: 1 of 3
-- Agent: wu4-s15
-- Last verified: S14 COMPLETED at fa3ac701 — 359 tests / 37 suites
-- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=
+- Agent: wu4-s16
+- Last verified: S15 COMPLETED at 0dbba4be — 371 tests / 37 suites
+- Notes: AudioNormalizer(targetFormat:configuration:).normalize(_:) — .pcm out has no RIFF; mp3/opus in throw invalidRequest; default maxPause 0.6 s (supervisor-noted choice). S14 shims to remove: GenerationService.generateList 6.x shim (S15); UI buttons, Examples `voice` shims, GenerateAudioButtonTests legacy* ext, GenerateGroupButton tests inside SpeakableGroupTests (S16). VoiceModelTests had no VoiceURI cases → new VoiceURITests. Asset URI form: asset:///abs/path.vox?lang=. S15: GenerationOutcome.suspectChunks/isSuspect + GenerationResult.isSuspect (not persisted in TypedDataStorage); VoiceListing protocol (ApplePlugin adopts); AudioFormat.mimeType; chunks joined with no gap (~80 ms edge padding — listen-test item for brief). Pre-existing print( in Providers/Apple/AVSpeechTTSEngine.swift (~40) — CI print check is warning-only (writes summary, no exit 1); no sortie owns it → brief follow-up.
 
 ## Active Agents
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU4 | 15 | implementer | DISPATCHED | 1/3 | — | opus | 15 | wu4-s15 | fa3ac701 | (harness output file) | 2026-10-26T06:05Z | 0/3 | — |
+| WU4 | 16 | implementer | DISPATCHED | 1/3 | — | sonnet | 12 | wu4-s16 | 0dbba4be | (harness output file) | 2026-10-26T06:25Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -119,6 +119,7 @@ type: supervisor-state
 | S12 | 342 |
 | S13 | 349 |
 | S14 | 359 |
+| S15 | 371 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -163,3 +164,5 @@ type: supervisor-state
 | 2026-10-26T05:45Z | WU4 | 14 | Model: sonnet | Plan-specified |
 | 2026-10-26T06:05Z | WU4 | 14 | COMPLETED (fa3ac701) | grep clean; VoiceURI↔VoiceReference + apple:// parse; 359/37 |
 | 2026-10-26T06:05Z | WU4 | 15 | Model: opus | Plan-specified |
+| 2026-10-26T06:25Z | WU4 | 15 | COMPLETED (0dbba4be) | grep clean; 600-char → ≥3 chunks, .pcm24kMono16; mid-list cancel; 371/37 (29 old tests rewritten as 41) |
+| 2026-10-26T06:25Z | WU4 | 16 | Model: sonnet | Plan-specified |
