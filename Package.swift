@@ -50,7 +50,11 @@ let package = Package(
     .library(
       name: "SwiftHablare",
       targets: ["SwiftHablare"]
-    )
+    ),
+    .library(
+      name: "SwiftHablareTesting",
+      targets: ["SwiftHablareTesting"]
+    ),
   ],
   dependencies: [
     sibling(
@@ -61,13 +65,30 @@ let package = Package(
       "SwiftCompartido",
       remote: "https://github.com/intrusive-memory/SwiftCompartido.git",
       from: "7.2.4"),
+    sibling(
+      "vox-format",
+      remote: "https://github.com/intrusive-memory/vox-format.git",
+      from: "0.4.1"),
+    sibling(
+      "SwiftAcervo",
+      remote: "https://github.com/intrusive-memory/SwiftAcervo.git",
+      from: "0.25.0"),
   ],
   targets: [
     .target(
       name: "SwiftHablare",
       dependencies: [
-        .product(name: "SwiftCompartido", package: "SwiftCompartido")
+        .product(name: "SwiftCompartido", package: "SwiftCompartido"),
+        .product(name: "VoxFormat", package: "vox-format"),
+        .product(name: "SwiftAcervo", package: "SwiftAcervo"),
       ],
+      swiftSettings: [
+        .enableUpcomingFeature("StrictConcurrency")
+      ]
+    ),
+    .target(
+      name: "SwiftHablareTesting",
+      dependencies: ["SwiftHablare"],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
       ]
@@ -76,6 +97,7 @@ let package = Package(
       name: "SwiftHablareTests",
       dependencies: [
         "SwiftHablare",
+        "SwiftHablareTesting",
         .product(name: "SwiftFijos", package: "SwiftFijos"),
         .product(name: "SwiftCompartido", package: "SwiftCompartido"),
       ],
