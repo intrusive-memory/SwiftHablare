@@ -44,19 +44,28 @@ type: supervisor-state
 | WU4 Port and remove | Protocols, Models, Generation, Tests, Examples, docs | S14–S17 | WU3 |
 
 ### WU1 Foundation
-- Work unit state: RUNNING
+- Work unit state: COMPLETED
 - Current sortie: 4 of 4 (S1–S4)
-- Sortie state: DISPATCHED
+- Sortie state: COMPLETED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 9 (plan-specified model)
 - Attempt: 1 of 3
 - Agent: wu1-s4
-- Last verified: S3 COMPLETED at 8c0fbc65 — 242 tests / 22 suites; Keychain round trip ran
+- Last verified: S4 COMPLETED at 54c5479c — 250 tests / 23 suites
 - Notes: S2 added stubs ModelDescriptor (HablareError.swift) and VoiceSource (SpeechRequest.swift); S5/S7 dispatch prompts must say replace, not duplicate. S3: EnvironmentAPIKeyStore takes a static [pluginId: CredentialRequirement] map defaulting to builtIn (elevenlabs, google) — S5/S8 must let registered plugins' requirements reach it, or third-party env vars are never read
 
 ### WU2 Plugin host
-- Work unit state: NOT_STARTED
+- Work unit state: RUNNING
+- Current sortie: 5 (S5–S8)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: opus
+- Complexity score: 18 (plan-specified; core contract, 12 dependents)
+- Attempt: 1 of 3
+- Agent: wu2-s5
+- Last verified: —
+- Notes: S5 must complete the ModelDescriptor stub from S2 (HablareError.swift), not duplicate it; open seam: SpeechRequest.seed vs VoiceSettings "seed"
 
 ### WU3 Engine services
 - Work unit state: NOT_STARTED
@@ -68,7 +77,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU1 | 4 | implementer | DISPATCHED | 1/3 | — | sonnet | 10 | wu1-s4 | 8c0fbc65 | (harness output file) | 2026-10-26T03:45Z | 0/3 | — |
+| WU2 | 5 | implementer | DISPATCHED | 1/3 | — | opus | 18 | wu2-s5 | 54c5479c | (harness output file) | 2026-10-26T03:55Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -81,6 +90,7 @@ type: supervisor-state
 | S1 | 219 |
 | S2 | 232 |
 | S3 | 242 |
+| S4 | 250 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -98,3 +108,6 @@ type: supervisor-state
 | 2026-10-26T03:35Z | WU1 | 3 | Model: sonnet | Plan-specified; Keychain/system-call risk |
 | 2026-10-26T03:45Z | WU1 | 3 | COMPLETED (8c0fbc65) | KeychainManager untouched; env-wins, alias, no-leak, keychain round-trip tests pass; 242/22 |
 | 2026-10-26T03:45Z | WU1 | 4 | Model: sonnet | Plan-specified; schema + validation |
+| 2026-10-26T03:55Z | WU1 | 4 | COMPLETED (54c5479c); WU1 COMPLETED | 4 exit tests pass; single VoiceSettings declaration; 250/23 |
+| 2026-10-26T03:55Z | WU2 | — | Gate: WU1 COMPLETED → WU2 RUNNING | Layer 1 dependency satisfied |
+| 2026-10-26T03:55Z | WU2 | 5 | Model: opus | Plan-specified; foundation of 12 sorties |
