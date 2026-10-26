@@ -29,7 +29,8 @@ public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
   public let charactersPerSecond: Double
 
   private let failure = FakeFailure()
-  private let readinessBox = FakeLocked<VoiceReadiness>(.ready(source: nil))
+  /// `nil` until ``setReadiness(_:)`` pins an answer; until then readiness is derived.
+  private let readinessBox = FakeLocked<VoiceReadiness?>(nil)
   private let counts = FakeLocked<Counts>(Counts())
   private let requests = FakeLocked<[SpeechRequest]>([])
   private let preflight: (@Sendable () throws -> Void)?
@@ -72,7 +73,7 @@ public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
   /// The next `synthesize`/`prepare` call throws `error`, then behaviour returns to normal.
   public func failNextCall(with error: HablareError) { failure.arm(error) }
 
-  /// What ``readiness(for:)`` reports from now on.
+  /// What ``readiness(for:)`` reports from now on, overriding the derived answer.
   public func setReadiness(_ readiness: VoiceReadiness) {
     readinessBox.withValue { $0 = readiness }
   }
@@ -87,8 +88,11 @@ public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
 
   // MARK: VoiceSynthesizer
 
+  /// The pinned readiness when ``setReadiness(_:)`` was called. Otherwise derived like a real
+  /// `.vox` engine: for `.asset(URL)`, the source ``consumedSources`` selects from that file
+  /// (``VoiceSynthesizer/sourceReadiness(for:asOf:)``); for a catalog voice, `.ready(source: nil)`.
   public func readiness(for voice: VoiceReference) async -> VoiceReadiness {
-    readinessBox.current
+    readinessBox.current ?? sourceReadiness(for: voice)
   }
 
   public func prepare(_ voice: VoiceReference) async throws {
@@ -100,18 +104,20 @@ public final class FakeVoiceSynthesizer: VoiceSynthesizer, @unchecked Sendable {
     counts.withValue { $0.release += 1 }
   }
 
+  /// `sourceUsed` is the source ``readiness(for:)`` names for `request.voice`.
   public func synthesize(_ request: SpeechRequest) async throws -> GeneratedAudio {
     counts.withValue { $0.synthesize += 1 }
     requests.withValue { $0.append(request) }
     try failure.throwIfArmed()
     try preflight?()
+    let source = await readiness(for: request.voice).source
     let seconds = max(0.05, Double(request.text.count) / charactersPerSecond)
     return GeneratedAudio(
       data: FakeAudio.wav(text: request.text, seed: request.seed ?? 0, seconds: seconds),
       format: .pcm24kMono16,
       duration: seconds,
       droppedInstruct: request.instruct != nil && !capabilities.contains(.instruct),
-      sourceUsed: readinessBox.current.source)
+      sourceUsed: source)
   }
 
   public func cacheKey(for request: SpeechRequest) -> String? {
