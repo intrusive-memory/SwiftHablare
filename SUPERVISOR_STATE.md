@@ -45,15 +45,15 @@ type: supervisor-state
 
 ### WU1 Foundation
 - Work unit state: RUNNING
-- Current sortie: 3 of 4 (S1–S4)
+- Current sortie: 4 of 4 (S1–S4)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 9 (plan-specified model)
 - Attempt: 1 of 3
-- Agent: wu1-s3
-- Last verified: S2 COMPLETED at 440a73f7 — 232 tests / 21 suites
-- Notes: S2 added stubs ModelDescriptor (HablareError.swift) and VoiceSource (SpeechRequest.swift); S5/S7 dispatch prompts must say replace, not duplicate
+- Agent: wu1-s4
+- Last verified: S3 COMPLETED at 8c0fbc65 — 242 tests / 22 suites; Keychain round trip ran
+- Notes: S2 added stubs ModelDescriptor (HablareError.swift) and VoiceSource (SpeechRequest.swift); S5/S7 dispatch prompts must say replace, not duplicate. S3: EnvironmentAPIKeyStore takes a static [pluginId: CredentialRequirement] map defaulting to builtIn (elevenlabs, google) — S5/S8 must let registered plugins' requirements reach it, or third-party env vars are never read
 
 ### WU2 Plugin host
 - Work unit state: NOT_STARTED
@@ -68,7 +68,7 @@ type: supervisor-state
 | Work Unit | Sortie | Role | Sortie State | Attempt | Verifier Round | Model | Complexity Score | Agent ID / Name | Sortie Start Commit | Output File | Dispatched At | Watchdog Strikes | Last Snapshot |
 |-----------|--------|------|-------------|---------|----------------|-------|-----------------|-----------------|---------------------|-------------|---------------|------------------|---------------|
 
-| WU1 | 3 | implementer | DISPATCHED | 1/3 | — | sonnet | 11 | wu1-s3 | 440a73f7 | (harness output file) | 2026-10-26T03:35Z | 0/3 | — |
+| WU1 | 4 | implementer | DISPATCHED | 1/3 | — | sonnet | 10 | wu1-s4 | 8c0fbc65 | (harness output file) | 2026-10-26T03:45Z | 0/3 | — |
 
 ## Watchdog
 - Timer task ID: disarmed
@@ -80,6 +80,7 @@ type: supervisor-state
 | baseline (S1 pre-edit) | 219 |
 | S1 | 219 |
 | S2 | 232 |
+| S3 | 242 |
 
 ## Decisions Log
 | Timestamp | Work Unit | Sortie | Decision | Rationale |
@@ -95,3 +96,5 @@ type: supervisor-state
 | 2026-10-26T03:20Z | WU1 | 2 | Model: sonnet | Plan-specified; 4 new files + tests, value types |
 | 2026-10-26T03:35Z | WU1 | 2 | COMPLETED (440a73f7) | Files present, 9 category tests, make test 232/21 |
 | 2026-10-26T03:35Z | WU1 | 3 | Model: sonnet | Plan-specified; Keychain/system-call risk |
+| 2026-10-26T03:45Z | WU1 | 3 | COMPLETED (8c0fbc65) | KeychainManager untouched; env-wins, alias, no-leak, keychain round-trip tests pass; 242/22 |
+| 2026-10-26T03:45Z | WU1 | 4 | Model: sonnet | Plan-specified; schema + validation |
