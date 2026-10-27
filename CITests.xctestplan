@@ -38,6 +38,7 @@
   "testTargets" : [
     {
       "skippedTests" : [
+        "ApplePluginConformanceTests/Full conformance kit passes against the real Apple engine",
         "AVSpeechTTSEngineTests/Audio generation produces 16-bit PCM format (AVAudioPlayer compatible)",
         "AVSpeechTTSEngineTests/Generated audio is playable by AVAudioPlayer",
         "AVSpeechTTSEngineTests/Generated audio with duration has correct format"

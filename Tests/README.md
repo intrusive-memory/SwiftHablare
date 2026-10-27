@@ -4,8 +4,7 @@ Comprehensive test suite for SwiftHablaré voice generation library using Swift 
 
 ## Overview
 
-- **Total Tests**: 250+ test functions across 21 test files
-- **Test Coverage**: 96%+ on voice generation components
+- **Total Tests**: 325 tests in 34 suites
 - **Framework**: Swift Testing (migrated from XCTest in v5.1.0)
 - **Concurrency**: Full Swift 6 compliance with strict concurrency enabled
 - **Platforms**: iOS 26+, macOS 26+
@@ -20,7 +19,7 @@ SwiftHablare uses **Xcode Test Plans** to separate tests by audio hardware requi
 - All tests EXCEPT those requiring real audio hardware
 - Uses placeholder audio when TTS voices unavailable
 - Runs on GitHub Actions CI runners
-- ~270 tests, completes in 30-60 seconds
+- Completes in well under a minute
 
 **LocalAudioTests.xctestplan** (Local Development Only):
 - Only 3 tests requiring real TTS voices and audio hardware
@@ -37,25 +36,14 @@ See `Docs/TestPlans.md` for complete documentation.
 - Run on every PR via `CITests.xctestplan`
 - Skip integration tests that require real audio/API keys
 - Run on iOS Simulator and macOS
-- 250+ tests covering all core functionality
-
-**Integration Tests** (Slow - ~2-5 minutes):
-- Run weekly on Saturdays at 3 AM UTC
-- Include real API calls (require API key)
-- Test actual audio generation on physical devices
-- Files in `Integration/` directory
-
-**Performance Tests**:
-- Run after unit tests pass on PRs
+- Covers all core functionality
 
 **Audio Hardware Tests** (Local Only):
 - Run via `LocalAudioTests.xctestplan`
 - Require macOS with TTS voices installed
 - 3 tests validating real audio generation
 - **Never run on CI**
-- Benchmark audio generation, voice fetching, filtering
-- Track performance regressions
-- macOS only (Apple Silicon for consistent results)
+- macOS only
 
 ## Swift Testing Framework
 
@@ -99,24 +87,29 @@ let container = try TestFixtures.makeTestContainer()
 let context = ModelContext(container)
 ```
 
-### Mock Providers
+### Fake Plugins
+
+The fakes live in the `SwiftHablareTesting` product (no inline mocks):
 
 ```swift
-// Configured provider (always works)
-let provider = TestFixtures.makeMockProvider()
+import SwiftHablareTesting
 
-// Unconfigured provider (for error testing)
-let unconfigured = TestFixtures.makeMockUnconfiguredProvider()
+// A registry holding only FakeSynthesizerPlugin (no network, no audio hardware)
+let registry = TestFixtures.makeFakeRegistry()
 
-// Error provider (always throws)
-let errorProvider = TestFixtures.makeMockErrorProvider()
+// The fake plugin and its synthesizer, for call counts and failure injection
+let plugin = try #require(
+    try await registry.plugin(id: FakeSynthesizerPlugin.id) as? FakeSynthesizerPlugin)
+plugin.failNextCall(with: .transient(underlying: URLError(.timedOut)))
 
-// Real Apple provider
-let appleProvider = TestFixtures.makeAppleProvider()
+// Cloud-shaped fake with a credential, and a designer fake
+// FakeCloudPlugin, FakeDesignerPlugin
 
-// Get available Apple voice (throws if none available)
-let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
+// API keys without the Keychain
+let keys = InMemoryAPIKeyStore(keys: ["fake-cloud": "test-key"])
 ```
+
+The conformance kit (`ConformanceKit.run`) is covered by `Testing/ConformanceKitTests.swift`.
 
 ### SpeakableItem Factories
 
@@ -124,9 +117,12 @@ let voiceId = try await TestFixtures.getAvailableAppleVoiceId()
 // Simple message
 let message = TestFixtures.makeSimpleMessage(
     content: "Hello",
-    provider: provider,
-    voiceId: "voice-id"
+    voice: TestFixtures.fakeVoice   // .catalog(pluginId: "fake-synth", voiceId: "fake-voice")
 )
+
+// Speak it through a registry holding only FakeSynthesizerPlugin
+let registry = TestFixtures.makeFakeRegistry()
+let audio = try await message.speak(using: registry)
 
 // Character dialogue
 let dialogue = TestFixtures.makeCharacterDialogue(
@@ -155,9 +151,11 @@ struct MyTests {
     
     @Test("Async test")
     func asyncTest() async throws {
-        let provider = TestFixtures.makeMockProvider()
-        let voices = try await provider.fetchVoices()
-        #expect(!voices.isEmpty)
+        let registry = TestFixtures.makeFakeRegistry()
+        let synthesizer = try await registry.synthesizer(for: TestFixtures.fakeVoice)
+        let audio = try await synthesizer.synthesize(
+            SpeechRequest(text: "Hello", voice: TestFixtures.fakeVoice))
+        #expect(audio.duration > 0)
     }
 }
 ```
@@ -170,8 +168,7 @@ func createAudioRecord() throws {
     let container = try TestFixtures.makeTestContainer()
     let context = ModelContext(container)
     
-    let provider = TestFixtures.makeMockProvider()
-    let message = TestFixtures.makeSimpleMessage(provider: provider)
+    let message = TestFixtures.makeSimpleMessage()
     let record = TestFixtures.makeAudioRecord(for: message, in: context)
     
     try context.save()
@@ -181,20 +178,11 @@ func createAudioRecord() throws {
 
 ## Running Tests
 
+Never run `swift test`. Use the Makefile:
+
 ```bash
-# All tests
-swift test
-
-# With coverage
-swift test --enable-code-coverage
-
-# Specific suite
-swift test --filter GenerationServiceTests
-
-# Fast tests only (skip integration)
-xcodebuild test -scheme SwiftHablare \
-  -skip-testing:SwiftHablareTests/AppleVoiceProviderIntegrationTests \
-  -skip-testing:SwiftHablareTests/ElevenLabsVoiceProviderIntegrationTests
+make test    # all tests
+make lint    # format check (CI runs it first)
 ```
 
 ## CI/CD Integration
@@ -210,24 +198,7 @@ All must pass before merging to `main`.
 
 **Apple TTS Voice Availability:**
 
-GitHub Actions macOS runners do not have Apple TTS voices pre-installed. This affects tests that require real voices from `AppleVoiceProvider`:
-
-- **Expected Behavior**: Tests using `TestFixtures.getAvailableAppleVoiceId()` will throw `NoVoicesAvailableError` on CI
-- **Test Resilience**: Tests gracefully handle missing voices by recording issues instead of failing
-- **Local Development**: All tests pass normally on development machines with TTS voices installed
-
-**Affected Test Files:**
-- `SpeakableItemTests.swift` - Uses helper for voice-dependent tests
-- `SpeakableItemListTests.swift` - Uses helper for batch generation tests
-- `SpeakableGroupTests.swift` - Uses helper for group generation tests
-- `GenerateAudioButtonTests.swift` - Uses helper for UI integration tests
-- `AppleTTSEngineProtocolTests.swift` - Records issues when no voices available
-
-**Why This is OK:**
-- Tests use mock providers for most functionality testing
-- Integration tests with real voices run weekly on dedicated hardware
-- The test suite verifies error handling when voices aren't available
-- This ensures the library gracefully degrades on systems without TTS support
+GitHub Actions macOS runners do not have Apple TTS voices pre-installed. Tests that need real `ApplePlugin` voices skip themselves when `CI` is set or no voice is installed, and everything else runs against the fakes from `SwiftHablareTesting`. Local runs on a machine with TTS voices exercise the real engine (the pre-commit hook runs `LocalAudioTests.xctestplan`).
 
 ## Best Practices
 
@@ -236,6 +207,7 @@ GitHub Actions macOS runners do not have Apple TTS voices pre-installed. This af
 - Use `@MainActor` for SwiftData tests
 - Create fresh containers per test
 - Skip simulator tests needing real audio
+- Use the fakes from `SwiftHablareTesting` for plugin tests
 - Use descriptive `@Test` names
 
 ### ❌ DON'T
@@ -246,11 +218,8 @@ GitHub Actions macOS runners do not have Apple TTS voices pre-installed. This af
 
 ## Test Coverage
 
-- Voice Providers: 95%+
-- GenerationService: 95%+
-- Models: 100%
-- Overall: 96%+
+Measure with `make test` and the Xcode coverage report; no fixed percentage is asserted here.
 
 ---
 
-**Version**: 5.1.0 | **Framework**: Swift Testing | **Tests**: 250+
+**Framework**: Swift Testing | **Tests**: 325 in 34 suites

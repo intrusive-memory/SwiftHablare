@@ -19,9 +19,10 @@ public func systemLanguageCode() -> String {
 
 /// A protocol that defines the requirements for any type that can be spoken.
 ///
-/// Conforming types must provide a voice provider, voice ID, and text to speak.
-/// This allows any object in your application to become speakable by implementing
-/// these three simple requirements.
+/// Conforming types provide a ``VoiceReference`` (a catalog voice or a voice asset), the
+/// text to speak, and optionally a language code. The synthesizer is resolved through a
+/// ``PluginRegistry``, so any object in your application becomes speakable by implementing
+/// these requirements.
 ///
 /// ## Example Usage
 ///
@@ -29,8 +30,7 @@ public func systemLanguageCode() -> String {
 /// struct Message: SpeakableItem {
 ///     let sender: String
 ///     let content: String
-///     let voiceProvider: VoiceProvider
-///     let voiceId: String
+///     let voice: VoiceReference
 ///
 ///     var textToSpeak: String {
 ///         "\(sender) says: \(content)"
@@ -41,11 +41,10 @@ public func systemLanguageCode() -> String {
 /// let message = Message(
 ///     sender: "Alice",
 ///     content: "Hello, world!",
-///     voiceProvider: AppleVoiceProvider(),
-///     voiceId: "com.apple.voice.enhanced.en-US.Samantha"
+///     voice: .catalog(pluginId: "apple", voiceId: "com.apple.voice.enhanced.en-US.Samantha")
 /// )
 ///
-/// let audioData = try await message.speak()
+/// let audio = try await message.speak()   // GeneratedAudio
 /// ```
 ///
 /// ## Design Philosophy
@@ -55,39 +54,31 @@ public func systemLanguageCode() -> String {
 ///
 /// - **Flexibility**: Any struct, class, or enum can be spoken
 /// - **Reusability**: Voice configuration travels with the object
-/// - **Testability**: Easy to create mock speakable items
+/// - **Testability**: Resolve through a test registry holding `FakeSynthesizerPlugin`
 /// - **Composability**: Combine with other protocols as needed
 ///
 /// ## Thread Safety
 ///
-/// The `speak()` method is async and thread-safe. It uses the underlying
-/// voice provider's concurrency model (typically actor-based) to ensure
-/// safe concurrent access.
+/// The `speak()` method is async and thread-safe. It uses the resolved plugin's own
+/// concurrency model.
 ///
 public protocol SpeakableItem {
-  /// The voice provider to use for speech synthesis
+  /// The voice to speak with
   ///
-  /// This can be any implementation of `VoiceProvider`, such as:
-  /// - `AppleVoiceProvider` for iOS TTS (built-in)
-  /// - External providers from companion packages (e.g. `SwiftHablareOnce` for ElevenLabs)
-  /// - Custom providers you implement
-  var voiceProvider: VoiceProvider { get }
-
-  /// The voice ID to use for speech synthesis
-  ///
-  /// This must be a valid voice ID for the specified provider:
-  /// - For Apple: Use identifiers from `AVSpeechSynthesisVoice`
-  /// - For external providers: Use voice IDs from the provider's own catalog
+  /// - `.catalog(pluginId:voiceId:)` names a voice in a plugin's catalog. For Apple the
+  ///   `voiceId` is an `AVSpeechSynthesisVoice` identifier.
+  /// - `.asset(URL)` names a voice asset (for example a `.vox` bundle). The synthesizing
+  ///   plugin is then supplied to ``speak(using:pluginId:)``.
   ///
   /// ## Example
   /// ```swift
   /// // Apple voice
-  /// voiceId = "com.apple.voice.enhanced.en-US.Samantha"
+  /// voice = .catalog(pluginId: "apple", voiceId: "com.apple.voice.enhanced.en-US.Samantha")
   ///
-  /// // External provider voice
-  /// voiceId = "21m00Tcm4TlvDq8ikWAM"
+  /// // Voice asset
+  /// voice = .asset(URL(fileURLWithPath: "/Voices/narrator.vox"))
   /// ```
-  var voiceId: String { get }
+  var voice: VoiceReference { get }
 
   /// The text that should be spoken
   ///
@@ -100,6 +91,7 @@ public protocol SpeakableItem {
   ///     let title: String
   ///     let author: String
   ///     let content: String
+  ///     let voice: VoiceReference
   ///
   ///     var textToSpeak: String {
   ///         "\(title), by \(author). \(content)"
@@ -132,6 +124,43 @@ extension SpeakableItem {
   public var languageCode: String {
     systemLanguageCode()
   }
+
+  /// The ``SpeechRequest`` this item produces.
+  public var speechRequest: SpeechRequest {
+    SpeechRequest(text: textToSpeak, voice: voice, languageCode: languageCode)
+  }
+}
+
+// MARK: - Plugin Resolution
+
+extension PluginRegistry {
+  /// The synthesizer that speaks `voice`.
+  ///
+  /// A catalog voice resolves to the plugin named in the reference. A voice asset names no
+  /// plugin, so `pluginId` must say which one synthesizes it.
+  ///
+  /// - Throws: `HablareError.invalidRequest` when the plugin is not registered, has no
+  ///   synthesizer role, or an asset voice came without a `pluginId`.
+  public func synthesizer(
+    for voice: VoiceReference, pluginId: String? = nil
+  ) async throws -> any VoiceSynthesizer {
+    let id: String
+    switch voice {
+    case .catalog(let catalogPluginId, _):
+      id = pluginId ?? catalogPluginId
+    case .asset:
+      guard let pluginId else {
+        throw HablareError.invalidRequest(
+          detail: "a voice asset needs the id of the plugin that synthesizes it")
+      }
+      id = pluginId
+    }
+    let resolved = try await plugin(id: id)
+    guard let synthesizer = resolved.synthesizer else {
+      throw HablareError.invalidRequest(detail: "plugin '\(id)' has no synthesizer role")
+    }
+    return synthesizer
+  }
 }
 
 // MARK: - Convenience Methods
@@ -139,57 +168,51 @@ extension SpeakableItem {
 extension SpeakableItem {
   /// Generate audio for this speakable item
   ///
-  /// This is a convenience method that calls the voice provider's
-  /// `generateAudio` method with the item's voice ID and text.
+  /// Resolves the synthesizer for ``voice`` through `registry` and synthesizes
+  /// ``textToSpeak`` in ``languageCode``.
   ///
-  /// - Returns: Audio data in the format specified by the voice provider
-  ///   (e.g. AIFF for Apple)
-  /// - Throws: `VoiceProviderError` if audio generation fails
+  /// - Parameters:
+  ///   - registry: The plugin registry to resolve through (default: the shared one)
+  ///   - pluginId: The synthesizing plugin; required when ``voice`` is an asset
+  /// - Returns: The generated audio, with its true format and duration
+  /// - Throws: `HablareError` if the plugin cannot be resolved or synthesis fails
   ///
   /// ## Example
   /// ```swift
   /// let item = MyItem(...)
-  /// let audioData = try await item.speak()
-  /// // Play or save audioData
+  /// let audio = try await item.speak()
+  /// // Play or save audio.data (audio.format says how it is encoded)
   /// ```
   ///
   /// ## Thread Safety
   /// This method is async and thread-safe. Multiple items can be spoken
   /// concurrently without data races.
-  public func speak() async throws -> Data {
-    try await voiceProvider.generateAudio(
-      text: textToSpeak, voiceId: voiceId, languageCode: languageCode)
-  }
-
-  /// Estimate the duration of the generated speech
-  ///
-  /// This provides an approximate duration in seconds for the speech
-  /// that would be generated. Useful for UI progress indicators or
-  /// scheduling.
-  ///
-  /// - Returns: Estimated duration in seconds
-  ///
-  /// ## Note
-  /// This is an estimate based on text length and speech rate.
-  /// Actual duration may vary slightly.
-  public func estimateDuration() async -> TimeInterval {
-    await voiceProvider.estimateDuration(text: textToSpeak, voiceId: voiceId)
+  public func speak(
+    using registry: PluginRegistry = .default, pluginId: String? = nil
+  ) async throws -> GeneratedAudio {
+    let synthesizer = try await registry.synthesizer(for: voice, pluginId: pluginId)
+    return try await synthesizer.synthesize(speechRequest)
   }
 
   /// Check if the specified voice is available
   ///
-  /// - Returns: `true` if the voice is available, `false` otherwise
+  /// - Returns: `true` unless the plugin cannot be resolved or reports the voice unsupported
   ///
   /// ## Example
   /// ```swift
   /// if await item.isVoiceAvailable() {
   ///     let audio = try await item.speak()
   /// } else {
-  ///     print("Voice not available")
+  ///     // choose another voice
   /// }
   /// ```
-  public func isVoiceAvailable() async -> Bool {
-    await voiceProvider.isVoiceAvailable(voiceId: voiceId)
+  public func isVoiceAvailable(
+    in registry: PluginRegistry = .default, pluginId: String? = nil
+  ) async -> Bool {
+    guard let synthesizer = try? await registry.synthesizer(for: voice, pluginId: pluginId)
+    else { return false }
+    if case .unsupported = await synthesizer.readiness(for: voice) { return false }
+    return true
   }
 }
 
@@ -199,10 +222,10 @@ extension Collection where Element: SpeakableItem {
   /// Speak all items in the collection sequentially
   ///
   /// This generates audio for each item in order, returning an array
-  /// of audio data in the same order as the items.
+  /// of generated audio in the same order as the items.
   ///
-  /// - Returns: Array of audio data for each item
-  /// - Throws: `VoiceProviderError` if any generation fails
+  /// - Returns: Array of generated audio for each item
+  /// - Throws: `HablareError` if any generation fails
   ///
   /// ## Example
   /// ```swift
@@ -214,23 +237,14 @@ extension Collection where Element: SpeakableItem {
   /// ## Performance Note
   /// Items are spoken sequentially. For parallel generation, use
   /// `TaskGroup` or similar concurrency patterns.
-  public func speakAll() async throws -> [Data] {
-    var results: [Data] = []
+  public func speakAll(
+    using registry: PluginRegistry = .default, pluginId: String? = nil
+  ) async throws -> [GeneratedAudio] {
+    var results: [GeneratedAudio] = []
     for item in self {
-      let audio = try await item.speak()
+      let audio = try await item.speak(using: registry, pluginId: pluginId)
       results.append(audio)
     }
     return results
-  }
-
-  /// Estimate total duration for all items
-  ///
-  /// - Returns: Total estimated duration in seconds
-  public func estimateTotalDuration() async -> TimeInterval {
-    var total: TimeInterval = 0
-    for item in self {
-      total += await item.estimateDuration()
-    }
-    return total
   }
 }

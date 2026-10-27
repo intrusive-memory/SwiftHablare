@@ -5,6 +5,40 @@ All notable changes to SwiftHablaré will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.0.0] - 2026-10-27
+
+This is a deliberate **breaking** release: SwiftHablare becomes a plugin host for speech engines. See [MIGRATION-7.0.md](MIGRATION-7.0.md) for every removed symbol and its replacement.
+
+### Added
+
+- **Plugin contract** - `HablarePlugin`, `PluginContext`, `PluginKind`, `PluginStatus`, `PluginConfiguration`, `SettingsSchema`, `ModelDescriptor`
+- **Roles** - `VoiceSynthesizer` (plus `StreamingVoiceSynthesizer`), `VoiceDesigner`, and the reserved `VoiceConverter`; hybrids compose roles from other plugins (`CompositePlugin`, `PluginRegistry.validatePairing`)
+- **`PluginRegistry`** - registers plugin types, caches one instance per plugin and configuration, persists enablement; `PluginRegistry.default` holds `ApplePlugin`
+- **Request and response types** - `SpeechRequest`, `GeneratedAudio`, `AudioFormat`, `VoiceReference`, `VoiceSettings`, `VoiceDesignRequest`, `VoiceCandidate`
+- **Portable voices** - `VoiceAsset` reads and writes `.vox` files through VoxFormat
+- **Credentials** - `APIKeyStoring` with `EnvironmentAPIKeyStore`, `KeychainAPIKeyStore` and `ChainedAPIKeyStore` (environment first, then Keychain); `CredentialRequirement`
+- **Text and audio pipeline** - `TextChunker`, `TakeValidator` and `TakePolicy`, `AudioNormalizer`
+- **Local models** - model status reported through SwiftAcervo (`LocalModelAvailability`)
+- **`HablareError`** - every case carries a stable category
+- **`ApplePlugin`** - the built-in on-device plugin (id `apple`)
+- **`SwiftHablareTesting` product** - `FakeSynthesizerPlugin`, `FakeDesignerPlugin`, `FakeCloudPlugin`, `InMemoryAPIKeyStore`, and `ConformanceKit`, the shared plugin contract test
+
+### Changed
+
+- `GenerationService` is built on `PluginRegistry` and `VoiceSynthesizer`: a `SpeechRequest` or a `VoiceReference` goes in, audio in the service's target format comes out
+- `SpeakableItem` carries a `VoiceReference` and speaks through a registry
+
+### Removed
+
+- `VoiceProvider`, replaced by `HablarePlugin` plus roles; with it `generateAudio`, `generateProcessedAudio`, `ProcessedAudio`, `mimeType`, `estimateDuration`, `requiresAPIKey`
+- `VoiceProviderDescriptor`, `RegisteredVoiceProvider`, `VoiceProviderRegistry`, `VoiceProviderAutoRegistrar`
+- `AppleVoiceProvider` (now `ApplePlugin`) and `AudioProcessor` (now `AudioNormalizer`)
+- `KeychainManager`, replaced by `APIKeyStoring`
+- All SwiftUI: `GenerateAudioButton`, `GenerateGroupButton`, `ProviderPickerView`, `VoicePickerView`, `VoiceDownloadHelper`, and `makeConfigurationView` / `configurationPanel`. There is no replacement in this release; core has no UI
+- The `Examples/Hablare` demo app
+
+---
+
 ## [5.7.0] - 2026-02-11
 
 ### Removed

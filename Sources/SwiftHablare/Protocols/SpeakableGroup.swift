@@ -23,10 +23,9 @@ import Foundation
 ///
 /// ## Features
 ///
-/// - **Batch Generation**: Generate all items with one action
+/// - **Batch Generation**: Generate all items with one call (``speakAll(using:pluginId:)``)
 /// - **Progress Tracking**: Overall progress shows completion percentage
-/// - **Smart Detection**: Skips items that already have audio
-/// - **State-Aware UI**: Button shows "Generate All" or "Regenerate All" based on existing audio
+/// - **Plugin-Resolved**: Each item's ``VoiceReference`` is resolved through a ``PluginRegistry``
 ///
 /// ## Usage
 ///
@@ -43,20 +42,15 @@ import Foundation
 ///             CharacterDialogue(
 ///                 characterName: line.character,
 ///                 dialogue: line.text,
-///                 voiceProvider: line.voiceProvider,
-///                 voiceId: line.voiceId,
+///                 voice: line.voice,
 ///                 includeCharacterName: true
 ///             )
 ///         }
 ///     }
 /// }
 ///
-/// // In your SwiftUI view:
-/// GenerateGroupButton(
-///     group: chapter,
-///     service: generationService,
-///     modelContext: modelContext
-/// )
+/// // Generate every item through a plugin registry
+/// let audio = try await chapter.speakAll()   // [GeneratedAudio], in order
 /// ```
 ///
 /// ## Implementation Notes
@@ -97,5 +91,26 @@ extension SpeakableGroup {
   /// Total count of items in this group
   public var itemCount: Int {
     getGroupedElements().count
+  }
+}
+
+// MARK: - Generation
+
+extension SpeakableGroup {
+  /// Speak every item in the group sequentially, in the order of ``getGroupedElements()``.
+  ///
+  /// - Parameters:
+  ///   - registry: The plugin registry to resolve through (default: the shared one)
+  ///   - pluginId: The synthesizing plugin for items whose voice is an asset
+  /// - Returns: One ``GeneratedAudio`` per item, in group order
+  /// - Throws: `HablareError` from the first item that fails
+  public func speakAll(
+    using registry: PluginRegistry = .default, pluginId: String? = nil
+  ) async throws -> [GeneratedAudio] {
+    var results: [GeneratedAudio] = []
+    for item in getGroupedElements() {
+      results.append(try await item.speak(using: registry, pluginId: pluginId))
+    }
+    return results
   }
 }

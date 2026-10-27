@@ -6,6 +6,7 @@
 //
 
 import SwiftCompartido
+import SwiftHablareTesting
 import Testing
 
 @testable import SwiftHablare
@@ -15,17 +16,15 @@ struct GuionElementSpeakableTests {
 
   // MARK: - Test Properties
 
-  let provider: AppleVoiceProvider
-  let voiceId: String
+  let registry: PluginRegistry
+  let pluginId = FakeSynthesizerPlugin.id
+  let voiceId = "fake-voice"
+  var voice: VoiceReference { .catalog(pluginId: pluginId, voiceId: voiceId) }
 
   // MARK: - Initialization
 
-  @MainActor
-  init() async throws {
-    provider = TestFixtures.makeAppleProvider()
-    let voices = try await provider.fetchVoices()
-    #expect(!voices.isEmpty)
-    voiceId = voices.first!.id
+  init() {
+    registry = TestFixtures.makeFakeRegistry()
   }
 
   // MARK: - GuionElementSpeakable Tests
@@ -39,16 +38,15 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: voice
     )
 
     #expect(speakable.textToSpeak == "The sun rises over the mountains.")
     #expect(speakable.languageCode == "en")
 
-    // Verify it can estimate duration
-    let duration = await speakable.estimateDuration()
-    #expect(duration > 0)
+    // Verify it can be spoken and reports a duration
+    let audio = try await speakable.speak(using: registry)
+    #expect(audio.duration > 0)
   }
 
   @Test
@@ -60,8 +58,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: voice
     )
 
     #expect(speakable.textToSpeak == "I can't believe we made it this far.")
@@ -76,8 +73,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: voice
     )
 
     #expect(speakable.textToSpeak == "Act One")
@@ -92,8 +88,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: voice
     )
 
     #expect(speakable.textToSpeak == "INT. COFFEE SHOP - DAY")
@@ -108,8 +103,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       languageCode: "es"
     )
 
@@ -126,8 +120,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = GuionElementSpeakable(
       element: element,
-      voiceProvider: provider,
-      voiceId: voiceId
+      voice: voice
     )
 
     #expect(speakable.textToSpeak == "")
@@ -151,8 +144,7 @@ struct GuionElementSpeakableTests {
     let speakable = DialoguePairSpeakable(
       character: character,
       dialogue: dialogue,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       includeCharacterName: false
     )
 
@@ -174,8 +166,7 @@ struct GuionElementSpeakableTests {
     let speakable = DialoguePairSpeakable(
       character: character,
       dialogue: dialogue,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       includeCharacterName: true
     )
 
@@ -193,8 +184,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = SectionHeadingSpeakable(
       heading: heading,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       announceLevel: false
     )
 
@@ -210,8 +200,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = SectionHeadingSpeakable(
       heading: heading,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       announceLevel: true
     )
 
@@ -227,8 +216,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = SectionHeadingSpeakable(
       heading: heading,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       announceLevel: true
     )
 
@@ -244,8 +232,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = SectionHeadingSpeakable(
       heading: heading,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       announceLevel: true
     )
 
@@ -261,8 +248,7 @@ struct GuionElementSpeakableTests {
 
     let speakable = SectionHeadingSpeakable(
       heading: action,
-      voiceProvider: provider,
-      voiceId: voiceId,
+      voice: voice,
       announceLevel: true
     )
 
@@ -290,7 +276,7 @@ struct GuionElementSpeakableTests {
       sceneHeading: sceneHeading,
       elements: elements,
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     #expect(scene.groupName == "INT. BEDROOM - NIGHT")
@@ -311,7 +297,7 @@ struct GuionElementSpeakableTests {
       sceneHeading: sceneHeading,
       elements: [],
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     #expect(scene.groupName == "EXT. PARK - DAY")
@@ -345,12 +331,12 @@ struct GuionElementSpeakableTests {
         }
         return "narrator-voice"
       },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     let speakableItems = scene.getGroupedElements() as! [GuionElementSpeakable]
-    #expect(speakableItems[1].voiceId == "dialogue-voice")  // Dialogue
-    #expect(speakableItems[0].voiceId == "narrator-voice")  // Character
+    #expect(speakableItems[1].voice == .catalog(pluginId: pluginId, voiceId: "dialogue-voice"))  // Dialogue
+    #expect(speakableItems[0].voice == .catalog(pluginId: pluginId, voiceId: "narrator-voice"))  // Character
   }
 
   // MARK: - ChapterSpeakable Tests
@@ -373,7 +359,7 @@ struct GuionElementSpeakableTests {
       chapterHeading: heading,
       elements: elements,
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     #expect(chapter.groupName == "Chapter One: The Discovery")
@@ -394,7 +380,7 @@ struct GuionElementSpeakableTests {
       chapterHeading: nil,
       elements: elements,
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     #expect(chapter.groupName == "Chapter")
@@ -422,7 +408,7 @@ struct GuionElementSpeakableTests {
       chapterHeading: heading,
       elements: elements,
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     #expect(chapter.groupName == "Act Two")
@@ -447,7 +433,7 @@ struct GuionElementSpeakableTests {
     let document = MarkdownDocumentSpeakable(
       filename: "article.md",
       elements: elements,
-      voiceProvider: provider,
+      pluginId: pluginId,
       defaultVoiceId: voiceId
     )
 
@@ -465,7 +451,7 @@ struct GuionElementSpeakableTests {
     let document = MarkdownDocumentSpeakable(
       filename: "empty.md",
       elements: [],
-      voiceProvider: provider,
+      pluginId: pluginId,
       defaultVoiceId: voiceId
     )
 
@@ -537,11 +523,13 @@ struct GuionElementSpeakableTests {
       chapterHeading: heading,
       elements: elements,
       voiceMapping: { _ in self.voiceId },
-      voiceProvider: provider
+      pluginId: pluginId
     )
 
     let speakableItems = chapter.getGroupedElements() as! [GuionElementSpeakable]
-    let totalDuration = await speakableItems.estimateTotalDuration()
+    let totalDuration = try await speakableItems.speakAll(using: registry).reduce(0) {
+      $0 + $1.duration
+    }
 
     #expect(totalDuration > 0)
   }

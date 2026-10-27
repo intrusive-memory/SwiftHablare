@@ -1,115 +1,75 @@
 # SwiftHablaré Usage Guide
 
-This guide summarizes the day-to-day tasks most automations perform when integrating or extending SwiftHablaré. It condenses the key workflows so AI agents can operate with minimal context switching.
+The day-to-day tasks for integrating or extending SwiftHablaré. See [README.md](README.md) for
+the plugin model and [MIGRATION-7.0.md](MIGRATION-7.0.md) for 6.x code.
 
-## 1. Package Integration Checklist
+## 1. Package integration
 
-1. Add the package to the `dependencies` array in your `Package.swift`:
-   ```swift
-   .package(url: "https://github.com/intrusive-memory/SwiftHablare", from: "1.0.0")
-   ```
-2. Add `SwiftHablare` to the target dependencies that need text-to-speech features.
-3. Ensure the host app targets iOS 26+ or macOS 26+ and uses Swift 6.0 or newer with Xcode 15+.
-4. Link SwiftData in the host target (SwiftHablaré persists data through it).
-5. On iOS, entitle the app for microphone/speaker usage when playing audio.
+1. Add the package to `Package.swift` and `SwiftHablare` to the targets that need speech.
+   Add `SwiftHablareTesting` to test targets only.
+2. Target iOS 26+ or macOS 26+ with Swift 6.2+.
+3. Link SwiftData in the host target if you save results as `TypedDataStorage`.
 
-## 2. Bootstrapping the Manager
+## 2. Registry and service
 
 ```swift
-import SwiftData
 import SwiftHablare
 
-let container = try ModelContainer(for: AudioFile.self, VoiceModel.self)
-let manager = VoiceProviderManager(modelContext: container.mainContext)
+let registry = PluginRegistry.default            // ApplePlugin included
+// await registry.register(MyPlugin.self)        // add companion plugin types at launch
+let service = GenerationService(registry: registry)
 ```
 
-The manager auto-registers the built-in providers (`ElevenLabsVoiceProvider` and `AppleVoiceProvider`) and restores the last-selected provider from `UserDefaults`.
+`PluginRegistry` is an actor: it caches one plugin instance per plugin and configuration, and
+persists each plugin's enabled state (`isEnabled(pluginId:)`, `setEnabled(_:for:)`).
 
-### Switching Providers
-
-```swift
-manager.switchProvider(to: .apple)
-manager.switchProvider(to: .elevenlabs)
-```
-
-The helper `isCurrentProviderConfigured()` returns `true` when prerequisites (for example, an API key) are satisfied.
-
-## 3. Managing Voices
+## 3. Generate audio
 
 ```swift
-let cachedVoices = try await manager.getVoices()
-let freshVoices = try await manager.getVoices(forceRefresh: true)
-```
+let voice = VoiceReference.catalog(pluginId: "apple", voiceId: voiceId)
 
-Voice metadata is cached in SwiftData (`VoiceModel`). Refresh only when provider-side changes are expected.
+// Text in, one normalised GeneratedAudio out
+let result = try await service.generate(text: "Hello", voice: voice, languageCode: "en") { progress in
+  print(progress.fractionCompleted)
+}
 
-To inspect or work with a provider directly:
+// From a GuionElementModel (SwiftCompartido)
+let elementResult = try await service.generate(forElement: element, voice: voice)
 
-```swift
-if let provider = manager.getProvider(for: "elevenlabs"), await provider.isVoiceAvailable(voiceId: "voice-id") {
-    let voices = try await provider.fetchVoices()
+// Save to SwiftData on the main actor
+await MainActor.run {
+  modelContext.insert(result.toTypedDataStorage())
+  try? modelContext.save()
 }
 ```
 
-## 4. Generating Audio
+For lists, conform your items to `SpeakableItem`, collect them in a `SpeakableItemList`, and call
+`service.generateList(_:to:saveInterval:pluginId:progress:)`.
 
-### Cached Generation
-
-```swift
-let audio = try await manager.generateAndCacheAudio(
-    text: "Hello World",
-    voiceId: "voice-id",
-    providerId: "elevenlabs",
-    audioFormat: "mp3"
-)
-```
-
-This method reuses cached audio if the same `(text, voiceId, providerId)` triple already exists, otherwise it stores the new result in SwiftData (`AudioFile`).
-
-### Direct Generation
+## 4. Voices
 
 ```swift
-let rawData = try await manager.generateAudio(text: "Hello", voiceId: "voice-id")
+let voices = try await service.fetchVoices(from: "apple", languageCode: "en")
+let all = try await service.fetchAllVoices()
+let available = await service.isVoiceAvailable(voiceId, from: "apple")
 ```
 
-Use this when you do not need persistence.
+A voice is a `VoiceReference`: `.catalog(pluginId:voiceId:)` or `.asset(URL)` for a `.vox` voice
+asset (then pass `pluginId` so the service knows which plugin synthesizes it).
 
-### Persisting to Disk
+## 5. Credentials
 
-```swift
-let outputURL = URL(fileURLWithPath: "/tmp/output.mp3")
-try manager.writeAudioFile(audio, to: outputURL)
-```
+Keys come from the environment first, then the Keychain (`APIKeyStoring`, `ChainedAPIKeyStore`).
+Read a key with `apiKey(for:)`, store one with `setAPIKey(_:for:)`, and check its origin with
+`keySource(for:)`. Ask a plugin whether it can run with `await plugin.status()`.
 
-## 5. API Key Management
+## 6. Errors
 
-`KeychainManager.shared` stores sensitive provider credentials. Typical usage:
+Plugin and generation errors are `HablareError`. Branch on its `category` (`transient`,
+`permanent`, `permanentUntilDownloaded`, `cancelled`) to decide whether to retry or fall back.
 
-```swift
-try KeychainManager.shared.saveAPIKey("your-api-key", for: "elevenlabs-api-key")
-let key = try KeychainManager.shared.getAPIKey(for: "elevenlabs-api-key")
-let isConfigured = KeychainManager.shared.hasAPIKey(for: "elevenlabs-api-key")
-try KeychainManager.shared.deleteAPIKey(for: "elevenlabs-api-key")
-```
+## 7. Testing
 
-## 6. SwiftUI Widgets Snapshot
-
-SwiftHablaré ships SwiftUI helper views designed for iOS 26+ and macOS apps. They bind directly to `VoiceProviderManager` and the SwiftData models:
-
-- `VoiceProviderWidget` – Picker for switching providers and showing provider status.
-- `VoiceSettingsWidget` – Composite control for configuring providers and selecting voices.
-- `VoicePickerWidget` – Standalone voice picker that supports searching, filtering, and previews.
-
-Inspect the files under `Sources/SwiftHablare/UI/` for customizable sections. Automated agents can reuse these components in host apps without re-implementing the UI logic.
-
-## 7. Common Automation Tasks
-
-| Task | Call Sequence |
-| --- | --- |
-| Ensure provider credentials exist | `KeychainManager.shared.hasAPIKey` → `saveAPIKey` if missing |
-| Refresh cached voice list | `await manager.getVoices(forceRefresh: true)` |
-| Generate & persist audio | `await manager.generateAndCacheAudio` → `writeAudioFile` |
-| Switch default provider | `manager.switchProvider(to:)` |
-| Enumerate providers | `manager.getAvailableProviders()` |
-
-Refer to [`API.md`](API.md) for type-level details when implementing new providers or extending the data models.
+Use `SwiftHablareTesting`: `FakeSynthesizerPlugin`, `FakeDesignerPlugin`, `FakeCloudPlugin`,
+`InMemoryAPIKeyStore`, and `ConformanceKit` for plugin authors. Run `make test`; never
+`swift test`.

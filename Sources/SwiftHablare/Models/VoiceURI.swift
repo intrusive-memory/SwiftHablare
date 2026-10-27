@@ -3,15 +3,22 @@
 //  SwiftHablare
 //
 //  Voice URI for portable voice references
-//  Format: <providerId>://<voiceId>?lang=<languageCode>
+//  Format: <pluginId>://<voiceId>?lang=<languageCode>   (catalog voice)
+//          asset://<absolute file path>?lang=<languageCode>   (voice asset on disk)
 //
 
 import Foundation
 import SwiftCompartido
 
-/// Voice URI for portable voice references across voice providers
+/// Voice URI for portable voice references across voice plugins
 ///
-/// Format: `<providerId>://<voiceId>?lang=<languageCode>`
+/// Catalog form: `<pluginId>://<voiceId>?lang=<languageCode>`
+///
+/// Asset form: `asset://<absolute file path>?lang=<languageCode>`, for example
+/// `asset:///Users/me/Voices/narrator.vox?lang=en`. The path is percent-encoded, so a
+/// file URL round-trips exactly. `asset` is a reserved scheme: a plugin cannot use it as
+/// its id. A non-file asset URL is carried whole in a `url` query item
+/// (`asset:///?url=<percent-encoded URL>`).
 ///
 /// ## Examples
 ///
@@ -34,23 +41,25 @@ import SwiftCompartido
 ///
 /// // Parse from string
 /// let uri3 = VoiceURI(uriString: "apple://voice-id?lang=es")
-/// ```
 ///
-/// ## Usage with GenerationService
+/// // A voice asset on disk
+/// let asset = VoiceURI.asset(URL(fileURLWithPath: "/Users/me/Voices/narrator.vox"))
+/// // => "asset:///Users/me/Voices/narrator.vox"
 ///
-/// ```swift
-/// // Resolve URI to Voice
-/// let voice = try await uri.resolve(using: service)
-///
-/// // Check if voice is available
-/// let isAvailable = await uri.isAvailable(using: service)
+/// // Convert to and from the 7.0 `VoiceReference`
+/// let reference = uri.voiceReference          // .catalog(pluginId: "apple", voiceId: ...)
+/// let back = VoiceURI(reference, languageCode: "en")
 /// ```
 public struct VoiceURI: Codable, Hashable, Sendable {
 
-  /// Voice provider identifier (lowercase, e.g., "apple", "elevenlabs")
+  /// The reserved scheme of the asset form.
+  public static let assetScheme = "asset"
+
+  /// Plugin identifier (lowercase, e.g., "apple", "elevenlabs"); `"asset"` for an asset URI.
   public let providerId: String
 
-  /// Voice identifier (case-sensitive, provider-specific)
+  /// Voice identifier (case-sensitive, plugin-specific). For an asset URI, the file path
+  /// (or, for a non-file URL, the URL's absolute string).
   public let voiceId: String
 
   /// Language code (optional, e.g., "en", "es", "fr")
@@ -81,6 +90,47 @@ public struct VoiceURI: Codable, Hashable, Sendable {
     self.languageCode = languageCode ?? voice.language
   }
 
+  /// Create the asset form for a voice asset at `url`.
+  ///
+  /// - Parameters:
+  ///   - url: The voice asset (typically a `.vox` bundle file URL)
+  ///   - languageCode: Language code (optional)
+  public static func asset(_ url: URL, languageCode: String? = nil) -> VoiceURI {
+    VoiceURI(
+      providerId: assetScheme,
+      voiceId: url.isFileURL ? url.path : url.absoluteString,
+      languageCode: languageCode)
+  }
+
+  /// Create a VoiceURI from a ``VoiceReference``.
+  ///
+  /// `.catalog(pluginId:voiceId:)` becomes the catalog form; `.asset(URL)` becomes the
+  /// asset form.
+  public init(_ reference: VoiceReference, languageCode: String? = nil) {
+    switch reference {
+    case .catalog(let pluginId, let voiceId):
+      self.init(providerId: pluginId, voiceId: voiceId, languageCode: languageCode)
+    case .asset(let url):
+      self = VoiceURI.asset(url, languageCode: languageCode)
+    }
+  }
+
+  /// Whether this URI names a voice asset on disk rather than a catalog voice.
+  public var isAsset: Bool { providerId == Self.assetScheme }
+
+  /// The asset URL for an asset URI; `nil` for a catalog URI.
+  public var assetURL: URL? {
+    guard isAsset else { return nil }
+    if voiceId.contains("://") { return URL(string: voiceId) }
+    return URL(fileURLWithPath: voiceId)
+  }
+
+  /// This URI as a ``VoiceReference``.
+  public var voiceReference: VoiceReference {
+    if let url = assetURL { return .asset(url) }
+    return .catalog(pluginId: providerId, voiceId: voiceId)
+  }
+
   /// Parse a VoiceURI from a string
   ///
   /// Parses URIs in the format: `<providerId>://<voiceId>?lang=<languageCode>`
@@ -95,6 +145,22 @@ public struct VoiceURI: Codable, Hashable, Sendable {
   /// - Parameter uriString: URI string to parse
   /// - Returns: Parsed VoiceURI, or nil if invalid
   public init?(uriString: String) {
+    if let components = URLComponents(string: uriString),
+      components.scheme?.lowercased() == Self.assetScheme
+    {
+      // Asset form: asset://<path> or asset:///?url=<url>
+      let items = components.queryItems ?? []
+      let language = items.first(where: { $0.name == "lang" })?.value
+      if let whole = items.first(where: { $0.name == "url" })?.value, !whole.isEmpty {
+        self.init(providerId: Self.assetScheme, voiceId: whole, languageCode: language)
+        return
+      }
+      let path = components.path
+      guard path.hasPrefix("/"), path.count > 1 else { return nil }
+      self.init(providerId: Self.assetScheme, voiceId: path, languageCode: language)
+      return
+    }
+
     guard let url = URL(string: uriString),
       let scheme = url.scheme,
       !scheme.isEmpty,
@@ -104,19 +170,14 @@ public struct VoiceURI: Codable, Hashable, Sendable {
       return nil
     }
 
-    self.providerId = scheme.lowercased()
-    self.voiceId = host
-
     // Parse query parameters for language code
+    var language: String?
     if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-      let queryItems = components.queryItems,
-      let langItem = queryItems.first(where: { $0.name == "lang" }),
-      let langValue = langItem.value
+      let langItem = components.queryItems?.first(where: { $0.name == "lang" })
     {
-      self.languageCode = langValue
-    } else {
-      self.languageCode = nil
+      language = langItem.value
     }
+    self.init(providerId: scheme, voiceId: host, languageCode: language)
   }
 
   // MARK: - Default Voice
@@ -158,6 +219,21 @@ public struct VoiceURI: Codable, Hashable, Sendable {
   public var uriString: String {
     var components = URLComponents()
     components.scheme = providerId
+
+    if isAsset {
+      components.host = ""
+      var items: [URLQueryItem] = []
+      if voiceId.contains("://") {
+        components.path = "/"
+        items.append(URLQueryItem(name: "url", value: voiceId))
+      } else {
+        components.path = voiceId
+      }
+      if let lang = languageCode { items.append(URLQueryItem(name: "lang", value: lang)) }
+      if !items.isEmpty { components.queryItems = items }
+      return components.string ?? "\(providerId)://\(voiceId)"
+    }
+
     components.host = voiceId
 
     if let lang = languageCode {
@@ -172,58 +248,26 @@ public struct VoiceURI: Codable, Hashable, Sendable {
     return uriString
   }
 
-  // MARK: - Voice Resolution
+  // MARK: - Availability
 
-  /// Resolve this URI to a Voice using GenerationService
+  /// Check whether this voice can be synthesized now.
   ///
-  /// Fetches voices from the provider and finds the matching voice.
-  /// Falls back to default voice if the specified voice is not found.
-  ///
-  /// ## Fallback Behavior
-  ///
-  /// If the voice is not found:
-  /// 1. Returns the first available voice from the same provider
-  /// 2. If provider has no voices, throws error
+  /// Resolves the plugin through `registry` and asks its synthesizer for readiness.
+  /// An asset URI needs `pluginId`, the plugin that will synthesize it.
   ///
   /// - Parameters:
-  ///   - service: GenerationService to use for fetching voices
-  ///   - languageCode: Optional language code override
-  /// - Returns: Resolved Voice
-  /// - Throws: VoiceProviderError if provider is not configured or has no voices
-  public func resolve(using service: GenerationService, languageCode: String? = nil) async throws
-    -> Voice
-  {
-    let finalLanguageCode =
-      self.languageCode ?? languageCode ?? LanguageCodeResolver.systemLanguageCode
-    let voices = try await service.fetchVoices(from: providerId, languageCode: finalLanguageCode)
-
-    // Try to find exact match
-    if let voice = voices.first(where: { $0.id == voiceId }) {
-      return voice
+  ///   - registry: The plugin registry to resolve through
+  ///   - pluginId: The synthesizing plugin; required for an asset URI, ignored otherwise
+  /// - Returns: `false` when the plugin is unknown, has no synthesizer, or reports the voice
+  ///   unsupported
+  public func isAvailable(in registry: PluginRegistry, pluginId: String? = nil) async -> Bool {
+    do {
+      let synthesizer = try await registry.synthesizer(for: voiceReference, pluginId: pluginId)
+      if case .unsupported = await synthesizer.readiness(for: voiceReference) { return false }
+      return true
+    } catch {
+      return false
     }
-
-    // Fallback: Return first available voice from provider
-    guard let fallbackVoice = voices.first else {
-      throw VoiceProviderError.invalidRequest("No voices available for provider \(providerId)")
-    }
-
-    #if DEBUG
-      print(
-        "⚠️ Voice \(voiceId) not found in provider \(providerId), falling back to \(fallbackVoice.name)"
-      )
-    #endif
-
-    return fallbackVoice
-  }
-
-  /// Check if this voice is available
-  ///
-  /// Queries the provider to check if the voice ID exists.
-  ///
-  /// - Parameter service: GenerationService to use
-  /// - Returns: True if voice is available
-  public func isAvailable(using service: GenerationService) async -> Bool {
-    await service.isVoiceAvailable(voiceId, from: providerId)
   }
 
   // MARK: - Codable
