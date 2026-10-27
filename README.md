@@ -23,7 +23,7 @@ Coming from 6.x? See [MIGRATION-7.0.md](MIGRATION-7.0.md).
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "<release version>"),
+    .package(url: "https://github.com/intrusive-memory/SwiftHablare.git", from: "7.0.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftHablare"]),

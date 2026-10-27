@@ -8,7 +8,7 @@ This file provides documentation for AI agents working with the SwiftHablaré co
 
 ## Quick Reference
 
-- **Current Version**: 6.3.0-dev (the `-dev` stamp; see `SwiftHablare.swift`)
+- **Current Version**: 7.0.0
 - **Swift Version**: 6.2+
 - **Minimum Deployments**: iOS 26+, macOS 26+
 - **Test Suite**: 325 tests in 34 suites (Swift Testing; confirm with `make test`)

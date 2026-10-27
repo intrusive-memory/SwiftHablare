@@ -5,9 +5,9 @@ All notable changes to SwiftHablaré will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - next major release
+## [7.0.0] - 2026-10-27
 
-The version number is chosen at ship time. This is a deliberate **breaking** release: SwiftHablare becomes a plugin host for speech engines. See [MIGRATION-7.0.md](MIGRATION-7.0.md) for every removed symbol and its replacement.
+This is a deliberate **breaking** release: SwiftHablare becomes a plugin host for speech engines. See [MIGRATION-7.0.md](MIGRATION-7.0.md) for every removed symbol and its replacement.
 
 ### Added
 
