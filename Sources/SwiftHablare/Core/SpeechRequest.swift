@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct SpeechRequest: Sendable {
+public struct SpeechRequest: Sendable, Hashable {
   public var text: String
   public var voice: VoiceReference
   public var languageCode: String?
@@ -16,6 +16,13 @@ public struct SpeechRequest: Sendable {
   public var settings: VoiceSettings
   public var preferredFormat: AudioFormat?
   public var seed: UInt64?
+  /// Text that precedes `text` in the surrounding script, for engines that use
+  /// continuity context (EL-1.7). Plugins may ignore it; it never changes the
+  /// 7.0 cache key or behavior.
+  public var previousText: String?
+  /// Text that follows `text` in the surrounding script, for engines that use
+  /// continuity context (EL-1.7). Plugins may ignore it.
+  public var nextText: String?
 
   public init(
     text: String,
@@ -24,7 +31,9 @@ public struct SpeechRequest: Sendable {
     instruct: String? = nil,
     settings: VoiceSettings = VoiceSettings(),
     preferredFormat: AudioFormat? = nil,
-    seed: UInt64? = nil
+    seed: UInt64? = nil,
+    previousText: String? = nil,
+    nextText: String? = nil
   ) {
     self.text = text
     self.voice = voice
@@ -33,6 +42,8 @@ public struct SpeechRequest: Sendable {
     self.settings = settings
     self.preferredFormat = preferredFormat
     self.seed = seed
+    self.previousText = previousText
+    self.nextText = nextText
   }
 }
 
